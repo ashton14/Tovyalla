@@ -1,11 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import EmailWhitelist from '../components/EmailWhitelist'
+import CompanyInfo from '../components/CompanyInfo'
+import Customers from '../components/Customers'
 
 function Dashboard() {
   const { user, logout, loading } = useAuth()
   const navigate = useNavigate()
+  const [activeSection, setActiveSection] = useState('overview')
 
   useEffect(() => {
     if (!loading && !user) {
@@ -34,49 +36,115 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-pool-dark">Tovyalla CRM</h1>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Logout
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
+        {/* Logo/Header */}
+        <div className="p-6 border-b border-gray-200">
+          <h1 className="text-2xl font-bold text-pool-dark">Tovyalla CRM</h1>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Welcome Section */}
-          <div className="bg-white rounded-lg shadow p-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Welcome to Tovyalla Dashboard
-            </h2>
-            <p className="text-gray-600 mb-6">
-              You are successfully logged in. This is a placeholder dashboard page.
-            </p>
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          <button
+            onClick={() => setActiveSection('overview')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'overview'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Overview</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('company')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'company'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Company Info</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('customers')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'customers'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Customers</span>
+          </button>
+        </nav>
+
+        {/* User Info & Logout */}
+        <div className="p-4 border-t border-gray-200">
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Logged in as</p>
+            <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
             {user.user_metadata?.companyID && (
-              <div className="bg-pool-light border border-pool-blue rounded-md p-4">
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Company ID:</span> {user.user_metadata.companyID}
-                </p>
-                <p className="text-sm text-gray-700 mt-2">
-                  <span className="font-semibold">Email:</span> {user.email}
-                </p>
-              </div>
+              <p className="text-xs text-gray-500 mt-1">{user.user_metadata.companyID}</p>
             )}
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </aside>
 
-          {/* Email Whitelist Management Section */}
-          {user.user_metadata?.companyID && (
-            <EmailWhitelist />
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <div className="p-8">
+          {activeSection === 'overview' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                  Welcome to Tovyalla Dashboard
+                </h2>
+                <p className="text-gray-600">
+                  Manage your pool construction business with ease.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Quick Stats Cards */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Company ID</h3>
+                  <p className="text-2xl font-bold text-pool-dark">
+                    {user.user_metadata?.companyID || 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Your Email</h3>
+                  <p className="text-2xl font-bold text-gray-800 truncate">{user.email}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Account Status</h3>
+                  <p className="text-2xl font-bold text-green-600">Active</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setActiveSection('company')}
+                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-pool-blue hover:bg-pool-light transition-colors text-left"
+                  >
+                    <h4 className="font-semibold text-gray-800 mb-1">Manage Company</h4>
+                    <p className="text-sm text-gray-600">View company info and manage email whitelist</p>
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
+
+          {activeSection === 'company' && <CompanyInfo />}
+          {activeSection === 'customers' && <Customers />}
         </div>
       </main>
     </div>

@@ -351,6 +351,296 @@ app.delete('/api/whitelist/:id', async (req, res) => {
   }
 });
 
+// Get all customers for a company
+app.get('/api/customers', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('company_id', companyID)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ customers: data || [] });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get a single customer
+app.get('/api/customers/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    res.json({ customer: data });
+  } catch (error) {
+    console.error('Get customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new customer
+app.post('/api/customers', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      address_line1,
+      address_line2,
+      city,
+      state,
+      zip_code,
+      country,
+      referred_by,
+      pipeline_status,
+      notes,
+      estimated_value,
+    } = req.body;
+
+    if (!first_name || !last_name) {
+      return res.status(400).json({ error: 'First name and last name are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .insert([
+        {
+          company_id: companyID,
+          first_name,
+          last_name,
+          email: email || null,
+          phone: phone || null,
+          address_line1: address_line1 || null,
+          address_line2: address_line2 || null,
+          city: city || null,
+          state: state || null,
+          zip_code: zip_code || null,
+          country: country || 'USA',
+          referred_by: referred_by || null,
+          pipeline_status: pipeline_status || 'lead',
+          notes: notes || null,
+          estimated_value: estimated_value || null,
+          created_by: user.id,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ customer: data });
+  } catch (error) {
+    console.error('Create customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update a customer
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      address_line1,
+      address_line2,
+      city,
+      state,
+      zip_code,
+      country,
+      referred_by,
+      pipeline_status,
+      notes,
+      estimated_value,
+    } = req.body;
+
+    // Verify customer belongs to user's company
+    const { data: existing, error: checkError } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        first_name,
+        last_name,
+        email: email || null,
+        phone: phone || null,
+        address_line1: address_line1 || null,
+        address_line2: address_line2 || null,
+        city: city || null,
+        state: state || null,
+        zip_code: zip_code || null,
+        country: country || 'USA',
+        referred_by: referred_by || null,
+        pipeline_status: pipeline_status || 'lead',
+        notes: notes || null,
+        estimated_value: estimated_value || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ customer: data });
+  } catch (error) {
+    console.error('Update customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete a customer
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify customer belongs to user's company
+    const { data: existing, error: checkError } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyID);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete customer error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
