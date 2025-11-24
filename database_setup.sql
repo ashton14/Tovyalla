@@ -133,3 +133,155 @@ CREATE POLICY "Users can delete customers for their company" ON public.customers
     )
   );
 
+-- Create projects table
+CREATE TABLE IF NOT EXISTS public.projects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id TEXT NOT NULL,
+  customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+  address TEXT,
+  project_type TEXT NOT NULL CHECK (project_type IN ('residential', 'commercial', 'HOA')),
+  pool_or_spa TEXT NOT NULL CHECK (pool_or_spa IN ('pool', 'spa', 'pool & spa')),
+  sq_feet DECIMAL(10, 2),
+  status TEXT NOT NULL DEFAULT 'proposal_request' CHECK (status IN ('proposal_request', 'proposal_sent', 'sold', 'complete', 'cancelled')),
+  accessories_features TEXT,
+  est_value DECIMAL(10, 2),
+  project_manager TEXT,
+  notes TEXT,
+  documents JSONB DEFAULT '[]'::jsonb,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Enable Row Level Security
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+-- Create indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_projects_company_id ON public.projects(company_id);
+CREATE INDEX IF NOT EXISTS idx_projects_customer_id ON public.projects(customer_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_project_type ON public.projects(project_type);
+CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON public.projects(updated_at DESC);
+
+-- Drop existing policies if they exist (for re-running the script)
+DROP POLICY IF EXISTS "Users can view projects for their company" ON public.projects;
+DROP POLICY IF EXISTS "Users can insert projects for their company" ON public.projects;
+DROP POLICY IF EXISTS "Users can update projects for their company" ON public.projects;
+DROP POLICY IF EXISTS "Users can delete projects for their company" ON public.projects;
+
+-- Create policy to allow users to view projects for their company
+CREATE POLICY "Users can view projects for their company" ON public.projects
+  FOR SELECT USING (
+    company_id = (
+      SELECT raw_user_meta_data->>'companyID' 
+      FROM auth.users 
+      WHERE id = auth.uid()
+    )
+  );
+
+-- Create policy to allow users to insert projects for their company
+CREATE POLICY "Users can insert projects for their company" ON public.projects
+  FOR INSERT WITH CHECK (
+    company_id = (
+      SELECT raw_user_meta_data->>'companyID' 
+      FROM auth.users 
+      WHERE id = auth.uid()
+    )
+  );
+
+-- Create policy to allow users to update projects for their company
+CREATE POLICY "Users can update projects for their company" ON public.projects
+  FOR UPDATE USING (
+    company_id = (
+      SELECT raw_user_meta_data->>'companyID' 
+      FROM auth.users 
+      WHERE id = auth.uid()
+    )
+  );
+
+-- Create policy to allow users to delete projects for their company
+CREATE POLICY "Users can delete projects for their company" ON public.projects
+  FOR DELETE USING (
+    company_id = (
+      SELECT raw_user_meta_data->>'companyID' 
+      FROM auth.users 
+      WHERE id = auth.uid()
+    )
+  );
+
+-- Note: You need to create a Supabase Storage bucket named 'project-documents'
+-- Go to Storage in your Supabase dashboard and create a bucket with:
+-- Name: project-documents
+-- Public: false (or true if you want public access)
+-- File size limit: Set according to your needs
+-- Allowed MIME types: Leave empty to allow all types, or specify types like 'image/*,application/pdf'
+
+-- Storage Policies for project-documents bucket
+-- These policies allow authenticated users to upload, read, and delete files for their company
+
+-- Drop existing policies if they exist (for re-running the script)
+DROP POLICY IF EXISTS "Users can upload documents for their company projects" ON storage.objects;
+DROP POLICY IF EXISTS "Users can read documents for their company projects" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete documents for their company projects" ON storage.objects;
+
+-- Policy to allow users to upload files to their company's folder
+-- File path structure: {companyID}/projects/{projectId}/{fileName}
+-- Using LIKE pattern match which checks if path starts with companyID/
+CREATE POLICY "Users can upload documents for their company projects"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'project-documents' AND
+  (
+    SELECT (raw_user_meta_data->>'companyID') || '/%'
+    FROM auth.users 
+    WHERE id = auth.uid()
+    AND raw_user_meta_data->>'companyID' IS NOT NULL
+  ) IS NOT NULL
+  AND
+  name LIKE (
+    SELECT (raw_user_meta_data->>'companyID') || '/%'
+    FROM auth.users 
+    WHERE id = auth.uid()
+  )
+);
+
+-- Policy to allow users to read files from their company's folder
+CREATE POLICY "Users can read documents for their company projects"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'project-documents' AND
+  name LIKE (
+    SELECT COALESCE(raw_user_meta_data->>'companyID', '') || '/%'
+    FROM auth.users 
+    WHERE id = auth.uid()
+  )
+);
+
+-- Policy to allow users to delete files from their company's folder
+CREATE POLICY "Users can delete documents for their company projects"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'project-documents' AND
+  name LIKE (
+    SELECT COALESCE(raw_user_meta_data->>'companyID', '') || '/%'
+    FROM auth.users 
+    WHERE id = auth.uid()
+  )
+);
+
+-- Policy to allow users to update files in their company's folder (for replacing files)
+CREATE POLICY "Users can update documents for their company projects"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'project-documents' AND
+  name LIKE (
+    SELECT COALESCE(raw_user_meta_data->>'companyID', '') || '/%'
+    FROM auth.users 
+    WHERE id = auth.uid()
+  )
+);
+

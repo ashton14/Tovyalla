@@ -641,6 +641,302 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
+// Get all projects for a company
+app.get('/api/projects', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        )
+      `)
+      .eq('company_id', companyID)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ projects: data || [] });
+  } catch (error) {
+    console.error('Get projects error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get a single project
+app.get('/api/projects/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        )
+      `)
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json({ project: data });
+  } catch (error) {
+    console.error('Get project error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new project
+app.post('/api/projects', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const {
+      customer_id,
+      address,
+      project_type,
+      pool_or_spa,
+      sq_feet,
+      status,
+      accessories_features,
+      est_value,
+      project_manager,
+      notes,
+      documents,
+    } = req.body;
+
+    if (!project_type || !pool_or_spa) {
+      return res.status(400).json({ error: 'Project type and pool/spa selection are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert([
+        {
+          company_id: companyID,
+          customer_id: customer_id || null,
+          address: address || null,
+          project_type,
+          pool_or_spa,
+          sq_feet: sq_feet ? parseFloat(sq_feet) : null,
+          status: status || 'proposal_request',
+          accessories_features: accessories_features || null,
+          est_value: est_value ? parseFloat(est_value) : null,
+          project_manager: project_manager || null,
+          notes: notes || null,
+          documents: documents || [],
+          created_by: user.id,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ project: data });
+  } catch (error) {
+    console.error('Create project error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update a project
+app.put('/api/projects/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const {
+      customer_id,
+      address,
+      project_type,
+      pool_or_spa,
+      sq_feet,
+      status,
+      accessories_features,
+      est_value,
+      project_manager,
+      notes,
+      documents,
+    } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: existing, error: checkError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existing) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update({
+        customer_id: customer_id || null,
+        address: address || null,
+        project_type,
+        pool_or_spa,
+        sq_feet: sq_feet ? parseFloat(sq_feet) : null,
+        status: status || 'proposal_request',
+        accessories_features: accessories_features || null,
+        est_value: est_value ? parseFloat(est_value) : null,
+        project_manager: project_manager || null,
+        notes: notes || null,
+        documents: documents || [],
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ project: data });
+  } catch (error) {
+    console.error('Update project error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete a project
+app.delete('/api/projects/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: existing, error: checkError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existing) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyID);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

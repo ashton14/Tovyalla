@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
+import Projects from '../components/Projects'
 
 function Dashboard() {
   const { user, logout, loading } = useAuth()
@@ -76,6 +77,16 @@ function Dashboard() {
           >
             <span className="font-medium">Customers</span>
           </button>
+          <button
+            onClick={() => setActiveSection('projects')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'projects'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Projects</span>
+          </button>
         </nav>
 
         {/* User Info & Logout */}
@@ -145,6 +156,7 @@ function Dashboard() {
 
           {activeSection === 'company' && <CompanyInfo />}
           {activeSection === 'customers' && <Customers />}
+          {activeSection === 'projects' && <Projects />}
         </div>
       </main>
     </div>
