@@ -50,7 +50,7 @@ function Login() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-pool-dark mb-2">Tovyalla CRM</h1>
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-20 w-auto mx-auto mb-2" />
           <p className="text-gray-600">Pool Construction Management</p>
         </div>
 
