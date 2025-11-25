@@ -34,8 +34,6 @@ function Projects() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
-  const [uploadingFiles, setUploadingFiles] = useState(false)
-  const [selectedProjectForDocs, setSelectedProjectForDocs] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -49,7 +47,6 @@ function Projects() {
     est_value: '',
     project_manager: '',
     notes: '',
-    documents: [],
   })
 
   // Get auth token
@@ -108,100 +105,6 @@ function Projects() {
     }
   }, [user])
 
-  // Handle file upload
-  const handleFileUpload = async (files, projectId) => {
-    if (!supabase || !files || files.length === 0) return []
-
-    setUploadingFiles(true)
-    const uploadedFiles = []
-
-    try {
-      const companyID = user?.user_metadata?.companyID
-      if (!companyID) throw new Error('Company ID not found')
-
-      // Try to determine if bucket is public by attempting to get a public URL first
-      // If that fails, we'll use signed URLs
-      let isBucketPublic = false
-      // We'll determine this after the first upload attempt
-
-      for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
-        // Ensure companyID is used as the first folder in the path
-        const filePath = `${companyID}/projects/${projectId || 'temp'}/${fileName}`
-        
-        // Debug: Log the path being used
-        console.log('Uploading file to path:', filePath, 'Company ID:', companyID)
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('project-documents')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          })
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError)
-          
-          // Provide helpful error message for common issues
-          if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
-            throw new Error(
-              `Storage bucket "project-documents" not found or not accessible.\n\n` +
-              `Please verify:\n` +
-              `1. The bucket name is exactly "project-documents"\n` +
-              `2. The bucket exists in your Supabase Storage dashboard\n` +
-              `3. Your user has permission to upload to this bucket\n` +
-              `4. Check Storage policies in Supabase if the bucket is private`
-            )
-          }
-          
-          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`)
-        }
-
-        // Get URL - try signed URL first (works for both public and private buckets)
-        // If signed URL fails, fallback to public URL
-        let fileUrl
-        try {
-          // Try to create a signed URL (works for private buckets, and some public ones)
-          const { data: signedUrlData, error: signedError } = await supabase.storage
-            .from('project-documents')
-            .createSignedUrl(filePath, 3600)
-          
-          if (!signedError && signedUrlData) {
-            fileUrl = signedUrlData.signedUrl
-          } else {
-            // Fallback to public URL
-            const { data: urlData } = supabase.storage
-              .from('project-documents')
-              .getPublicUrl(filePath)
-            fileUrl = urlData.publicUrl
-          }
-        } catch (urlError) {
-          // If both fail, use public URL as last resort
-          const { data: urlData } = supabase.storage
-            .from('project-documents')
-            .getPublicUrl(filePath)
-          fileUrl = urlData.publicUrl
-        }
-
-        uploadedFiles.push({
-          name: file.name,
-          path: filePath,
-          url: fileUrl,
-          size: file.size,
-          type: file.type,
-          uploaded_at: new Date().toISOString(),
-        })
-      }
-    } catch (err) {
-      console.error('File upload error:', err)
-      throw err
-    } finally {
-      setUploadingFiles(false)
-    }
-
-    return uploadedFiles
-  }
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -215,43 +118,11 @@ function Projects() {
         throw new Error('Not authenticated')
       }
 
-      let projectId = editingProject?.id
-
-      // If creating new project, create it first to get the ID for file uploads
-      if (!editingProject) {
-        const payload = {
-          ...formData,
-          sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
-          est_value: formData.est_value ? parseFloat(formData.est_value) : null,
-          customer_id: formData.customer_id || null,
-          documents: [], // Will update after file upload
-        }
-
-        const response = await axios.post('/api/projects', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        projectId = response.data.project.id
-      }
-
-      // Handle file uploads if there are new files
-      const fileInput = document.getElementById('project-documents-input')
-      let newDocuments = [...formData.documents]
-
-      if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        const uploadedFiles = await handleFileUpload(fileInput.files, projectId)
-        newDocuments = [...formData.documents, ...uploadedFiles]
-      }
-
-      // Update project with documents
       const payload = {
         ...formData,
         sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
         est_value: formData.est_value ? parseFloat(formData.est_value) : null,
         customer_id: formData.customer_id || null,
-        documents: newDocuments,
       }
 
       if (editingProject) {
@@ -262,12 +133,12 @@ function Projects() {
         })
         setSuccess('Project updated successfully!')
       } else {
+        await axios.post('/api/projects', payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
         setSuccess('Project added successfully!')
-      }
-
-      // Clear file input
-      if (fileInput) {
-        fileInput.value = ''
       }
 
       setShowForm(false)
@@ -275,74 +146,7 @@ function Projects() {
       resetForm()
       fetchProjects()
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to save project'
-      
-      // If it's a bucket error, provide detailed instructions
-      if (errorMessage.includes('bucket') || errorMessage.includes('Bucket not found') || errorMessage.includes('Storage')) {
-        setError(
-          `Storage bucket error: ${errorMessage}\n\n` +
-          'To fix this, create a storage bucket in Supabase:\n' +
-          '1. Go to your Supabase dashboard\n' +
-          '2. Navigate to Storage\n' +
-          '3. Click "New bucket"\n' +
-          '4. Name it: project-documents (exact name required)\n' +
-          '5. Set Public: false (or true for public access)\n' +
-          '6. Click "Create bucket"\n\n' +
-          'See STORAGE_SETUP.md for detailed instructions.'
-        )
-      } else {
-        setError(errorMessage)
-      }
-    }
-  }
-
-  // Handle document delete
-  const handleDeleteDocument = async (projectId, documentIndex) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) {
-      return
-    }
-
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const project = projects.find((p) => p.id === projectId)
-      if (!project) return
-
-      const document = project.documents[documentIndex]
-      if (!document) return
-
-      // Delete from storage
-      if (supabase && document.path) {
-        const { error: deleteError } = await supabase.storage
-          .from('project-documents')
-          .remove([document.path])
-
-        if (deleteError) {
-          console.error('Error deleting file:', deleteError)
-        }
-      }
-
-      // Remove from documents array
-      const updatedDocuments = project.documents.filter((_, idx) => idx !== documentIndex)
-
-      // Update project
-      await axios.put(
-        `/api/projects/${projectId}`,
-        { ...project, documents: updatedDocuments },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-
-      setSuccess('Document deleted successfully!')
-      fetchProjects()
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to delete document')
+      setError(err.response?.data?.error || err.message || 'Failed to save project')
     }
   }
 
@@ -385,7 +189,6 @@ function Projects() {
       est_value: project.est_value || '',
       project_manager: project.project_manager || '',
       notes: project.notes || '',
-      documents: project.documents || [],
     })
     setShowForm(true)
   }
@@ -403,7 +206,6 @@ function Projects() {
       est_value: '',
       project_manager: '',
       notes: '',
-      documents: [],
     })
   }
 
@@ -688,71 +490,6 @@ function Projects() {
                   />
                 </div>
 
-                {/* Documents Section */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Documents
-                  </label>
-                  
-                  {/* Existing Documents */}
-                  {formData.documents && formData.documents.length > 0 && (
-                    <div className="mb-3 space-y-2">
-                      {formData.documents.map((doc, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-700">{doc.name}</span>
-                            <span className="text-xs text-gray-500">
-                              ({(doc.size / 1024).toFixed(2)} KB)
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <a
-                              href={doc.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-pool-blue hover:text-pool-dark text-sm"
-                            >
-                              View
-                            </a>
-                            {editingProject && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updatedDocs = formData.documents.filter((_, i) => i !== idx)
-                                  setFormData({ ...formData, documents: updatedDocs })
-                                }}
-                                className="text-red-600 hover:text-red-800 text-sm"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* File Upload Input */}
-                  <input
-                    id="project-documents-input"
-                    type="file"
-                    multiple
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                    onChange={(e) => {
-                      // Files will be uploaded on form submit
-                    }}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Upload project documents (proposals, contracts, photos, etc.)
-                  </p>
-                  {uploadingFiles && (
-                    <p className="mt-1 text-xs text-blue-600">Uploading files...</p>
-                  )}
-                </div>
-
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"
@@ -809,9 +546,6 @@ function Projects() {
                   PM
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Documents
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Updated
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -822,7 +556,7 @@ function Projects() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
                     {projects.length === 0
                       ? 'No projects yet. Click "Add Project" to get started.'
                       : 'No projects match your search criteria.'}
@@ -867,25 +601,6 @@ function Projects() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {project.project_manager || '-'}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          {project.documents && project.documents.length > 0 ? (
-                            <>
-                              <span className="text-sm text-gray-900">
-                                {project.documents.length} file{project.documents.length !== 1 ? 's' : ''}
-                              </span>
-                              <button
-                                onClick={() => setSelectedProjectForDocs(project)}
-                                className="text-xs text-pool-blue hover:text-pool-dark"
-                              >
-                                View Documents
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-sm text-gray-400">No documents</span>
-                          )}
-                        </div>
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(project.updated_at).toLocaleDateString()}
                       </td>
@@ -911,80 +626,6 @@ function Projects() {
           </table>
         </div>
       </div>
-
-      {/* Documents Modal */}
-      {selectedProjectForDocs && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  Documents - {getCustomerName(selectedProjectForDocs)}
-                </h3>
-                <button
-                  onClick={() => setSelectedProjectForDocs(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {selectedProjectForDocs.documents && selectedProjectForDocs.documents.length > 0 ? (
-                <div className="space-y-3">
-                  {selectedProjectForDocs.documents.map((doc, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">{doc.name}</span>
-                          <span className="text-xs text-gray-500">
-                            ({(doc.size / 1024).toFixed(2)} KB)
-                          </span>
-                        </div>
-                        {doc.uploaded_at && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Uploaded: {new Date(doc.uploaded_at).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-3">
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm rounded-md transition-colors"
-                        >
-                          View
-                        </a>
-                        <a
-                          href={doc.url}
-                          download={doc.name}
-                          className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-md transition-colors"
-                        >
-                          Download
-                        </a>
-                        <button
-                          onClick={() => {
-                            handleDeleteDocument(selectedProjectForDocs.id, idx)
-                            setSelectedProjectForDocs(null)
-                          }}
-                          className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-md transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No documents uploaded yet.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

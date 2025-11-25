@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
 import Projects from '../components/Projects'
+import Inventory from '../components/Inventory'
+import Subcontractors from '../components/Subcontractors'
+import Employees from '../components/Employees'
 
 function Dashboard() {
   const { user, logout, loading } = useAuth()
@@ -55,7 +58,7 @@ function Dashboard() {
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <span className="font-medium">Overview</span>
+            <span className="font-medium">Dashboard</span>
           </button>
           <button
             onClick={() => setActiveSection('company')}
@@ -86,6 +89,36 @@ function Dashboard() {
             }`}
           >
             <span className="font-medium">Projects</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('inventory')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'inventory'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Inventory</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('subcontractors')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'subcontractors'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Subcontractors</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('employees')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'employees'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Employees</span>
           </button>
         </nav>
 
@@ -157,6 +190,9 @@ function Dashboard() {
           {activeSection === 'company' && <CompanyInfo />}
           {activeSection === 'customers' && <Customers />}
           {activeSection === 'projects' && <Projects />}
+          {activeSection === 'inventory' && <Inventory />}
+          {activeSection === 'subcontractors' && <Subcontractors />}
+          {activeSection === 'employees' && <Employees />}
         </div>
       </main>
     </div>
