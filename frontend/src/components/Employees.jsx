@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import EmailWhitelist from './EmailWhitelist'
 
 const USER_TYPES = [
   { value: 'admin', label: 'Admin' },
@@ -21,6 +22,7 @@ const USER_ROLES = [
 
 function Employees() {
   const { user, supabase } = useAuth()
+  const [activeTab, setActiveTab] = useState('employees')
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -212,22 +214,57 @@ function Employees() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Employees</h2>
-          <p className="text-gray-600 mt-1">Manage your employee database</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm()
-            setEditingEmployee(null)
-            setShowForm(true)
-          }}
-          className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
-        >
-          + Add Employee
-        </button>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800">Employees</h2>
+        <p className="text-gray-600 mt-1">Manage your employee database and email whitelist</p>
       </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('employees')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'employees'
+                ? 'border-pool-blue text-pool-blue'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Employees
+          </button>
+          <button
+            onClick={() => setActiveTab('whitelist')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'whitelist'
+                ? 'border-pool-blue text-pool-blue'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Email Whitelist
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'employees' && (
+        <div className="space-y-6">
+          {/* Employees Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800">Employee Management</h3>
+              <p className="text-gray-600 mt-1">Add, edit, and manage your employees</p>
+            </div>
+            <button
+              onClick={() => {
+                resetForm()
+                setEditingEmployee(null)
+                setShowForm(true)
+              }}
+              className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+            >
+              + Add Employee
+            </button>
+          </div>
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
@@ -582,6 +619,10 @@ function Employees() {
           </table>
         </div>
       </div>
+        </div>
+      )}
+
+      {activeTab === 'whitelist' && <EmailWhitelist />}
     </div>
   )
 }
