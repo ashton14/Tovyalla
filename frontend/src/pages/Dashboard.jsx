@@ -15,6 +15,14 @@ function Dashboard() {
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('overview')
   const [employeeName, setEmployeeName] = useState(null)
+  const [timePeriod, setTimePeriod] = useState('total')
+  const [statistics, setStatistics] = useState({
+    totalEstValue: 0,
+    totalProfit: 0,
+    totalExpenses: 0,
+    projectCount: 0,
+  })
+  const [loadingStats, setLoadingStats] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -55,6 +63,38 @@ function Dashboard() {
       fetchEmployeeName()
     }
   }, [user, supabase])
+
+  // Fetch project statistics
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      if (!user || !supabase) return
+
+      setLoadingStats(true)
+      try {
+        const token = await getAuthToken()
+        if (!token) return
+
+        const response = await axios.get('/api/projects/statistics', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params: {
+            period: timePeriod,
+          },
+        })
+
+        setStatistics(response.data)
+      } catch (err) {
+        console.error('Error fetching statistics:', err)
+      } finally {
+        setLoadingStats(false)
+      }
+    }
+
+    if (user) {
+      fetchStatistics()
+    }
+  }, [user, supabase, timePeriod])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -202,6 +242,71 @@ function Dashboard() {
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
                   Welcome, {employeeName?.split(' ')[0] || user.email}!
                 </h2>
+              </div>
+
+              {/* Project Statistics */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800">Project Statistics</h3>
+                  <select
+                    value={timePeriod}
+                    onChange={(e) => setTimePeriod(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                  >
+                    <option value="day">Last Day</option>
+                    <option value="week">Last Week</option>
+                    <option value="month">Last Month</option>
+                    <option value="6mo">Last 6 Months</option>
+                    <option value="year">Last Year</option>
+                    <option value="total">Total</option>
+                  </select>
+                </div>
+
+                {loadingStats ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pool-blue"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Total Estimated Value */}
+                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-pool-blue">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm text-gray-500 uppercase tracking-wide">Total Est. Value</p>
+                          <p className="text-3xl font-bold text-gray-900 mt-1">
+                            ${statistics.totalEstValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {statistics.projectCount} {statistics.projectCount === 1 ? 'project' : 'projects'}
+                      </p>
+                    </div>
+
+                    {/* Total Profit */}
+                    <div className={`bg-white rounded-lg shadow p-6 border-l-4 ${statistics.totalProfit >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm text-gray-500 uppercase tracking-wide">Total Profit</p>
+                          <p className={`text-3xl font-bold mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            ${statistics.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Est. Value: ${statistics.totalEstValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Expenses: ${statistics.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      {statistics.totalEstValue > 0 && (
+                        <p className={`text-xs font-medium mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Margin: {((statistics.totalProfit / statistics.totalEstValue) * 100).toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

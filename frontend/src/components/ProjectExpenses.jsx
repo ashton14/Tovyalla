@@ -2,6 +2,51 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
+// Helper function to format date string (YYYY-MM-DD) to local date without timezone issues
+const formatDateString = (dateString) => {
+  if (!dateString) return '-'
+  
+  try {
+    // Handle various date formats - extract just the date part (YYYY-MM-DD)
+    let dateOnly = String(dateString).trim()
+    
+    // Remove any time component (handle ISO strings with time)
+    if (dateOnly.includes('T')) {
+      dateOnly = dateOnly.split('T')[0]
+    }
+    
+    // Handle space-separated dates
+    if (dateOnly.includes(' ')) {
+      dateOnly = dateOnly.split(' ')[0]
+    }
+    
+    // Split by hyphen
+    const parts = dateOnly.split('-')
+    
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10)
+      const day = parseInt(parts[2], 10)
+      
+      // Validate the date values
+      if (isNaN(year) || isNaN(month) || isNaN(day) || year < 1900 || year > 2100) {
+        console.warn('Invalid date values:', { dateString, year, month, day })
+        return dateString
+      }
+      
+      // Format directly without Date object to avoid ANY timezone conversion
+      // This ensures the date displayed matches exactly what's in the database
+      // Returns format like "1/15/2024"
+      return `${month}/${day}/${year}`
+    }
+  } catch (error) {
+    console.error('Error formatting date:', dateString, error)
+  }
+  
+  // Fallback: return as-is if we can't parse it
+  return String(dateString)
+}
+
 function ProjectExpenses({ project, onClose }) {
   const { user, supabase } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -152,11 +197,13 @@ function ProjectExpenses({ project, onClose }) {
 
   const handleSubcontractorEdit = (entry) => {
     setEditingSubcontractor(entry)
+    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+    const dateWorked = entry.date_worked ? entry.date_worked.split('T')[0] : ''
     setSubcontractorForm({
       subcontractor_id: entry.subcontractor_id,
       hours: entry.hours,
       rate: entry.rate || entry.subcontractors?.rate || '',
-      date_worked: entry.date_worked,
+      date_worked: dateWorked,
       notes: entry.notes || '',
     })
     setShowSubcontractorForm(true)
@@ -245,11 +292,13 @@ function ProjectExpenses({ project, onClose }) {
 
   const handleMaterialEdit = (entry) => {
     setEditingMaterial(entry)
+    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+    const dateUsed = entry.date_used ? entry.date_used.split('T')[0] : ''
     setMaterialForm({
       inventory_id: entry.inventory_id,
       quantity: entry.quantity,
       unit_cost: entry.unit_cost,
-      date_used: entry.date_used,
+      date_used: dateUsed,
       notes: entry.notes || '',
     })
     setShowMaterialForm(true)
@@ -324,10 +373,12 @@ function ProjectExpenses({ project, onClose }) {
 
   const handleAdditionalEdit = (entry) => {
     setEditingAdditional(entry)
+    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+    const expenseDate = entry.expense_date ? entry.expense_date.split('T')[0] : ''
     setAdditionalForm({
       description: entry.description,
       amount: entry.amount,
-      expense_date: entry.expense_date,
+      expense_date: expenseDate,
       category: entry.category || '',
       notes: entry.notes || '',
     })
@@ -551,7 +602,9 @@ function ProjectExpenses({ project, onClose }) {
                       return (
                         <tr key={entry.id}>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.subcontractors?.name || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{new Date(entry.date_worked).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDateString(entry.date_worked)}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.hours}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">${parseFloat(rate).toFixed(2)}/hr</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">${total.toFixed(2)}</td>
@@ -602,7 +655,9 @@ function ProjectExpenses({ project, onClose }) {
                       return (
                         <tr key={entry.id}>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.inventory?.name || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{new Date(entry.date_used).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDateString(entry.date_used)}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.quantity} {entry.inventory?.unit || ''}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">${parseFloat(entry.unit_cost).toFixed(2)}</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">${total.toFixed(2)}</td>
@@ -649,7 +704,9 @@ function ProjectExpenses({ project, onClose }) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {expenses.additionalExpenses.map((entry) => (
                       <tr key={entry.id}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{new Date(entry.expense_date).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {formatDateString(entry.expense_date)}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.description}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.category || '-'}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">${parseFloat(entry.amount).toFixed(2)}</td>

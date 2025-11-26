@@ -739,6 +739,154 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
+// Get project statistics (total est_value and profit) with date filtering
+// IMPORTANT: This must be BEFORE /api/projects/:id route
+app.get('/api/projects/statistics', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { period = 'total' } = req.query; // day, week, month, 6mo, year, total
+
+    // Calculate date range based on period
+    let startDate = null;
+    if (period !== 'total') {
+      const now = new Date();
+      switch (period) {
+        case 'day':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '6mo':
+          startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+          break;
+        case 'year':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+      }
+    }
+
+    // Build query for projects
+    let projectsQuery = supabase
+      .from('projects')
+      .select('id, est_value, created_at')
+      .eq('company_id', companyID);
+
+    if (startDate) {
+      projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+    }
+
+    const { data: projects, error: projectsError } = await projectsQuery;
+
+    if (projectsError) {
+      return res.status(500).json({ error: projectsError.message });
+    }
+
+    if (!projects || projects.length === 0) {
+      return res.json({
+        totalEstValue: 0,
+        totalProfit: 0,
+        totalExpenses: 0,
+        projectCount: 0,
+        period: period,
+      });
+    }
+
+    // Get all project IDs
+    const projectIds = projects.map((p) => p.id);
+
+    // Calculate expenses for all projects
+    let totalEstValue = 0;
+    let totalExpenses = 0;
+
+    for (const project of projects) {
+      const estValue = parseFloat(project.est_value || 0);
+      totalEstValue += estValue;
+
+      // Get expenses for this project
+      const { data: subcontractorHours } = await supabase
+        .from('project_subcontractor_hours')
+        .select(`
+          hours,
+          rate,
+          subcontractors (
+            rate
+          )
+        `)
+        .eq('project_id', project.id);
+
+      const { data: materials } = await supabase
+        .from('project_materials')
+        .select('quantity, unit_cost')
+        .eq('project_id', project.id);
+
+      const { data: additionalExpenses } = await supabase
+        .from('project_additional_expenses')
+        .select('amount')
+        .eq('project_id', project.id);
+
+      // Calculate subcontractor costs
+      let subcontractorTotal = 0;
+      if (subcontractorHours) {
+        subcontractorHours.forEach((entry) => {
+          const rate = entry.rate || entry.subcontractors?.rate || 0;
+          subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+        });
+      }
+
+      // Calculate materials costs
+      let materialsTotal = 0;
+      if (materials) {
+        materials.forEach((entry) => {
+          materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+        });
+      }
+
+      // Calculate additional expenses
+      let additionalTotal = 0;
+      if (additionalExpenses) {
+        additionalExpenses.forEach((entry) => {
+          additionalTotal += parseFloat(entry.amount || 0);
+        });
+      }
+
+      totalExpenses += subcontractorTotal + materialsTotal + additionalTotal;
+    }
+
+    const totalProfit = totalEstValue - totalExpenses;
+
+    res.json({
+      totalEstValue: totalEstValue,
+      totalProfit: totalProfit,
+      totalExpenses: totalExpenses,
+      projectCount: projects.length,
+      period: period,
+    });
+  } catch (error) {
+    console.error('Get project statistics error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get a single project
 app.get('/api/projects/:id', async (req, res) => {
   try {

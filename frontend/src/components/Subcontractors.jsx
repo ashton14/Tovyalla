@@ -132,6 +132,13 @@ function Subcontractors() {
     }
   }
 
+  // Helper function to format date for input field (YYYY-MM-DD)
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return ''
+    // Extract just the date part (YYYY-MM-DD) from ISO string or date string
+    return dateString.split('T')[0]
+  }
+
   // Handle edit
   const handleEdit = (subcontractor) => {
     setEditingSubcontractor(subcontractor)
@@ -141,7 +148,7 @@ function Subcontractors() {
       primary_contact_phone: subcontractor.primary_contact_phone || '',
       primary_contact_email: subcontractor.primary_contact_email || '',
       rate: subcontractor.rate || '',
-      coi_expiration: subcontractor.coi_expiration || '',
+      coi_expiration: formatDateForInput(subcontractor.coi_expiration) || '',
       notes: subcontractor.notes || '',
     })
     setShowForm(true)
@@ -172,13 +179,50 @@ function Subcontractors() {
     return matchesSearch
   })
 
+  // Helper function to format date without timezone issues
+  const formatDateLocal = (dateString) => {
+    if (!dateString) return ''
+    // Parse date string as local date (YYYY-MM-DD format)
+    const [year, month, day] = dateString.split('T')[0].split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    return date.toLocaleDateString()
+  }
+
+  // Helper function to compare dates without timezone issues
+  const compareDates = (dateString1, dateString2) => {
+    if (!dateString1 || !dateString2) return 0
+    const [y1, m1, d1] = dateString1.split('T')[0].split('-').map(Number)
+    const [y2, m2, d2] = dateString2.split('T')[0].split('-').map(Number)
+    const date1 = new Date(y1, m1 - 1, d1)
+    const date2 = new Date(y2, m2 - 1, d2)
+    return date1 - date2
+  }
+
+  // Helper function to get today's date as YYYY-MM-DD string
+  const getTodayString = () => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper function to calculate days between dates
+  const daysBetween = (dateString1, dateString2) => {
+    if (!dateString1 || !dateString2) return 0
+    const [y1, m1, d1] = dateString1.split('T')[0].split('-').map(Number)
+    const [y2, m2, d2] = dateString2.split('T')[0].split('-').map(Number)
+    const date1 = new Date(y1, m1 - 1, d1)
+    const date2 = new Date(y2, m2 - 1, d2)
+    return Math.ceil((date1 - date2) / (1000 * 60 * 60 * 24))
+  }
+
   // Check if COI is expired or expiring soon
   const getCOIStatus = (expirationDate) => {
     if (!expirationDate) return { status: 'unknown', color: 'bg-gray-100 text-gray-800', label: 'No expiration' }
     
-    const expiration = new Date(expirationDate)
-    const today = new Date()
-    const daysUntilExpiration = Math.ceil((expiration - today) / (1000 * 60 * 60 * 24))
+    const today = getTodayString()
+    const daysUntilExpiration = daysBetween(expirationDate, today)
 
     if (daysUntilExpiration < 0) {
       return { status: 'expired', color: 'bg-red-100 text-red-800', label: 'Expired' }
@@ -431,7 +475,7 @@ function Subcontractors() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {subcontractor.coi_expiration
-                            ? new Date(subcontractor.coi_expiration).toLocaleDateString()
+                            ? formatDateLocal(subcontractor.coi_expiration)
                             : '-'}
                         </div>
                         {subcontractor.coi_expiration && (
@@ -476,7 +520,8 @@ function Subcontractors() {
           <p className="text-2xl font-bold text-red-600">
             {subcontractors.filter((s) => {
               if (!s.coi_expiration) return false
-              return new Date(s.coi_expiration) < new Date()
+              const today = getTodayString()
+              return compareDates(s.coi_expiration, today) < 0
             }).length}
           </p>
         </div>
@@ -485,9 +530,8 @@ function Subcontractors() {
           <p className="text-2xl font-bold text-yellow-600">
             {subcontractors.filter((s) => {
               if (!s.coi_expiration) return false
-              const expiration = new Date(s.coi_expiration)
-              const today = new Date()
-              const daysUntilExpiration = Math.ceil((expiration - today) / (1000 * 60 * 60 * 24))
+              const today = getTodayString()
+              const daysUntilExpiration = daysBetween(s.coi_expiration, today)
               return daysUntilExpiration > 0 && daysUntilExpiration <= 30
             }).length}
           </p>
