@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import axios from 'axios'
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
 import Projects from '../components/Projects'
@@ -10,9 +11,50 @@ import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 
 function Dashboard() {
-  const { user, logout, loading } = useAuth()
+  const { user, logout, loading, supabase } = useAuth()
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('overview')
+  const [employeeName, setEmployeeName] = useState(null)
+
+  // Get auth token
+  const getAuthToken = async () => {
+    if (!supabase) return null
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || null
+  }
+
+  // Fetch current user's employee name
+  useEffect(() => {
+    const fetchEmployeeName = async () => {
+      if (!user?.email || !supabase) return
+
+      try {
+        const token = await getAuthToken()
+        if (!token) return
+
+        const response = await axios.get('/api/employees', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        const employees = response.data.employees || []
+        const currentEmployee = employees.find(
+          (emp) => emp.email_address?.toLowerCase() === user.email?.toLowerCase()
+        )
+
+        if (currentEmployee?.name) {
+          setEmployeeName(currentEmployee.name)
+        }
+      } catch (err) {
+        console.error('Error fetching employee name:', err)
+      }
+    }
+
+    if (user) {
+      fetchEmployeeName()
+    }
+  }, [user, supabase])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -158,42 +200,8 @@ function Dashboard() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                  Welcome to Tovyalla Dashboard
+                  Welcome, {employeeName?.split(' ')[0] || user.email}!
                 </h2>
-                <p className="text-gray-600">
-                  Manage your pool construction business with ease.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Quick Stats Cards */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Company ID</h3>
-                  <p className="text-2xl font-bold text-pool-dark">
-                    {user.user_metadata?.companyID || 'N/A'}
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Your Email</h3>
-                  <p className="text-2xl font-bold text-gray-800 truncate">{user.email}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Account Status</h3>
-                  <p className="text-2xl font-bold text-green-600">Active</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setActiveSection('company')}
-                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-pool-blue hover:bg-pool-light transition-colors text-left"
-                  >
-                    <h4 className="font-semibold text-gray-800 mb-1">Manage Company</h4>
-                    <p className="text-sm text-gray-600">View company info and manage email whitelist</p>
-                  </button>
-                </div>
               </div>
             </div>
           )}
