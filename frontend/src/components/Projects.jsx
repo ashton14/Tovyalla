@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import ProjectExpenses from './ProjectExpenses'
 
 const PROJECT_TYPES = [
   { value: 'residential', label: 'Residential' },
@@ -34,6 +35,7 @@ function Projects() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
+  const [selectedProjectForExpenses, setSelectedProjectForExpenses] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -606,6 +608,12 @@ function Projects() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
+                          onClick={() => setSelectedProjectForExpenses(project)}
+                          className="text-green-600 hover:text-green-800 mr-4"
+                        >
+                          Expenses
+                        </button>
+                        <button
                           onClick={() => handleEdit(project)}
                           className="text-pool-blue hover:text-pool-dark mr-4"
                         >
@@ -654,6 +662,14 @@ function Projects() {
           </p>
         </div>
       </div>
+
+      {/* Project Expenses Modal */}
+      {selectedProjectForExpenses && (
+        <ProjectExpenses
+          project={selectedProjectForExpenses}
+          onClose={() => setSelectedProjectForExpenses(null)}
+        />
+      )}
     </div>
   )
 }

@@ -989,6 +989,709 @@ app.delete('/api/projects/:id', async (req, res) => {
   }
 });
 
+// ========== PROJECT EXPENSES ENDPOINTS ==========
+
+// Get all expenses for a project with calculations
+app.get('/api/projects/:id/expenses', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id, est_value')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get subcontractor hours with subcontractor details
+    const { data: subcontractorHours, error: hoursError } = await supabase
+      .from('project_subcontractor_hours')
+      .select(`
+        *,
+        subcontractors (
+          id,
+          name,
+          rate
+        )
+      `)
+      .eq('project_id', id)
+      .order('date_worked', { ascending: false });
+
+    if (hoursError) {
+      return res.status(500).json({ error: hoursError.message });
+    }
+
+    // Get materials with inventory details
+    const { data: materials, error: materialsError } = await supabase
+      .from('project_materials')
+      .select(`
+        *,
+        inventory (
+          id,
+          name,
+          unit
+        )
+      `)
+      .eq('project_id', id)
+      .order('date_used', { ascending: false });
+
+    if (materialsError) {
+      return res.status(500).json({ error: materialsError.message });
+    }
+
+    // Get additional expenses
+    const { data: additionalExpenses, error: additionalError } = await supabase
+      .from('project_additional_expenses')
+      .select('*')
+      .eq('project_id', id)
+      .order('expense_date', { ascending: false });
+
+    if (additionalError) {
+      return res.status(500).json({ error: additionalError.message });
+    }
+
+    // Calculate totals
+    let subcontractorTotal = 0;
+    if (subcontractorHours) {
+      subcontractorHours.forEach((entry) => {
+        // Use stored rate if available, otherwise fall back to subcontractor's default rate
+        const rate = entry.rate || entry.subcontractors?.rate || 0;
+        subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+      });
+    }
+
+    let materialsTotal = 0;
+    if (materials) {
+      materials.forEach((entry) => {
+        materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+      });
+    }
+
+    let additionalTotal = 0;
+    if (additionalExpenses) {
+      additionalExpenses.forEach((entry) => {
+        additionalTotal += parseFloat(entry.amount || 0);
+      });
+    }
+
+    const totalExpenses = subcontractorTotal + materialsTotal + additionalTotal;
+    const estValue = parseFloat(project.est_value || 0);
+    const profit = estValue - totalExpenses;
+
+    res.json({
+      subcontractorHours: subcontractorHours || [],
+      materials: materials || [],
+      additionalExpenses: additionalExpenses || [],
+      totals: {
+        subcontractors: subcontractorTotal,
+        materials: materialsTotal,
+        additional: additionalTotal,
+        total: totalExpenses,
+      },
+      project: {
+        estValue: estValue,
+        profit: profit,
+      },
+    });
+  } catch (error) {
+    console.error('Get expenses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add subcontractor hours
+app.post('/api/projects/:id/expenses/subcontractor-hours', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { subcontractor_id, hours, rate, date_worked, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!subcontractor_id || !hours || !date_worked) {
+      return res.status(400).json({ error: 'subcontractor_id, hours, and date_worked are required' });
+    }
+
+    // Get subcontractor's default rate if rate not provided
+    let finalRate = rate;
+    if (finalRate === undefined || finalRate === null || finalRate === '') {
+      const { data: subcontractor } = await supabase
+        .from('subcontractors')
+        .select('rate')
+        .eq('id', subcontractor_id)
+        .single();
+      finalRate = subcontractor?.rate || 0;
+    }
+
+    const { data, error } = await supabase
+      .from('project_subcontractor_hours')
+      .insert([{
+        project_id: id,
+        subcontractor_id,
+        hours: parseFloat(hours),
+        rate: parseFloat(finalRate),
+        date_worked,
+        notes: notes || null,
+      }])
+      .select(`
+        *,
+        subcontractors (
+          id,
+          name,
+          rate
+        )
+      `)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json({ subcontractorHour: data });
+  } catch (error) {
+    console.error('Add subcontractor hours error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update subcontractor hours
+app.put('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, hourId } = req.params;
+    const { hours, rate, date_worked, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (hours !== undefined) updateData.hours = parseFloat(hours);
+    if (rate !== undefined && rate !== null && rate !== '') updateData.rate = parseFloat(rate);
+    if (date_worked !== undefined) updateData.date_worked = date_worked;
+    if (notes !== undefined) updateData.notes = notes || null;
+
+    const { data, error } = await supabase
+      .from('project_subcontractor_hours')
+      .update(updateData)
+      .eq('id', hourId)
+      .eq('project_id', id)
+      .select(`
+        *,
+        subcontractors (
+          id,
+          name,
+          rate
+        )
+      `)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ subcontractorHour: data });
+  } catch (error) {
+    console.error('Update subcontractor hours error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete subcontractor hours
+app.delete('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, hourId } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { error } = await supabase
+      .from('project_subcontractor_hours')
+      .delete()
+      .eq('id', hourId)
+      .eq('project_id', id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete subcontractor hours error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add material
+app.post('/api/projects/:id/expenses/materials', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { inventory_id, quantity, unit_cost, date_used, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!inventory_id || !quantity || unit_cost === undefined || !date_used) {
+      return res.status(400).json({ error: 'inventory_id, quantity, unit_cost, and date_used are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('project_materials')
+      .insert([{
+        project_id: id,
+        inventory_id,
+        quantity: parseFloat(quantity),
+        unit_cost: parseFloat(unit_cost),
+        date_used,
+        notes: notes || null,
+      }])
+      .select(`
+        *,
+        inventory (
+          id,
+          name,
+          unit
+        )
+      `)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json({ material: data });
+  } catch (error) {
+    console.error('Add material error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update material
+app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, materialId } = req.params;
+    const { quantity, unit_cost, date_used, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (quantity !== undefined) updateData.quantity = parseFloat(quantity);
+    if (unit_cost !== undefined) updateData.unit_cost = parseFloat(unit_cost);
+    if (date_used !== undefined) updateData.date_used = date_used;
+    if (notes !== undefined) updateData.notes = notes || null;
+
+    const { data, error } = await supabase
+      .from('project_materials')
+      .update(updateData)
+      .eq('id', materialId)
+      .eq('project_id', id)
+      .select(`
+        *,
+        inventory (
+          id,
+          name,
+          unit
+        )
+      `)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ material: data });
+  } catch (error) {
+    console.error('Update material error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete material
+app.delete('/api/projects/:id/expenses/materials/:materialId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, materialId } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { error } = await supabase
+      .from('project_materials')
+      .delete()
+      .eq('id', materialId)
+      .eq('project_id', id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete material error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add additional expense
+app.post('/api/projects/:id/expenses/additional', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { description, amount, expense_date, category, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!description || amount === undefined || !expense_date) {
+      return res.status(400).json({ error: 'description, amount, and expense_date are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('project_additional_expenses')
+      .insert([{
+        project_id: id,
+        description,
+        amount: parseFloat(amount),
+        expense_date,
+        category: category || null,
+        notes: notes || null,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json({ expense: data });
+  } catch (error) {
+    console.error('Add additional expense error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update additional expense
+app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, expenseId } = req.params;
+    const { description, amount, expense_date, category, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (description !== undefined) updateData.description = description;
+    if (amount !== undefined) updateData.amount = parseFloat(amount);
+    if (expense_date !== undefined) updateData.expense_date = expense_date;
+    if (category !== undefined) updateData.category = category || null;
+    if (notes !== undefined) updateData.notes = notes || null;
+
+    const { data, error } = await supabase
+      .from('project_additional_expenses')
+      .update(updateData)
+      .eq('id', expenseId)
+      .eq('project_id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ expense: data });
+  } catch (error) {
+    console.error('Update additional expense error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete additional expense
+app.delete('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, expenseId } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { error } = await supabase
+      .from('project_additional_expenses')
+      .delete()
+      .eq('id', expenseId)
+      .eq('project_id', id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete additional expense error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all inventory items for a company
 app.get('/api/inventory', async (req, res) => {
   try {
