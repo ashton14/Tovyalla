@@ -7,6 +7,7 @@ import Projects from '../components/Projects'
 import Inventory from '../components/Inventory'
 import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
+import Calendar from '../components/Calendar'
 
 function Dashboard() {
   const { user, logout, loading } = useAuth()
@@ -120,6 +121,16 @@ function Dashboard() {
           >
             <span className="font-medium">Employees</span>
           </button>
+          <button
+            onClick={() => setActiveSection('calendar')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'calendar'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Calendar</span>
+          </button>
         </nav>
 
         {/* User Info & Logout */}
@@ -193,6 +204,7 @@ function Dashboard() {
           {activeSection === 'inventory' && <Inventory />}
           {activeSection === 'subcontractors' && <Subcontractors />}
           {activeSection === 'employees' && <Employees />}
+          {activeSection === 'calendar' && <Calendar />}
         </div>
       </main>
     </div>

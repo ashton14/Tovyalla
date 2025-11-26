@@ -1575,29 +1575,37 @@ app.post('/api/employees', async (req, res) => {
       is_sales_person,
       is_foreman,
       registered_time_zone,
+      color,
     } = req.body;
 
     if (!name || !email_address) {
       return res.status(400).json({ error: 'Name and email address are required' });
     }
 
+    const insertData = {
+      company_id: companyID,
+      name,
+      user_type: user_type || 'employee',
+      user_role: user_role || null,
+      email_address,
+      phone: phone || null,
+      current: current || false,
+      is_project_manager: is_project_manager || false,
+      is_sales_person: is_sales_person || false,
+      is_foreman: is_foreman || false,
+      registered_time_zone: registered_time_zone || null,
+    };
+
+    // Handle color - ensure it's a string and trim it, or set to null if empty
+    if (color !== undefined && color !== null && typeof color === 'string' && color.trim() !== '') {
+      insertData.color = color.trim();
+    } else {
+      insertData.color = null;
+    }
+
     const { data, error } = await supabase
       .from('employees')
-      .insert([
-        {
-          company_id: companyID,
-          name,
-          user_type: user_type || 'employee',
-          user_role: user_role || null,
-          email_address,
-          phone: phone || null,
-          current: current || false,
-          is_project_manager: is_project_manager || false,
-          is_sales_person: is_sales_person || false,
-          is_foreman: is_foreman || false,
-          registered_time_zone: registered_time_zone || null,
-        },
-      ])
+      .insert([insertData])
       .select()
       .single();
 
@@ -1657,27 +1665,37 @@ app.put('/api/employees/:id', async (req, res) => {
       is_sales_person,
       is_foreman,
       registered_time_zone,
+      color,
     } = req.body;
 
     if (!name || !email_address) {
       return res.status(400).json({ error: 'Name and email address are required' });
     }
 
+    const updateData = {
+      name,
+      user_type: user_type || 'employee',
+      user_role: user_role || null,
+      email_address,
+      phone: phone || null,
+      current: current || false,
+      is_project_manager: is_project_manager || false,
+      is_sales_person: is_sales_person || false,
+      is_foreman: is_foreman || false,
+      registered_time_zone: registered_time_zone || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Handle color - ensure it's a string and trim it, or set to null if empty
+    if (color !== undefined && color !== null && typeof color === 'string' && color.trim() !== '') {
+      updateData.color = color.trim();
+    } else {
+      updateData.color = null;
+    }
+
     const { data, error } = await supabase
       .from('employees')
-      .update({
-        name,
-        user_type: user_type || 'employee',
-        user_role: user_role || null,
-        email_address,
-        phone: phone || null,
-        current: current || false,
-        is_project_manager: is_project_manager || false,
-        is_sales_person: is_sales_person || false,
-        is_foreman: is_foreman || false,
-        registered_time_zone: registered_time_zone || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .eq('company_id', companyID)
       .select()
@@ -1741,6 +1759,280 @@ app.delete('/api/employees/:id', async (req, res) => {
     res.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     console.error('Delete employee error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ==================== EVENTS ENDPOINTS ====================
+
+// Get all events for a company
+app.get('/api/events', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        employees (
+          id,
+          name,
+          color
+        )
+      `)
+      .eq('company_id', companyID)
+      .order('date', { ascending: true })
+      .order('time', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Transform data to include employee name and color
+    const eventsWithEmployeeName = (data || []).map((event) => ({
+      ...event,
+      employee_name: event.employees?.name || null,
+      employee_color: event.employees?.color || null,
+    }));
+
+    res.json({ events: eventsWithEmployeeName });
+  } catch (error) {
+    console.error('Get events error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get a single event
+app.get('/api/events/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        employees (
+          id,
+          name,
+          color
+        )
+      `)
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    res.json({ 
+      event: {
+        ...data,
+        employee_name: data.employees?.name || null,
+        employee_color: data.employees?.color || null,
+      }
+    });
+  } catch (error) {
+    console.error('Get event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new event
+app.post('/api/events', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { name, date, time, employee_id } = req.body;
+
+    if (!name || !date || !time) {
+      return res.status(400).json({ error: 'Name, date, and time are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .insert([
+        {
+          company_id: companyID,
+          name,
+          date,
+          time,
+          employee_id: employee_id || null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json({ event: data });
+  } catch (error) {
+    console.error('Create event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update an event
+app.put('/api/events/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify event belongs to company
+    const { data: existingEvent, error: fetchError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (fetchError || !existingEvent) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const { name, date, time, employee_id } = req.body;
+
+    if (!name || !date || !time) {
+      return res.status(400).json({ error: 'Name, date, and time are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({
+        name,
+        date,
+        time,
+        employee_id: employee_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ event: data });
+  } catch (error) {
+    console.error('Update event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete an event
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify event belongs to company
+    const { data: existingEvent, error: fetchError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (fetchError || !existingEvent) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyID);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    console.error('Delete event error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

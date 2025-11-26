@@ -43,6 +43,7 @@ function Employees() {
     is_sales_person: false,
     is_foreman: false,
     registered_time_zone: '',
+    color: '#0ea5e9', // Default blue color
   })
 
   // Get auth token
@@ -105,7 +106,12 @@ function Employees() {
         is_sales_person: formData.is_sales_person || false,
         is_foreman: formData.is_foreman || false,
         current: formData.current || false,
+        color: formData.color && formData.color.trim() !== '' ? formData.color.trim() : null,
       }
+      
+      console.log('Sending payload:', payload)
+      console.log('Color value in formData:', formData.color, 'Type:', typeof formData.color)
+      console.log('Color value in payload:', payload.color)
 
       if (editingEmployee) {
         await axios.put(`/api/employees/${editingEmployee.id}`, payload, {
@@ -171,6 +177,7 @@ function Employees() {
       is_sales_person: employee.is_sales_person || false,
       is_foreman: employee.is_foreman || false,
       registered_time_zone: employee.registered_time_zone || '',
+      color: employee.color || '#0ea5e9',
     })
     setShowForm(true)
   }
@@ -188,6 +195,7 @@ function Employees() {
       is_sales_person: false,
       is_foreman: false,
       registered_time_zone: '',
+      color: '#0ea5e9',
     })
   }
 
@@ -402,6 +410,28 @@ function Employees() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Calendar Color
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={formData.color}
+                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                        className="h-10 w-20 border border-gray-300 rounded-md cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={formData.color}
+                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                        placeholder="#0ea5e9"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Color used for this employee's events on the calendar</p>
+                  </div>
                 </div>
 
                 {/* Checkboxes */}
@@ -542,7 +572,16 @@ function Employees() {
                   return (
                     <tr key={employee.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor: employee.color || '#0ea5e9',
+                            }}
+                            title={`Calendar color: ${employee.color || '#0ea5e9'}`}
+                          />
+                          <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
