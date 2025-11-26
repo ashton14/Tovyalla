@@ -25,10 +25,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Helper function to update last logon
+    const updateLastLogon = async (session) => {
+      if (session?.access_token) {
+        try {
+          await fetch('/api/auth/update-last-logon', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+        } catch (error) {
+          // Don't fail if last_logon update fails
+          console.error('Error updating last logon:', error)
+        }
+      }
+    }
+
     // Check active sessions and sets the user
     if (supabase && supabaseUrl && supabaseAnonKey) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null)
+        // Update last logon when session is restored (e.g., page refresh)
+        if (session) {
+          updateLastLogon(session)
+        }
         setLoading(false)
       }).catch((error) => {
         console.error('Error getting session:', error)
@@ -38,8 +60,12 @@ export const AuthProvider = ({ children }) => {
       // Listen for changes on auth state
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
         setUser(session?.user ?? null)
+        // Update last logon on SIGNED_IN event
+        if (event === 'SIGNED_IN' && session) {
+          updateLastLogon(session)
+        }
       })
 
       return () => subscription.unsubscribe()
@@ -67,6 +93,23 @@ export const AuthProvider = ({ children }) => {
       if (userCompanyID !== companyID) {
         await supabase.auth.signOut()
         throw new Error('Invalid company ID')
+      }
+
+      // Update last logon timestamp
+      try {
+        const session = data.session
+        if (session?.access_token) {
+          await fetch('/api/auth/update-last-logon', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+        }
+      } catch (logonError) {
+        // Don't fail login if last_logon update fails
+        console.error('Error updating last logon:', logonError)
       }
 
       return { user: data.user, session: data.session }

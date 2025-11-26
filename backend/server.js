@@ -63,6 +63,68 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ error: 'Invalid company ID' });
     }
 
+    // Update employee last_logon timestamp
+    console.log('========== LAST LOGON UPDATE DEBUG ==========');
+    const userEmail = data.user?.email || username;
+    const currentTimestamp = new Date().toISOString();
+    console.log('User email from auth:', data.user?.email);
+    console.log('Username from request:', username);
+    console.log('Final userEmail to use:', userEmail);
+    console.log('Company ID:', companyID);
+    console.log('Current timestamp:', currentTimestamp);
+    
+    if (userEmail) {
+      try {
+        // First, check if employee exists
+        const { data: existingEmployee, error: findError } = await supabase
+          .from('employees')
+          .select('id, name, email_address, company_id')
+          .eq('email_address', userEmail.toLowerCase())
+          .eq('company_id', companyID)
+          .single();
+        
+        console.log('Employee lookup result:');
+        console.log('  - Found employee?', !!existingEmployee);
+        console.log('  - Employee data:', existingEmployee);
+        console.log('  - Find error:', findError);
+        
+        if (findError && findError.code !== 'PGRST116') {
+          // PGRST116 is "not found" error, which is expected if employee doesn't exist
+          console.error('Error finding employee:', findError);
+        }
+        
+        // Attempt update
+        const { data: updateResult, error: updateError } = await supabase
+          .from('employees')
+          .update({ last_logon: currentTimestamp })
+          .eq('email_address', userEmail.toLowerCase())
+          .eq('company_id', companyID)
+          .select('id, name, email_address, last_logon');
+        
+        console.log('Update operation result:');
+        console.log('  - Update data:', updateResult);
+        console.log('  - Update error:', updateError);
+        console.log('  - Rows updated:', updateResult?.length || 0);
+        
+        if (updateError) {
+          console.error('Error updating last_logon:', updateError);
+          console.error('Error code:', updateError.code);
+          console.error('Error message:', updateError.message);
+          console.error('Error details:', updateError.details);
+          console.error('Error hint:', updateError.hint);
+        } else {
+          console.log('Successfully updated last_logon for employee:', updateResult);
+        }
+      } catch (updateError) {
+        // Log error but don't fail the login if last_logon update fails
+        console.error('Exception updating last_logon:', updateError);
+        console.error('Exception stack:', updateError.stack);
+      }
+    } else {
+      console.log('No userEmail found, skipping last_logon update');
+    }
+    console.log('==========================================');
+
     res.json({
       user: data.user,
       session: data.session,
@@ -169,6 +231,92 @@ app.post('/api/auth/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update last logon timestamp
+app.post('/api/auth/update-last-logon', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const userEmail = user.email;
+    if (!userEmail) {
+      return res.status(400).json({ error: 'User email not found' });
+    }
+
+    console.log('========== UPDATE LAST LOGON DEBUG ==========');
+    const currentTimestamp = new Date().toISOString();
+    console.log('User email:', userEmail);
+    console.log('Company ID:', companyID);
+    console.log('Current timestamp:', currentTimestamp);
+
+    // First, check if employee exists
+    const { data: existingEmployee, error: findError } = await supabase
+      .from('employees')
+      .select('id, name, email_address, company_id')
+      .eq('email_address', userEmail.toLowerCase())
+      .eq('company_id', companyID)
+      .single();
+
+    console.log('Employee lookup result:');
+    console.log('  - Found employee?', !!existingEmployee);
+    console.log('  - Employee data:', existingEmployee);
+    console.log('  - Find error:', findError);
+
+    if (findError && findError.code !== 'PGRST116') {
+      console.error('Error finding employee:', findError);
+    }
+
+    // Attempt update
+    const { data: updateResult, error: updateError } = await supabase
+      .from('employees')
+      .update({ last_logon: currentTimestamp })
+      .eq('email_address', userEmail.toLowerCase())
+      .eq('company_id', companyID)
+      .select('id, name, email_address, last_logon');
+
+    console.log('Update operation result:');
+    console.log('  - Update data:', updateResult);
+    console.log('  - Update error:', updateError);
+    console.log('  - Rows updated:', updateResult?.length || 0);
+
+    if (updateError) {
+      console.error('Error updating last_logon:', updateError);
+      console.error('Error code:', updateError.code);
+      console.error('Error message:', updateError.message);
+      console.error('Error details:', updateError.details);
+      console.error('Error hint:', updateError.hint);
+      return res.status(500).json({ error: 'Failed to update last logon' });
+    }
+
+    if (!updateResult || updateResult.length === 0) {
+      console.log('No employee found to update');
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    console.log('Successfully updated last_logon for employee:', updateResult);
+    console.log('==========================================');
+
+    res.json({ success: true, employee: updateResult[0] });
+  } catch (error) {
+    console.error('Exception updating last_logon:', error);
+    console.error('Exception stack:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
