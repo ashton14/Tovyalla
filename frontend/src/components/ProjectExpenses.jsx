@@ -407,8 +407,10 @@ function ProjectExpenses({ project, onClose }) {
   // Auto-fill unit cost when inventory item is selected
   const handleInventorySelect = (inventoryId) => {
     const item = inventory.find((i) => i.id === inventoryId)
-    if (item && item.unit_price) {
-      setMaterialForm({ ...materialForm, inventory_id: inventoryId, unit_cost: item.unit_price })
+    if (item) {
+      // Default to unit_price from inventory if unit_cost is empty (when adding new or when field is cleared)
+      const unitCost = (!materialForm.unit_cost && item.unit_price) ? item.unit_price : materialForm.unit_cost
+      setMaterialForm({ ...materialForm, inventory_id: inventoryId, unit_cost: unitCost })
     } else {
       setMaterialForm({ ...materialForm, inventory_id: inventoryId })
     }
