@@ -11,6 +11,10 @@ function Subcontractors() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
+  const [importErrors, setImportErrors] = useState([])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -233,6 +237,204 @@ function Subcontractors() {
     }
   }
 
+  // CSV parsing helper - handles quoted fields
+  const parseCSVLine = (line) => {
+    const values = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // Escaped quote
+          current += '"'
+          i++ // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        // End of field
+        values.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    
+    // Add last field
+    values.push(current.trim())
+    return values
+  }
+
+  // CSV parsing helper
+  const parseCSV = (csvText) => {
+    // Normalize line endings
+    const normalized = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const lines = normalized.split('\n').filter(line => line.trim() !== '')
+    
+    if (lines.length < 2) {
+      throw new Error('CSV file must have at least a header row and one data row')
+    }
+
+    // Parse header
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''))
+    
+    // Required columns
+    const requiredColumns = ['name']
+    const missingColumns = requiredColumns.filter(col => !headers.includes(col))
+    
+    if (missingColumns.length > 0) {
+      throw new Error(`Missing required columns: ${missingColumns.join(', ')}`)
+    }
+
+    // Parse data rows
+    const rows = []
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCSVLine(lines[i]).map(v => v.replace(/^"|"$/g, ''))
+      const row = {}
+      headers.forEach((header, index) => {
+        row[header] = (values[index] || '').trim()
+      })
+      
+      // Skip empty rows
+      if (!row.name) {
+        continue
+      }
+      
+      rows.push(row)
+    }
+
+    return { headers, rows }
+  }
+
+  // Handle CSV file import
+  const handleCSVImport = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.csv')) {
+      setError('Please select a CSV file')
+      return
+    }
+
+    setImporting(true)
+    setError('')
+    setSuccess('')
+    setImportProgress({ success: 0, failed: 0, total: 0 })
+    setImportErrors([])
+
+    try {
+      const fileText = await file.text()
+      const { rows } = parseCSV(fileText)
+
+      if (rows.length === 0) {
+        throw new Error('No valid rows found in CSV file')
+      }
+
+      setImportProgress({ success: 0, failed: 0, total: rows.length })
+
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Import subcontractors one by one
+      let successCount = 0
+      let failedCount = 0
+      const errors = []
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        
+        // Map CSV columns to subcontractor fields
+        const subcontractorData = {
+          name: row.name || '',
+          primary_contact_name: row.primary_contact_name || row['primary_contact_name'] || '',
+          primary_contact_phone: row.primary_contact_phone || row['primary_contact_phone'] || '',
+          primary_contact_email: row.primary_contact_email || row['primary_contact_email'] || '',
+          rate: row.rate || '',
+          coi_expiration: row.coi_expiration || row['coi_expiration'] || '',
+          notes: row.notes || '',
+        }
+
+        // Validate required fields
+        if (!subcontractorData.name) {
+          failedCount++
+          errors.push({
+            row: i + 2, // +2 because row 1 is header, and arrays are 0-indexed
+            error: 'Missing required field: name is required',
+            data: subcontractorData,
+          })
+          setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
+          continue
+        }
+
+        // Convert rate to number if present
+        if (subcontractorData.rate) {
+          const parsed = parseFloat(subcontractorData.rate)
+          subcontractorData.rate = isNaN(parsed) ? null : parsed
+        } else {
+          subcontractorData.rate = null
+        }
+
+        // Format coi_expiration date (should be YYYY-MM-DD)
+        if (subcontractorData.coi_expiration) {
+          // Try to parse and reformat the date
+          const date = new Date(subcontractorData.coi_expiration)
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            subcontractorData.coi_expiration = `${year}-${month}-${day}`
+          } else {
+            // If it's already in YYYY-MM-DD format, keep it
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(subcontractorData.coi_expiration)) {
+              subcontractorData.coi_expiration = null
+            }
+          }
+        } else {
+          subcontractorData.coi_expiration = null
+        }
+
+        try {
+          await axios.post('/api/subcontractors', subcontractorData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          successCount++
+          setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
+        } catch (err) {
+          failedCount++
+          errors.push({
+            row: i + 2,
+            error: err.response?.data?.error || err.message || 'Failed to import subcontractor',
+            data: subcontractorData,
+          })
+          setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
+        }
+      }
+
+      setImportErrors(errors)
+      
+      if (successCount > 0) {
+        setSuccess(`Successfully imported ${successCount} subcontractor(s)${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
+        fetchSubcontractors()
+      } else {
+        setError(`Failed to import all subcontractors. ${failedCount} error(s).`)
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to parse CSV file')
+    } finally {
+      setImporting(false)
+      // Reset file input
+      event.target.value = ''
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -249,16 +451,24 @@ function Subcontractors() {
           <h2 className="text-2xl font-bold text-gray-800">Subcontractors</h2>
           <p className="text-gray-600 mt-1">Manage your subcontractor database</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm()
-            setEditingSubcontractor(null)
-            setShowForm(true)
-          }}
-          className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
-        >
-          + Add Subcontractor
-        </button>
+          <div className="flex gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+          >
+            📥 Import CSV
+          </button>
+          <button
+            onClick={() => {
+              resetForm()
+              setEditingSubcontractor(null)
+              setShowForm(true)
+            }}
+            className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+          >
+            + Add Subcontractor
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -286,6 +496,121 @@ function Subcontractors() {
           />
         </div>
       </div>
+
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Import Subcontractors from CSV</h3>
+                <button
+                  onClick={() => {
+                    setShowImportModal(false)
+                    setImportErrors([])
+                    setImportProgress({ success: 0, failed: 0, total: 0 })
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Required Columns Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Required CSV Columns:</h4>
+                  <div className="space-y-1 text-sm text-blue-800">
+                    <p><strong>Required:</strong></p>
+                    <ul className="list-disc list-inside ml-2">
+                      <li><code className="bg-blue-100 px-1 rounded">name</code></li>
+                    </ul>
+                    <p className="mt-2"><strong>Optional:</strong></p>
+                    <ul className="list-disc list-inside ml-2">
+                      <li><code className="bg-blue-100 px-1 rounded">primary_contact_name</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">primary_contact_phone</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">primary_contact_email</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">rate</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">coi_expiration</code> (YYYY-MM-DD format)</li>
+                      <li><code className="bg-blue-100 px-1 rounded">notes</code></li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Example CSV */}
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                  <h4 className="font-semibold text-gray-900 mb-2">Example CSV Format:</h4>
+                  <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
+{`name,primary_contact_name,primary_contact_phone,primary_contact_email,rate,coi_expiration
+ABC Construction,John Smith,555-0100,john@abc.com,75.00,2025-12-31
+XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
+                  </pre>
+                </div>
+
+                {/* File Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select CSV File
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVImport}
+                    disabled={importing}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Import Progress */}
+                {importing && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <span className="font-medium text-blue-900">Importing subcontractors...</span>
+                    </div>
+                    <div className="text-sm text-blue-800">
+                      <p>Progress: {importProgress.success + importProgress.failed} / {importProgress.total}</p>
+                      <p>✓ Success: {importProgress.success} | ✗ Failed: {importProgress.failed}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Import Errors */}
+                {importErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-4 max-h-48 overflow-y-auto">
+                    <h4 className="font-semibold text-red-900 mb-2">Import Errors:</h4>
+                    <div className="space-y-2 text-sm">
+                      {importErrors.slice(0, 10).map((error, index) => (
+                        <div key={index} className="text-red-800">
+                          <strong>Row {error.row}:</strong> {error.error}
+                        </div>
+                      ))}
+                      {importErrors.length > 10 && (
+                        <p className="text-red-600 italic">... and {importErrors.length - 10} more errors</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Close Button */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowImportModal(false)
+                      setImportErrors([])
+                      setImportProgress({ success: 0, failed: 0, total: 0 })
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Subcontractor Form Modal */}
       {showForm && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -23,6 +23,15 @@ function Dashboard() {
     projectCount: 0,
   })
   const [loadingStats, setLoadingStats] = useState(false)
+  const [projectsInProgress, setProjectsInProgress] = useState({
+    proposalRequest: 0,
+    proposalSent: 0,
+    sold: 0,
+    total: 0,
+  })
+  const [todayEvents, setTodayEvents] = useState([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [loadingEvents, setLoadingEvents] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -95,6 +104,119 @@ function Dashboard() {
       fetchStatistics()
     }
   }, [user, supabase, timePeriod])
+
+  // Fetch projects in progress counts
+  useEffect(() => {
+    const fetchProjectsInProgress = async () => {
+      if (!user || !supabase) return
+
+      setLoadingProjects(true)
+      try {
+        const token = await getAuthToken()
+        if (!token) return
+
+        const response = await axios.get('/api/projects', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        const projects = response.data.projects || []
+        const proposalRequest = projects.filter((p) => p.status === 'proposal_request').length
+        const proposalSent = projects.filter((p) => p.status === 'proposal_sent').length
+        const sold = projects.filter((p) => p.status === 'sold').length
+        const total = proposalRequest + proposalSent + sold
+
+        setProjectsInProgress({
+          proposalRequest,
+          proposalSent,
+          sold,
+          total,
+        })
+      } catch (err) {
+        console.error('Error fetching projects in progress:', err)
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+
+    if (user) {
+      fetchProjectsInProgress()
+    }
+  }, [user, supabase])
+
+  // Fetch today's events function (extracted so it can be called from multiple places)
+  const fetchTodayEvents = useCallback(async () => {
+    if (!user || !supabase) return
+
+    setLoadingEvents(true)
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+
+      const response = await axios.get('/api/events', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const events = response.data.events || []
+      // Get today's date in local timezone (YYYY-MM-DD format)
+      const today = new Date()
+      const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+      // Filter events for today
+      const todayTasks = events.filter((event) => {
+        if (!event.date) return false
+        // Extract date part (YYYY-MM-DD) from date string
+        const eventDate = event.date.split('T')[0]
+        return eventDate === todayString
+      })
+
+      // Sort by time
+      todayTasks.sort((a, b) => {
+        if (!a.time) return 1
+        if (!b.time) return -1
+        return a.time.localeCompare(b.time)
+      })
+
+      setTodayEvents(todayTasks)
+    } catch (err) {
+      console.error('Error fetching today events:', err)
+    } finally {
+      setLoadingEvents(false)
+    }
+  }, [user, supabase])
+
+  // Fetch today's events on mount and when user/supabase changes
+  useEffect(() => {
+    if (user) {
+      fetchTodayEvents()
+    }
+  }, [user, supabase, fetchTodayEvents])
+
+  // Listen for calendar update events to refresh today's tasks
+  useEffect(() => {
+    const handleCalendarUpdate = () => {
+      if (activeSection === 'overview' && user) {
+        fetchTodayEvents()
+      }
+    }
+
+    // Listen for custom event dispatched by Calendar component
+    window.addEventListener('calendar-events-updated', handleCalendarUpdate)
+    
+    return () => {
+      window.removeEventListener('calendar-events-updated', handleCalendarUpdate)
+    }
+  }, [activeSection, user, fetchTodayEvents])
+
+  // Refetch when navigating back to overview section
+  useEffect(() => {
+    if (activeSection === 'overview' && user) {
+      fetchTodayEvents()
+    }
+  }, [activeSection, user, fetchTodayEvents])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -305,6 +427,78 @@ function Dashboard() {
                         </p>
                       )}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Projects In Progress */}
+              <div className="space-y-4">
+                <h3 className="text-xl font-semibold text-gray-800">Projects In Progress</h3>
+                {loadingProjects ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pool-blue"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-400">
+                      <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Proposal Request</p>
+                      <p className="text-3xl font-bold text-gray-900">{projectsInProgress.proposalRequest}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                      <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Proposal Sent</p>
+                      <p className="text-3xl font-bold text-gray-900">{projectsInProgress.proposalSent}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                      <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Sold</p>
+                      <p className="text-3xl font-bold text-gray-900">{projectsInProgress.sold}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-pool-blue">
+                      <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Total</p>
+                      <p className="text-3xl font-bold text-gray-900">{projectsInProgress.total}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Today's Tasks */}
+              <div className="space-y-4">
+                <h3 className="text-xl font-semibold text-gray-800">Today's Tasks</h3>
+                {loadingEvents ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pool-blue"></div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    {todayEvents.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <p>No tasks scheduled for today</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {todayEvents.map((event) => (
+                          <div key={event.id} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-gray-900">{event.name}</h4>
+                                {event.time && (
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {(() => {
+                                      const [hours, minutes] = event.time.split(':')
+                                      const hour12 = parseInt(hours) % 12 || 12
+                                      const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM'
+                                      return `${hour12}:${minutes} ${ampm}`
+                                    })()}
+                                  </p>
+                                )}
+                                {event.employee_name && (
+                                  <p className="text-xs text-gray-400 mt-1">Assigned to: {event.employee_name}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

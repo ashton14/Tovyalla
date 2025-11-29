@@ -178,7 +178,11 @@ function Calendar() {
       setEditingEvent(null)
       resetForm()
       // Refetch events with current employeesMap
-      setTimeout(() => fetchEvents(employeesMap), 100)
+      setTimeout(() => {
+        fetchEvents(employeesMap)
+        // Dispatch custom event to notify Dashboard of calendar update
+        window.dispatchEvent(new CustomEvent('calendar-events-updated'))
+      }, 100)
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to save event')
     }
@@ -204,6 +208,8 @@ function Calendar() {
 
       setSuccess('Event deleted successfully!')
       fetchEvents(employeesMap)
+      // Dispatch custom event to notify Dashboard of calendar update
+      window.dispatchEvent(new CustomEvent('calendar-events-updated'))
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to delete event')
     }
