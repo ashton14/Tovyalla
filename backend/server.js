@@ -3396,6 +3396,446 @@ app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, r
   }
 });
 
+// Helper function to calculate data point value
+async function calculateDataPointValue(dataPointType, companyID, startDate) {
+  switch (dataPointType) {
+    case 'profit': {
+      // Get projects
+      let projectsQuery = supabase
+        .from('projects')
+        .select('id, est_value, created_at')
+        .eq('company_id', companyID);
+
+      if (startDate) {
+        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+      if (projectsError || !projects) return 0;
+
+      let totalEstValue = 0;
+      let totalExpenses = 0;
+
+      for (const project of projects) {
+        const estValue = parseFloat(project.est_value || 0);
+        totalEstValue += estValue;
+
+        // Get expenses for this project
+        const { data: subcontractorHours } = await supabase
+          .from('project_subcontractor_hours')
+          .select(`
+            hours,
+            rate,
+            subcontractors (
+              rate
+            )
+          `)
+          .eq('project_id', project.id);
+
+        const { data: materials } = await supabase
+          .from('project_materials')
+          .select('quantity, unit_cost')
+          .eq('project_id', project.id);
+
+        const { data: additionalExpenses } = await supabase
+          .from('project_additional_expenses')
+          .select('amount')
+          .eq('project_id', project.id);
+
+        // Calculate subcontractor costs
+        let subcontractorTotal = 0;
+        if (subcontractorHours) {
+          subcontractorHours.forEach((entry) => {
+            const rate = entry.rate || entry.subcontractors?.rate || 0;
+            subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+          });
+        }
+
+        // Calculate materials costs
+        let materialsTotal = 0;
+        if (materials) {
+          materials.forEach((entry) => {
+            materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+          });
+        }
+
+        // Calculate additional expenses
+        let additionalTotal = 0;
+        if (additionalExpenses) {
+          additionalExpenses.forEach((entry) => {
+            additionalTotal += parseFloat(entry.amount || 0);
+          });
+        }
+
+        totalExpenses += subcontractorTotal + materialsTotal + additionalTotal;
+      }
+
+      return totalEstValue - totalExpenses;
+    }
+
+    case 'est_value': {
+      let projectsQuery = supabase
+        .from('projects')
+        .select('est_value, created_at')
+        .eq('company_id', companyID);
+
+      if (startDate) {
+        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+      if (projectsError || !projects) return 0;
+
+      return projects.reduce((sum, p) => sum + (parseFloat(p.est_value) || 0), 0);
+    }
+
+    case 'leads': {
+      let customersQuery = supabase
+        .from('customers')
+        .select('id, created_at')
+        .eq('company_id', companyID)
+        .eq('pipeline_status', 'lead');
+
+      if (startDate) {
+        customersQuery = customersQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: leads, error: leadsError } = await customersQuery;
+      if (leadsError) return 0;
+
+      return (leads || []).length;
+    }
+
+    case 'projects_sold': {
+      let projectsQuery = supabase
+        .from('projects')
+        .select('id, status, created_at')
+        .eq('company_id', companyID)
+        .eq('status', 'sold');
+
+      if (startDate) {
+        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+      if (projectsError) return 0;
+
+      return (projects || []).length;
+    }
+
+    case 'total_customers': {
+      let customersQuery = supabase
+        .from('customers')
+        .select('id, created_at')
+        .eq('company_id', companyID);
+
+      if (startDate) {
+        customersQuery = customersQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: customers, error: customersError } = await customersQuery;
+      if (customersError) return 0;
+
+      return (customers || []).length;
+    }
+
+    case 'active_projects': {
+      let projectsQuery = supabase
+        .from('projects')
+        .select('id, status, created_at')
+        .eq('company_id', companyID)
+        .in('status', ['signed', 'in_progress']);
+
+      if (startDate) {
+        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+      if (projectsError) return 0;
+
+      return (projects || []).length;
+    }
+
+    case 'completed_projects': {
+      let projectsQuery = supabase
+        .from('projects')
+        .select('id, status, created_at')
+        .eq('company_id', companyID)
+        .eq('status', 'completed');
+
+      if (startDate) {
+        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
+      if (projectsError) return 0;
+
+      return (projects || []).length;
+    }
+
+    default:
+      return 0;
+  }
+}
+
+// Get available data point types
+app.get('/api/goals/data-points', async (req, res) => {
+  res.json({
+    dataPoints: [
+      { value: 'profit', label: 'Profit', icon: '💰', format: 'currency' },
+      { value: 'est_value', label: 'Estimated Value', icon: '📊', format: 'currency' },
+      { value: 'leads', label: 'Leads', icon: '🎯', format: 'number' },
+      { value: 'projects_sold', label: 'Projects Sold', icon: '✅', format: 'number' },
+      { value: 'total_customers', label: 'Total Customers', icon: '👥', format: 'number' },
+      { value: 'active_projects', label: 'Active Projects', icon: '🚧', format: 'number' },
+      { value: 'completed_projects', label: 'Completed Projects', icon: '🏁', format: 'number' },
+    ],
+  });
+});
+
+// Goals endpoints
+// Get all goals for a company
+app.get('/api/goals', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    // Get all goals for this company
+    const { data: goals, error: goalsError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('company_id', companyID)
+      .order('created_at', { ascending: false });
+
+    if (goalsError) {
+      return res.status(500).json({ error: goalsError.message });
+    }
+
+    // Calculate progress for each goal
+    const goalsWithProgress = await Promise.all(
+      (goals || []).map(async (goal) => {
+        // Use start_date if provided, otherwise use all time (null)
+        const startDate = goal.start_date ? new Date(goal.start_date) : null;
+        
+        const currentValue = await calculateDataPointValue(
+          goal.data_point_type,
+          companyID,
+          startDate
+        );
+
+        // Check if goal is overdue
+        const now = new Date();
+        const targetDate = goal.target_date ? new Date(goal.target_date) : null;
+        const isOverdue = targetDate && now > targetDate && currentValue < goal.target_value;
+
+        return {
+          ...goal,
+          current_value: currentValue,
+          progress_percentage: goal.target_value > 0 
+            ? Math.min((currentValue / goal.target_value) * 100, 100)
+            : 0,
+          is_overdue: isOverdue,
+        };
+      })
+    );
+
+    res.json({
+      goals: goalsWithProgress,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new goal
+app.post('/api/goals', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { goal_name, data_point_type, target_value, start_date, target_date } = req.body;
+
+    if (!goal_name || !data_point_type || target_value === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: goal_name, data_point_type, and target_value are required' });
+    }
+
+    const insertData = {
+      company_id: companyID,
+      goal_name,
+      data_point_type,
+      target_value: parseFloat(target_value),
+    };
+
+    // Add start_date if provided
+    if (start_date) {
+      insertData.start_date = new Date(start_date).toISOString();
+    }
+
+    // Add target_date if provided
+    if (target_date) {
+      insertData.target_date = new Date(target_date).toISOString();
+    }
+
+    const { data: newGoal, error: createError } = await supabase
+      .from('goals')
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (createError) {
+      return res.status(500).json({ error: createError.message });
+    }
+
+    res.json({ goal: newGoal, message: 'Goal created successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update a goal
+app.put('/api/goals/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { goal_name, data_point_type, target_value, start_date, target_date } = req.body;
+
+    // Verify goal belongs to company
+    const { data: existingGoal, error: checkError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existingGoal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    const updateData = {};
+    if (goal_name !== undefined) updateData.goal_name = goal_name;
+    if (data_point_type !== undefined) updateData.data_point_type = data_point_type;
+    if (target_value !== undefined) updateData.target_value = parseFloat(target_value);
+    if (start_date !== undefined) {
+      // If start_date is empty string, set to null (use Total/all time)
+      updateData.start_date = start_date ? new Date(start_date).toISOString() : null;
+    }
+    if (target_date !== undefined) {
+      // If target_date is empty string, set to null (remove target date)
+      updateData.target_date = target_date ? new Date(target_date).toISOString() : null;
+    }
+
+    const { data: updatedGoal, error: updateError } = await supabase
+      .from('goals')
+      .update(updateData)
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    res.json({ goal: updatedGoal, message: 'Goal updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete a goal
+app.delete('/api/goals/:id', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify goal belongs to company
+    const { data: existingGoal, error: checkError } = await supabase
+      .from('goals')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existingGoal) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    const { error: deleteError } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyID);
+
+    if (deleteError) {
+      return res.status(500).json({ error: deleteError.message });
+    }
+
+    res.json({ message: 'Goal deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

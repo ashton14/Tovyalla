@@ -9,6 +9,7 @@ import Inventory from '../components/Inventory'
 import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
+import Goals from '../components/Goals'
 
 function Dashboard() {
   const { user, logout, loading, supabase } = useAuth()
@@ -335,6 +336,16 @@ function Dashboard() {
           >
             <span className="font-medium">Calendar</span>
           </button>
+          <button
+            onClick={() => setActiveSection('goals')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'goals'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className="font-medium">Goals</span>
+          </button>
         </nav>
 
         {/* User Info & Logout */}
@@ -512,6 +523,7 @@ function Dashboard() {
           {activeSection === 'subcontractors' && <Subcontractors />}
           {activeSection === 'employees' && <Employees />}
           {activeSection === 'calendar' && <Calendar />}
+          {activeSection === 'goals' && <Goals />}
         </div>
       </main>
     </div>
