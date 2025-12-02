@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import EmailWhitelist from './EmailWhitelist'
+import DocumentsModal from './DocumentsModal'
 
 const USER_TYPES = [
   { value: 'admin', label: 'Admin' },
@@ -32,6 +33,8 @@ function Employees() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false)
+  const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -651,6 +654,19 @@ function Employees() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
+                          onClick={() => {
+                            setSelectedEntityForDocuments({
+                              id: employee.id,
+                              name: employee.name || 'Employee',
+                            })
+                            setShowDocumentsModal(true)
+                          }}
+                          className="text-green-600 hover:text-green-800 mr-4"
+                          title="View Documents"
+                        >
+                          Documents
+                        </button>
+                        <button
                           onClick={() => handleEdit(employee)}
                           className="text-pool-blue hover:text-pool-dark mr-4"
                         >
@@ -726,6 +742,19 @@ function Employees() {
       )}
 
       {activeTab === 'whitelist' && <EmailWhitelist />}
+
+      {/* Documents Modal */}
+      {showDocumentsModal && selectedEntityForDocuments && (
+        <DocumentsModal
+          entityType="employees"
+          entityId={selectedEntityForDocuments.id}
+          entityName={selectedEntityForDocuments.name}
+          onClose={() => {
+            setShowDocumentsModal(false)
+            setSelectedEntityForDocuments(null)
+          }}
+        />
+      )}
     </div>
   )
 }

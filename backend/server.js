@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -18,6 +19,14 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads (store in memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+});
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -3081,6 +3090,308 @@ app.delete('/api/events/:id', async (req, res) => {
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('Delete event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ========== DOCUMENT MANAGEMENT ENDPOINTS ==========
+
+// List documents for an entity
+app.get('/api/documents/:entityType/:entityId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { entityType, entityId } = req.params;
+    const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
+    
+    if (!validEntityTypes.includes(entityType)) {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    // Verify entity belongs to user's company
+    const tableName = entityType === 'inventory' ? 'inventory' : entityType;
+    const { data: entity, error: entityError } = await supabase
+      .from(tableName)
+      .select('id, company_id')
+      .eq('id', entityId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (entityError || !entity) {
+      return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // List files from Supabase Storage
+    // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
+    const storagePath = `${entityType}/${companyID}/${entityId}`;
+    console.log('📋 List Documents Debug:');
+    console.log('  - Company ID:', companyID);
+    console.log('  - Entity Type:', entityType);
+    console.log('  - Entity ID:', entityId);
+    console.log('  - Storage Path:', storagePath);
+    console.log('  - Path parts:', storagePath.split('/'));
+    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
+    
+    const { data: files, error: storageError } = await supabase.storage
+      .from('documents')
+      .list(storagePath);
+
+    console.log('  - List Response:', { files: files?.length || 0, error: storageError });
+
+    if (storageError) {
+      console.error('  - Storage Error Details:', {
+        message: storageError.message,
+        statusCode: storageError.statusCode,
+        error: storageError.error,
+      });
+      // If bucket doesn't exist or path doesn't exist, return empty array
+      if (storageError.message.includes('not found') || storageError.message.includes('Bucket')) {
+        return res.json({ documents: [] });
+      }
+      return res.status(500).json({ error: storageError.message });
+    }
+
+    // Format file list
+    const documents = (files || []).map(file => ({
+      name: file.name,
+      path: `${storagePath}/${file.name}`,
+      size: file.metadata?.size || 0,
+      created_at: file.created_at,
+      updated_at: file.updated_at,
+    }));
+
+    res.json({ documents });
+  } catch (error) {
+    console.error('List documents error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Upload document via backend (bypasses RLS using service role key)
+// This endpoint accepts file uploads via multipart/form-data and uses the service role key to bypass RLS
+app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // Verify user authentication
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { entityType, entityId } = req.params;
+    const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
+    
+    if (!validEntityTypes.includes(entityType)) {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    // Verify entity belongs to user's company
+    const tableName = entityType === 'inventory' ? 'inventory' : entityType;
+    const { data: entity, error: entityError } = await supabase
+      .from(tableName)
+      .select('id, company_id')
+      .eq('id', entityId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (entityError || !entity) {
+      return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Upload using service role key (bypasses RLS)
+    const storagePath = `${entityType}/${companyID}/${entityId}/${req.file.originalname}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return res.status(500).json({ error: uploadError.message });
+    }
+
+    res.json({ 
+      success: true, 
+      path: uploadData.path,
+      message: 'Document uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete document
+app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { entityType, entityId, fileName } = req.params;
+    const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
+    
+    if (!validEntityTypes.includes(entityType)) {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    // Verify entity belongs to user's company
+    const tableName = entityType === 'inventory' ? 'inventory' : entityType;
+    const { data: entity, error: entityError } = await supabase
+      .from(tableName)
+      .select('id, company_id')
+      .eq('id', entityId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (entityError || !entity) {
+      return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // Delete file from Supabase Storage
+    // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
+    const storagePath = `${entityType}/${companyID}/${entityId}/${fileName}`;
+    console.log('🗑️ Delete Document Debug:');
+    console.log('  - Storage Path:', storagePath);
+    console.log('  - Path parts:', storagePath.split('/'));
+    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
+    
+    const { error: deleteError } = await supabase.storage
+      .from('documents')
+      .remove([storagePath]);
+
+    console.log('  - Delete Response:', { error: deleteError });
+
+    if (deleteError) {
+      console.error('  - Delete Error Details:', {
+        message: deleteError.message,
+        statusCode: deleteError.statusCode,
+        error: deleteError.error,
+      });
+      return res.status(500).json({ error: deleteError.message });
+    }
+
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Delete document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get document download URL
+app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { entityType, entityId, fileName } = req.params;
+    const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
+    
+    if (!validEntityTypes.includes(entityType)) {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    // Verify entity belongs to user's company
+    const tableName = entityType === 'inventory' ? 'inventory' : entityType;
+    const { data: entity, error: entityError } = await supabase
+      .from(tableName)
+      .select('id, company_id')
+      .eq('id', entityId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (entityError || !entity) {
+      return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // Get signed URL for download (valid for 1 hour)
+    // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
+    const storagePath = `${entityType}/${companyID}/${entityId}/${fileName}`;
+    console.log('⬇️ Download URL Debug:');
+    console.log('  - Storage Path:', storagePath);
+    console.log('  - Path parts:', storagePath.split('/'));
+    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
+    
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+    console.log('  - URL Response:', { url: urlData?.signedUrl ? 'Generated' : 'None', error: urlError });
+
+    if (urlError) {
+      console.error('  - URL Error Details:', {
+        message: urlError.message,
+        statusCode: urlError.statusCode,
+        error: urlError.error,
+      });
+      return res.status(500).json({ error: urlError.message });
+    }
+
+    res.json({ url: urlData.signedUrl });
+  } catch (error) {
+    console.error('Get download URL error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

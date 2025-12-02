@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import DocumentsModal from './DocumentsModal'
 
 function Inventory() {
   const { user, supabase } = useAuth()
@@ -17,6 +18,8 @@ function Inventory() {
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
   const [importErrors, setImportErrors] = useState([])
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false)
+  const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -864,6 +867,19 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
           </p>
         </div>
       </div>
+
+      {/* Documents Modal */}
+      {showDocumentsModal && selectedEntityForDocuments && (
+        <DocumentsModal
+          entityType="inventory"
+          entityId={selectedEntityForDocuments.id}
+          entityName={selectedEntityForDocuments.name}
+          onClose={() => {
+            setShowDocumentsModal(false)
+            setSelectedEntityForDocuments(null)
+          }}
+        />
+      )}
     </div>
   )
 }

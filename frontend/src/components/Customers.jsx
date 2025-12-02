@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import DocumentsModal from './DocumentsModal'
 
 const PIPELINE_STATUSES = [
   { value: 'lead', label: 'Lead', color: 'bg-gray-100 text-gray-800' },
@@ -29,6 +30,8 @@ function Customers() {
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
   const [importErrors, setImportErrors] = useState([])
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false)
+  const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -898,6 +901,19 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
+                          onClick={() => {
+                            setSelectedEntityForDocuments({
+                              id: customer.id,
+                              name: `${customer.first_name} ${customer.last_name}`,
+                            })
+                            setShowDocumentsModal(true)
+                          }}
+                          className="text-green-600 hover:text-green-800 mr-4"
+                          title="View Documents"
+                        >
+                          Documents
+                        </button>
+                        <button
                           onClick={() => handleEdit(customer)}
                           className="text-pool-blue hover:text-pool-dark mr-4"
                         >
@@ -996,6 +1012,19 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
           </p>
         </div>
       </div>
+
+      {/* Documents Modal */}
+      {showDocumentsModal && selectedEntityForDocuments && (
+        <DocumentsModal
+          entityType="customers"
+          entityId={selectedEntityForDocuments.id}
+          entityName={selectedEntityForDocuments.name}
+          onClose={() => {
+            setShowDocumentsModal(false)
+            setSelectedEntityForDocuments(null)
+          }}
+        />
+      )}
     </div>
   )
 }

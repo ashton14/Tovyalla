@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import ProjectExpenses from './ProjectExpenses'
+import DocumentsModal from './DocumentsModal'
 
 const PROJECT_TYPES = [
   { value: 'residential', label: 'Residential' },
@@ -42,6 +43,8 @@ function Projects() {
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
   const [importErrors, setImportErrors] = useState([])
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false)
+  const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -995,8 +998,21 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => setSelectedProjectForExpenses(project)}
+                          onClick={() => {
+                            setSelectedEntityForDocuments({
+                              id: project.id,
+                              name: project.address || `Project ${project.id.substring(0, 8)}`,
+                            })
+                            setShowDocumentsModal(true)
+                          }}
                           className="text-green-600 hover:text-green-800 mr-4"
+                          title="View Documents"
+                        >
+                          Documents
+                        </button>
+                        <button
+                          onClick={() => setSelectedProjectForExpenses(project)}
+                          className="text-purple-600 hover:text-purple-800 mr-4"
                         >
                           Expenses
                         </button>
@@ -1106,6 +1122,19 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
         <ProjectExpenses
           project={selectedProjectForExpenses}
           onClose={() => setSelectedProjectForExpenses(null)}
+        />
+      )}
+
+      {/* Documents Modal */}
+      {showDocumentsModal && selectedEntityForDocuments && (
+        <DocumentsModal
+          entityType="projects"
+          entityId={selectedEntityForDocuments.id}
+          entityName={selectedEntityForDocuments.name}
+          onClose={() => {
+            setShowDocumentsModal(false)
+            setSelectedEntityForDocuments(null)
+          }}
         />
       )}
     </div>
