@@ -30,6 +30,8 @@ function Employees() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   // Form state
   const [formData, setFormData] = useState({
@@ -210,6 +212,17 @@ function Employees() {
       employee.user_role?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
 
   if (loading) {
     return (
@@ -563,7 +576,7 @@ function Employees() {
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((employee) => {
+                paginatedEmployees.map((employee) => {
                   const roles = []
                   if (employee.is_project_manager) roles.push('PM')
                   if (employee.is_sales_person) roles.push('Sales')
@@ -658,6 +671,57 @@ function Employees() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {activeTab === 'employees' && filteredEmployees.length > itemsPerPage && (
+        <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing {startIndex + 1} to {Math.min(endIndex, filteredEmployees.length)} of {filteredEmployees.length} employees
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                        currentPage === page
+                          ? 'bg-pool-blue text-white border-pool-blue'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-2 text-gray-500">...</span>
+                }
+                return null
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
         </div>
       )}
 

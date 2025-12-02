@@ -23,6 +23,8 @@ function Customers() {
   const [success, setSuccess] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
   const [showImportModal, setShowImportModal] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
@@ -204,6 +206,17 @@ function Customers() {
     
     return matchesSearch && matchesStatus
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filterStatus])
 
   const getStatusBadge = (status) => {
     const statusObj = PIPELINE_STATUSES.find((s) => s.value === status)
@@ -845,7 +858,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((customer) => {
+                paginatedCustomers.map((customer) => {
                   const statusBadge = getStatusBadge(customer.pipeline_status)
                   return (
                     <tr key={customer.id} className="hover:bg-gray-50">
@@ -905,6 +918,58 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {filteredCustomers.length > itemsPerPage && (
+        <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing {startIndex + 1} to {Math.min(endIndex, filteredCustomers.length)} of {filteredCustomers.length} customers
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first page, last page, current page, and pages around current
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                        currentPage === page
+                          ? 'bg-pool-blue text-white border-pool-blue'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-2 text-gray-500">...</span>
+                }
+                return null
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
