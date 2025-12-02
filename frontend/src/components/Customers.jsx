@@ -909,9 +909,9 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                             setShowDocumentsModal(true)
                           }}
                           className="text-green-600 hover:text-green-800 mr-4"
-                          title="View Documents"
+                          title="View Files"
                         >
-                          Documents
+                          Files
                         </button>
                         <button
                           onClick={() => handleEdit(customer)}

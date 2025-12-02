@@ -775,6 +775,19 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
+                        onClick={() => {
+                          setSelectedEntityForDocuments({
+                            id: material.id,
+                            name: material.name,
+                          })
+                          setShowDocumentsModal(true)
+                        }}
+                        className="text-green-600 hover:text-green-800 mr-4"
+                        title="View Files"
+                      >
+                        Files
+                      </button>
+                      <button
                         onClick={() => handleEdit(material)}
                         className="text-pool-blue hover:text-pool-dark mr-4"
                       >
