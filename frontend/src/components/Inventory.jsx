@@ -2,11 +2,24 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
+import {
+  useInventory,
+  useCreateInventoryItem,
+  useUpdateInventoryItem,
+  useDeleteInventoryItem,
+} from '../hooks/useApi'
 
 function Inventory() {
   const { user, supabase } = useAuth()
-  const [materials, setMaterials] = useState([])
-  const [loading, setLoading] = useState(true)
+  
+  // Use cached query for inventory
+  const { data: materials = [], isLoading: loading, refetch } = useInventory()
+  
+  // Mutations
+  const createItem = useCreateInventoryItem()
+  const updateItem = useUpdateInventoryItem()
+  const deleteItem = useDeleteInventoryItem()
+
   const [showForm, setShowForm] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState(null)
   const [error, setError] = useState('')
@@ -32,43 +45,12 @@ function Inventory() {
     unit_price: '',
   })
 
-  // Get auth token
+  // Get auth token for CSV import
   const getAuthToken = async () => {
     if (!supabase) return null
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || null
   }
-
-  // Fetch materials
-  const fetchMaterials = async () => {
-    setLoading(true)
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const response = await axios.get('/api/inventory', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setMaterials(response.data.materials || [])
-    } catch (err) {
-      console.error('Error fetching materials:', err)
-      // If API doesn't exist yet, just set empty array
-      setMaterials([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchMaterials()
-    }
-  }, [user])
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -76,38 +58,24 @@ function Inventory() {
     setError('')
     setSuccess('')
 
+    const payload = {
+      ...formData,
+      stock: formData.stock ? parseInt(formData.stock) : 0,
+      unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
+    }
+
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const payload = {
-        ...formData,
-        stock: formData.stock ? parseInt(formData.stock) : 0,
-        unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
-      }
-
       if (editingMaterial) {
-        await axios.put(`/api/inventory/${editingMaterial.id}`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await updateItem.mutateAsync({ id: editingMaterial.id, data: payload })
         setSuccess('Material updated successfully!')
       } else {
-        await axios.post('/api/inventory', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await createItem.mutateAsync(payload)
         setSuccess('Material added successfully!')
       }
 
       setShowForm(false)
       setEditingMaterial(null)
       resetForm()
-      fetchMaterials()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to save material')
     }
@@ -120,19 +88,8 @@ function Inventory() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      await axios.delete(`/api/inventory/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      await deleteItem.mutateAsync(id)
       setSuccess('Material deleted successfully!')
-      fetchMaterials()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to delete material')
     }
@@ -369,7 +326,8 @@ function Inventory() {
       
       if (successCount > 0) {
         setSuccess(`Successfully imported ${successCount} material(s)${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
-        fetchMaterials()
+        // Refetch to update cache
+        refetch()
       } else {
         setError(`Failed to import all materials. ${failedCount} error(s).`)
       }
@@ -693,9 +651,10 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
+                    disabled={createItem.isPending || updateItem.isPending}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
-                    {editingMaterial ? 'Update Material' : 'Add Material'}
+                    {(createItem.isPending || updateItem.isPending) ? 'Saving...' : (editingMaterial ? 'Update Material' : 'Add Material')}
                   </button>
                 </div>
               </form>
@@ -795,7 +754,8 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                       </button>
                       <button
                         onClick={() => handleDelete(material.id)}
-                        className="text-red-600 hover:text-red-800"
+                        disabled={deleteItem.isPending}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
                       >
                         Delete
                       </button>
@@ -898,4 +858,3 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
 }
 
 export default Inventory
-

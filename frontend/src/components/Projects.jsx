@@ -3,6 +3,13 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import ProjectExpenses from './ProjectExpenses'
 import DocumentsModal from './DocumentsModal'
+import {
+  useProjects,
+  useCustomers,
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
+} from '../hooks/useApi'
 
 const PROJECT_TYPES = [
   { value: 'residential', label: 'Residential' },
@@ -26,9 +33,16 @@ const PROJECT_STATUSES = [
 
 function Projects() {
   const { user, supabase } = useAuth()
-  const [projects, setProjects] = useState([])
-  const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(true)
+  
+  // Use cached queries
+  const { data: projects = [], isLoading: loading, refetch } = useProjects()
+  const { data: customers = [] } = useCustomers()
+  
+  // Mutations
+  const createProject = useCreateProject()
+  const updateProject = useUpdateProject()
+  const deleteProject = useDeleteProject()
+
   const [showForm, setShowForm] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
   const [error, setError] = useState('')
@@ -60,62 +74,12 @@ function Projects() {
     notes: '',
   })
 
-  // Get auth token
+  // Get auth token for CSV import
   const getAuthToken = async () => {
     if (!supabase) return null
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || null
   }
-
-  // Fetch customers for dropdown
-  const fetchCustomers = async () => {
-    try {
-      const token = await getAuthToken()
-      if (!token) return
-
-      const response = await axios.get('/api/customers', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setCustomers(response.data.customers || [])
-    } catch (err) {
-      console.error('Error fetching customers:', err)
-    }
-  }
-
-  // Fetch projects
-  const fetchProjects = async () => {
-    setLoading(true)
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const response = await axios.get('/api/projects', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setProjects(response.data.projects || [])
-    } catch (err) {
-      console.error('Error fetching projects:', err)
-      setError('Failed to load projects')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchCustomers()
-      fetchProjects()
-    }
-  }, [user])
-
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -123,39 +87,25 @@ function Projects() {
     setError('')
     setSuccess('')
 
+    const payload = {
+      ...formData,
+      sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
+      est_value: formData.est_value ? parseFloat(formData.est_value) : null,
+      customer_id: formData.customer_id || null,
+    }
+
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const payload = {
-        ...formData,
-        sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
-        est_value: formData.est_value ? parseFloat(formData.est_value) : null,
-        customer_id: formData.customer_id || null,
-      }
-
       if (editingProject) {
-        await axios.put(`/api/projects/${editingProject.id}`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await updateProject.mutateAsync({ id: editingProject.id, data: payload })
         setSuccess('Project updated successfully!')
       } else {
-        await axios.post('/api/projects', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await createProject.mutateAsync(payload)
         setSuccess('Project added successfully!')
       }
 
       setShowForm(false)
       setEditingProject(null)
       resetForm()
-      fetchProjects()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to save project')
     }
@@ -168,19 +118,8 @@ function Projects() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      await axios.delete(`/api/projects/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      await deleteProject.mutateAsync(id)
       setSuccess('Project deleted successfully!')
-      fetchProjects()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to delete project')
     }
@@ -488,7 +427,8 @@ function Projects() {
       
       if (successCount > 0) {
         setSuccess(`Successfully imported ${successCount} project(s)${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
-        fetchProjects()
+        // Refetch to update cache
+        refetch()
       } else {
         setError(`Failed to import all projects. ${failedCount} error(s).`)
       }
@@ -896,9 +836,10 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
+                    disabled={createProject.isPending || updateProject.isPending}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
-                    {editingProject ? 'Update Project' : 'Add Project'}
+                    {(createProject.isPending || updateProject.isPending) ? 'Saving...' : (editingProject ? 'Update Project' : 'Add Project')}
                   </button>
                 </div>
               </form>
@@ -1024,7 +965,8 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                         </button>
                         <button
                           onClick={() => handleDelete(project.id)}
-                          className="text-red-600 hover:text-red-800"
+                          disabled={deleteProject.isPending}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50"
                         >
                           Delete
                         </button>
@@ -1142,4 +1084,3 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
 }
 
 export default Projects
-

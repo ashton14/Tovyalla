@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
+import {
+  useCustomers,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
+} from '../hooks/useApi'
 
 const PIPELINE_STATUSES = [
   { value: 'lead', label: 'Lead', color: 'bg-gray-100 text-gray-800' },
@@ -16,8 +22,15 @@ const PIPELINE_STATUSES = [
 
 function Customers() {
   const { user, supabase } = useAuth()
-  const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(true)
+  
+  // Use cached query for customers
+  const { data: customers = [], isLoading: loading, refetch } = useCustomers()
+  
+  // Mutations
+  const createCustomer = useCreateCustomer()
+  const updateCustomer = useUpdateCustomer()
+  const deleteCustomer = useDeleteCustomer()
+
   const [showForm, setShowForm] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
   const [error, setError] = useState('')
@@ -51,42 +64,12 @@ function Customers() {
     estimated_value: '',
   })
 
-  // Get auth token
+  // Get auth token for CSV import
   const getAuthToken = async () => {
     if (!supabase) return null
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || null
   }
-
-  // Fetch customers
-  const fetchCustomers = async () => {
-    setLoading(true)
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const response = await axios.get('/api/customers', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setCustomers(response.data.customers || [])
-    } catch (err) {
-      console.error('Error fetching customers:', err)
-      setError('Failed to load customers')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchCustomers()
-    }
-  }, [user])
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -94,37 +77,23 @@ function Customers() {
     setError('')
     setSuccess('')
 
+    const payload = {
+      ...formData,
+      estimated_value: formData.estimated_value ? parseFloat(formData.estimated_value) : null,
+    }
+
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const payload = {
-        ...formData,
-        estimated_value: formData.estimated_value ? parseFloat(formData.estimated_value) : null,
-      }
-
       if (editingCustomer) {
-        await axios.put(`/api/customers/${editingCustomer.id}`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await updateCustomer.mutateAsync({ id: editingCustomer.id, data: payload })
         setSuccess('Customer updated successfully!')
       } else {
-        await axios.post('/api/customers', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        await createCustomer.mutateAsync(payload)
         setSuccess('Customer added successfully!')
       }
 
       setShowForm(false)
       setEditingCustomer(null)
       resetForm()
-      fetchCustomers()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to save customer')
     }
@@ -137,19 +106,8 @@ function Customers() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      await axios.delete(`/api/customers/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      await deleteCustomer.mutateAsync(id)
       setSuccess('Customer deleted successfully!')
-      fetchCustomers()
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to delete customer')
     }
@@ -399,7 +357,8 @@ function Customers() {
       
       if (successCount > 0) {
         setSuccess(`Successfully imported ${successCount} customer(s)${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
-        fetchCustomers()
+        // Refetch to update cache
+        refetch()
       } else {
         setError(`Failed to import all customers. ${failedCount} error(s).`)
       }
@@ -811,9 +770,10 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
+                    disabled={createCustomer.isPending || updateCustomer.isPending}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
-                    {editingCustomer ? 'Update Customer' : 'Add Customer'}
+                    {(createCustomer.isPending || updateCustomer.isPending) ? 'Saving...' : (editingCustomer ? 'Update Customer' : 'Add Customer')}
                   </button>
                 </div>
               </form>
@@ -921,7 +881,8 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                         </button>
                         <button
                           onClick={() => handleDelete(customer.id)}
-                          className="text-red-600 hover:text-red-800"
+                          disabled={deleteCustomer.isPending}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50"
                         >
                           Delete
                         </button>
@@ -1030,4 +991,3 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
 }
 
 export default Customers
-

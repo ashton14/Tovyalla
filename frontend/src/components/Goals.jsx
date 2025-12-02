@@ -1,14 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import axios from 'axios'
+import {
+  useGoals,
+  useGoalDataPoints,
+  useCreateGoal,
+  useUpdateGoal,
+  useDeleteGoal,
+} from '../hooks/useApi'
 
 function Goals() {
-  const { user, supabase } = useAuth()
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  
+  // Use cached queries
+  const { data: goals = [], isLoading: loading } = useGoals()
+  const { data: dataPoints = [] } = useGoalDataPoints()
+  
+  // Mutations
+  const createGoal = useCreateGoal()
+  const updateGoal = useUpdateGoal()
+  const deleteGoal = useDeleteGoal()
+
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [goals, setGoals] = useState([])
-  const [dataPoints, setDataPoints] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editingGoal, setEditingGoal] = useState(null)
   const [formData, setFormData] = useState({
@@ -19,114 +32,32 @@ function Goals() {
     target_date: '',
   })
 
-  // Get auth token
-  const getAuthToken = async () => {
-    if (!supabase) return null
-    const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
-  }
-
-  // Fetch available data points
-  const fetchDataPoints = async () => {
-    try {
-      const token = await getAuthToken()
-      if (!token) return
-
-      const response = await axios.get('/api/goals/data-points', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setDataPoints(response.data.dataPoints || [])
-    } catch (err) {
-      // Error fetching data points
-    }
-  }
-
-  // Fetch goals
-  const fetchGoals = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const response = await axios.get('/api/goals', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setGoals(response.data.goals || [])
-    } catch (err) {
-      setError('Failed to load goals')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchDataPoints()
-      fetchGoals()
-    }
-  }, [user])
-
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
 
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+    const payload = {
+      goal_name: formData.goal_name,
+      data_point_type: formData.data_point_type,
+      target_value: parseFloat(formData.target_value),
+      start_date: formData.start_date || null,
+      target_date: formData.target_date || null,
+    }
 
+    try {
       if (editingGoal) {
-        await axios.put(
-          `/api/goals/${editingGoal.id}`,
-          {
-            goal_name: formData.goal_name,
-            data_point_type: formData.data_point_type,
-            target_value: parseFloat(formData.target_value),
-            start_date: formData.start_date || null,
-            target_date: formData.target_date || null,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
+        await updateGoal.mutateAsync({ id: editingGoal.id, data: payload })
         setSuccess('Goal updated successfully!')
       } else {
-        await axios.post(
-          '/api/goals',
-          {
-            goal_name: formData.goal_name,
-            data_point_type: formData.data_point_type,
-            target_value: parseFloat(formData.target_value),
-            start_date: formData.start_date || null,
-            target_date: formData.target_date || null,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
+        await createGoal.mutateAsync(payload)
         setSuccess('Goal created successfully!')
       }
 
       setShowForm(false)
       setEditingGoal(null)
       resetForm()
-      fetchGoals()
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save goal')
@@ -141,19 +72,8 @@ function Goals() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      await axios.delete(`/api/goals/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      await deleteGoal.mutateAsync(id)
       setSuccess('Goal deleted successfully!')
-      fetchGoals()
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete goal')
@@ -375,9 +295,10 @@ function Goals() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
+                    disabled={createGoal.isPending || updateGoal.isPending}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
-                    {editingGoal ? 'Update Goal' : 'Create Goal'}
+                    {(createGoal.isPending || updateGoal.isPending) ? 'Saving...' : (editingGoal ? 'Update Goal' : 'Create Goal')}
                   </button>
                 </div>
               </form>
@@ -492,7 +413,8 @@ function Goals() {
                     </button>
                     <button
                       onClick={() => handleDelete(goal.id)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
+                      disabled={deleteGoal.isPending}
+                      className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
                       title="Delete goal"
                     >
                       <svg
