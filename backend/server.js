@@ -403,6 +403,151 @@ app.delete('/api/whitelist/:id', async (req, res) => {
   }
 });
 
+// ========== COMPANY INFO ENDPOINTS ==========
+
+// Get company information
+app.get('/api/company', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    // Get company info
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('company_id', companyID)
+      .single();
+
+    if (companyError && companyError.code !== 'PGRST116') {
+      // PGRST116 is "not found" - that's okay, we'll create it
+      return res.status(500).json({ error: companyError.message });
+    }
+
+    // If company doesn't exist, return empty object
+    res.json({ company: company || null });
+  } catch (error) {
+    console.error('Get company error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update company information
+app.put('/api/company', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const {
+      company_name,
+      address_line1,
+      address_line2,
+      city,
+      state,
+      zip_code,
+      country,
+      phone,
+      email,
+      website,
+    } = req.body;
+
+    // Check if company exists
+    const { data: existing, error: checkError } = await supabase
+      .from('companies')
+      .select('company_id')
+      .eq('company_id', companyID)
+      .single();
+
+    let result;
+    if (checkError && checkError.code === 'PGRST116') {
+      // Company doesn't exist, create it
+      const { data, error } = await supabase
+        .from('companies')
+        .insert([
+          {
+            company_id: companyID,
+            company_name: company_name || null,
+            address_line1: address_line1 || null,
+            address_line2: address_line2 || null,
+            city: city || null,
+            state: state || null,
+            zip_code: zip_code || null,
+            country: country || 'USA',
+            phone: phone || null,
+            email: email || null,
+            website: website || null,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      result = data;
+    } else {
+      // Company exists, update it
+      const { data, error } = await supabase
+        .from('companies')
+        .update({
+          company_name: company_name || null,
+          address_line1: address_line1 || null,
+          address_line2: address_line2 || null,
+          city: city || null,
+          state: state || null,
+          zip_code: zip_code || null,
+          country: country || 'USA',
+          phone: phone || null,
+          email: email || null,
+          website: website || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('company_id', companyID)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      result = data;
+    }
+
+    res.json({ company: result });
+  } catch (error) {
+    console.error('Update company error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all customers for a company
 app.get('/api/customers', async (req, res) => {
   try {
