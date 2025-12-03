@@ -675,6 +675,8 @@ app.post('/api/customers', async (req, res) => {
       return res.status(400).json({ error: 'First name and last name are required' });
     }
 
+    const initialStatus = pipeline_status || 'lead';
+
     const { data, error } = await supabase
       .from('customers')
       .insert([
@@ -691,7 +693,7 @@ app.post('/api/customers', async (req, res) => {
           zip_code: zip_code || null,
           country: country || 'USA',
           referred_by: referred_by || null,
-          pipeline_status: pipeline_status || 'lead',
+          pipeline_status: initialStatus,
           notes: notes || null,
           estimated_value: estimated_value || null,
           created_by: user.id,
@@ -703,6 +705,16 @@ app.post('/api/customers', async (req, res) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
+
+    // Track initial status
+    await supabase
+      .from('customer_status_history')
+      .insert({
+        customer_id: data.id,
+        company_id: companyID,
+        status: initialStatus,
+        changed_at: new Date().toISOString(),
+      });
 
     res.json({ customer: data });
   } catch (error) {
@@ -761,6 +773,9 @@ app.put('/api/customers/:id', async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    const newStatus = pipeline_status || 'lead';
+    const statusChanged = existing.pipeline_status !== newStatus;
+
     const { data, error } = await supabase
       .from('customers')
       .update({
@@ -775,7 +790,7 @@ app.put('/api/customers/:id', async (req, res) => {
         zip_code: zip_code || null,
         country: country || 'USA',
         referred_by: referred_by || null,
-        pipeline_status: pipeline_status || 'lead',
+        pipeline_status: newStatus,
         notes: notes || null,
         estimated_value: estimated_value || null,
         updated_at: new Date().toISOString(),
@@ -787,6 +802,21 @@ app.put('/api/customers/:id', async (req, res) => {
 
     if (error) {
       return res.status(500).json({ error: error.message });
+    }
+
+    // Track status change if status changed
+    if (statusChanged) {
+      await supabase
+        .from('customer_status_history')
+        .upsert({
+          customer_id: id,
+          company_id: companyID,
+          status: newStatus,
+          changed_at: new Date().toISOString(),
+        }, {
+          onConflict: 'customer_id,status',
+          ignoreDuplicates: false,
+        });
     }
 
     res.json({ customer: data });
@@ -939,23 +969,37 @@ app.get('/api/projects/statistics', async (req, res) => {
       }
     }
 
-    // Build query for projects
-    let projectsQuery = supabase
-      .from('projects')
-      .select('id, est_value, created_at')
-      .eq('company_id', companyID);
+    // Get projects marked as sold or complete from status history
+    let soldQuery = supabase
+      .from('project_status_history')
+      .select('project_id, projects!inner(est_value)')
+      .eq('company_id', companyID)
+      .eq('status', 'sold');
+
+    let completeQuery = supabase
+      .from('project_status_history')
+      .select('project_id, projects!inner(est_value)')
+      .eq('company_id', companyID)
+      .eq('status', 'complete');
 
     if (startDate) {
-      projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+      soldQuery = soldQuery.gte('changed_at', startDate.toISOString());
+      completeQuery = completeQuery.gte('changed_at', startDate.toISOString());
     }
 
-    const { data: projects, error: projectsError } = await projectsQuery;
+    const [{ data: soldHistory }, { data: completeHistory }] = await Promise.all([
+      soldQuery,
+      completeQuery,
+    ]);
 
-    if (projectsError) {
-      return res.status(500).json({ error: projectsError.message });
-    }
+    // Combine sold and complete, avoiding duplicates
+    const processedProjectIds = new Set();
+    const allProjects = [
+      ...(soldHistory || []),
+      ...(completeHistory || []),
+    ];
 
-    if (!projects || projects.length === 0) {
+    if (allProjects.length === 0) {
       return res.json({
         totalEstValue: 0,
         totalProfit: 0,
@@ -965,16 +1009,19 @@ app.get('/api/projects/statistics', async (req, res) => {
       });
     }
 
-    // Get all project IDs
-    const projectIds = projects.map((p) => p.id);
-
-    // Calculate expenses for all projects
+    // Calculate value and expenses for sold/complete projects
     let totalEstValue = 0;
     let totalExpenses = 0;
+    let projectCount = 0;
 
-    for (const project of projects) {
-      const estValue = parseFloat(project.est_value || 0);
+    for (const record of allProjects) {
+      // Skip duplicates
+      if (processedProjectIds.has(record.project_id)) continue;
+      processedProjectIds.add(record.project_id);
+
+      const estValue = parseFloat(record.projects?.est_value || 0);
       totalEstValue += estValue;
+      projectCount++;
 
       // Get expenses for this project
       const { data: subcontractorHours } = await supabase
@@ -986,17 +1033,17 @@ app.get('/api/projects/statistics', async (req, res) => {
             rate
           )
         `)
-        .eq('project_id', project.id);
+        .eq('project_id', record.project_id);
 
       const { data: materials } = await supabase
         .from('project_materials')
         .select('quantity, unit_cost')
-        .eq('project_id', project.id);
+        .eq('project_id', record.project_id);
 
       const { data: additionalExpenses } = await supabase
         .from('project_additional_expenses')
         .select('amount')
-        .eq('project_id', project.id);
+        .eq('project_id', record.project_id);
 
       // Calculate subcontractor costs
       let subcontractorTotal = 0;
@@ -1032,11 +1079,171 @@ app.get('/api/projects/statistics', async (req, res) => {
       totalEstValue: totalEstValue,
       totalProfit: totalProfit,
       totalExpenses: totalExpenses,
-      projectCount: projects.length,
+      projectCount: projectCount,
       period: period,
     });
   } catch (error) {
     console.error('Get project statistics error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get monthly statistics for dashboard chart
+app.get('/api/projects/monthly-statistics', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { year = new Date().getFullYear() } = req.query;
+    const yearNum = parseInt(year);
+
+    // Initialize monthly data
+    const monthlyData = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    for (let month = 0; month < 12; month++) {
+      const startDate = new Date(yearNum, month, 1);
+      const endDate = new Date(yearNum, month + 1, 0, 23, 59, 59);
+
+      // Get projects that were marked as SOLD in this month (from status history)
+      const { data: soldHistory } = await supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'sold')
+        .gte('changed_at', startDate.toISOString())
+        .lte('changed_at', endDate.toISOString());
+
+      // Get projects that were marked as COMPLETE in this month (from status history)
+      const { data: completedHistory } = await supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'complete')
+        .gte('changed_at', startDate.toISOString())
+        .lte('changed_at', endDate.toISOString());
+
+      // Get customers who became leads in this month (from status history)
+      const { data: leadsHistory } = await supabase
+        .from('customer_status_history')
+        .select('customer_id')
+        .eq('company_id', companyID)
+        .eq('status', 'lead')
+        .gte('changed_at', startDate.toISOString())
+        .lte('changed_at', endDate.toISOString());
+
+      // Get customers who signed in this month (from status history)
+      const { data: signedHistory } = await supabase
+        .from('customer_status_history')
+        .select('customer_id')
+        .eq('company_id', companyID)
+        .eq('status', 'signed')
+        .gte('changed_at', startDate.toISOString())
+        .lte('changed_at', endDate.toISOString());
+
+      // Get total customers created in this month
+      const { data: totalCustomers } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('company_id', companyID)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+
+      // Calculate value and profit from SOLD or COMPLETE projects in this month
+      let monthValue = 0;
+      let monthExpenses = 0;
+      const soldCount = soldHistory?.length || 0;
+      const completedCount = completedHistory?.length || 0;
+
+      // Combine sold and complete projects, avoiding duplicates
+      const processedProjectIds = new Set();
+      const allProfitProjects = [
+        ...(soldHistory || []),
+        ...(completedHistory || []),
+      ];
+
+      // Calculate value and expenses from projects sold or completed this month
+      for (const record of allProfitProjects) {
+        // Skip if we've already processed this project (could be in both sold and complete)
+        if (processedProjectIds.has(record.project_id)) continue;
+        processedProjectIds.add(record.project_id);
+
+        const estValue = parseFloat(record.projects?.est_value || 0);
+        monthValue += estValue;
+
+        // Get expenses for this project
+        const { data: subcontractorHours } = await supabase
+          .from('project_subcontractor_hours')
+          .select('hours, rate, subcontractors (rate)')
+          .eq('project_id', record.project_id);
+
+        const { data: materials } = await supabase
+          .from('project_materials')
+          .select('quantity, unit_cost')
+          .eq('project_id', record.project_id);
+
+        const { data: additionalExpenses } = await supabase
+          .from('project_additional_expenses')
+          .select('amount')
+          .eq('project_id', record.project_id);
+
+        // Calculate subcontractor costs
+        if (subcontractorHours) {
+          subcontractorHours.forEach((entry) => {
+            const rate = entry.rate || entry.subcontractors?.rate || 0;
+            monthExpenses += parseFloat(entry.hours || 0) * parseFloat(rate);
+          });
+        }
+
+        // Calculate materials costs
+        if (materials) {
+          materials.forEach((entry) => {
+            monthExpenses += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+          });
+        }
+
+        // Calculate additional expenses
+        if (additionalExpenses) {
+          additionalExpenses.forEach((entry) => {
+            monthExpenses += parseFloat(entry.amount || 0);
+          });
+        }
+      }
+
+      monthlyData.push({
+        month: monthNames[month],
+        monthIndex: month + 1,
+        value: monthValue,
+        profit: monthValue - monthExpenses,
+        expenses: monthExpenses,
+        leads: leadsHistory?.length || 0,
+        customersSigned: signedHistory?.length || 0,
+        sold: soldCount,
+        totalCustomers: totalCustomers?.length || 0,
+        completedProjects: completedCount,
+      });
+    }
+
+    res.json({
+      year: yearNum,
+      monthlyData,
+    });
+  } catch (error) {
+    console.error('Get monthly statistics error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1128,6 +1335,8 @@ app.post('/api/projects', async (req, res) => {
       return res.status(400).json({ error: 'Project type and pool/spa selection are required' });
     }
 
+    const initialStatus = status || 'proposal_request';
+
     const { data, error } = await supabase
       .from('projects')
       .insert([
@@ -1138,7 +1347,7 @@ app.post('/api/projects', async (req, res) => {
           project_type,
           pool_or_spa,
           sq_feet: sq_feet ? parseFloat(sq_feet) : null,
-          status: status || 'proposal_request',
+          status: initialStatus,
           accessories_features: accessories_features || null,
           est_value: est_value ? parseFloat(est_value) : null,
           project_manager: project_manager || null,
@@ -1153,6 +1362,16 @@ app.post('/api/projects', async (req, res) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
+
+    // Track initial status
+    await supabase
+      .from('project_status_history')
+      .insert({
+        project_id: data.id,
+        company_id: companyID,
+        status: initialStatus,
+        changed_at: new Date().toISOString(),
+      });
 
     res.json({ project: data });
   } catch (error) {
@@ -1208,6 +1427,9 @@ app.put('/api/projects/:id', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    const newStatus = status || 'proposal_request';
+    const statusChanged = existing.status !== newStatus;
+
     const { data, error } = await supabase
       .from('projects')
       .update({
@@ -1216,7 +1438,7 @@ app.put('/api/projects/:id', async (req, res) => {
         project_type,
         pool_or_spa,
         sq_feet: sq_feet ? parseFloat(sq_feet) : null,
-        status: status || 'proposal_request',
+        status: newStatus,
         accessories_features: accessories_features || null,
         est_value: est_value ? parseFloat(est_value) : null,
         project_manager: project_manager || null,
@@ -1231,6 +1453,21 @@ app.put('/api/projects/:id', async (req, res) => {
 
     if (error) {
       return res.status(500).json({ error: error.message });
+    }
+
+    // Track status change if status changed
+    if (statusChanged) {
+      await supabase
+        .from('project_status_history')
+        .upsert({
+          project_id: id,
+          company_id: companyID,
+          status: newStatus,
+          changed_at: new Date().toISOString(),
+        }, {
+          onConflict: 'project_id,status',
+          ignoreDuplicates: false,
+        });
     }
 
     res.json({ project: data });
@@ -3139,19 +3376,10 @@ app.get('/api/documents/:entityType/:entityId', async (req, res) => {
     // List files from Supabase Storage
     // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
     const storagePath = `${entityType}/${companyID}/${entityId}`;
-    console.log('📋 List Documents Debug:');
-    console.log('  - Company ID:', companyID);
-    console.log('  - Entity Type:', entityType);
-    console.log('  - Entity ID:', entityId);
-    console.log('  - Storage Path:', storagePath);
-    console.log('  - Path parts:', storagePath.split('/'));
-    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
     
     const { data: files, error: storageError } = await supabase.storage
       .from('documents')
       .list(storagePath);
-
-    console.log('  - List Response:', { files: files?.length || 0, error: storageError });
 
     if (storageError) {
       console.error('  - Storage Error Details:', {

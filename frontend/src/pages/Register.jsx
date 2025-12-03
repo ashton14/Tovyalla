@@ -186,7 +186,7 @@ function Register() {
 
         {/* Footer */}
         <p className="text-center text-gray-500 text-sm mt-6">
-          © 2024 Tovyalla CRM. All rights reserved.
+          © 2025 Tovyalla CRM. All rights reserved.
         </p>
       </div>
     </div>

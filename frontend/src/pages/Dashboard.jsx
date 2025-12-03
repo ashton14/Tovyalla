@@ -1,6 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts'
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
 import Projects from '../components/Projects'
@@ -9,19 +19,45 @@ import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 import Goals from '../components/Goals'
-import { useEmployees, useProjects, useEvents, useStatistics } from '../hooks/useApi'
+import { useEmployees, useProjects, useEvents, useStatistics, useMonthlyStatistics } from '../hooks/useApi'
+
+const CHART_METRICS = [
+  { value: 'value', label: 'Total Value', color: '#0ea5e9', format: 'currency' },
+  { value: 'profit', label: 'Profit', color: '#22c55e', format: 'currency' },
+  { value: 'leads', label: 'Leads', color: '#f59e0b', format: 'number' },
+  { value: 'customersSigned', label: 'Customers Signed', color: '#06b6d4', format: 'number' },
+  { value: 'sold', label: 'Sold Projects', color: '#8b5cf6', format: 'number' },
+  { value: 'totalCustomers', label: 'Total Customers', color: '#ec4899', format: 'number' },
+  { value: 'completedProjects', label: 'Completed Projects', color: '#14b8a6', format: 'number' },
+]
 
 function Dashboard() {
   const { user, logout, loading } = useAuth()
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('overview')
   const [timePeriod, setTimePeriod] = useState('total')
+  const [chartYear, setChartYear] = useState(new Date().getFullYear())
+  const [chartMetric, setChartMetric] = useState('value')
 
   // Use cached queries
   const { data: employees = [] } = useEmployees()
   const { data: projects = [] } = useProjects()
   const { data: events = [] } = useEvents()
   const { data: statistics = { totalEstValue: 0, totalProfit: 0, totalExpenses: 0, projectCount: 0 }, isLoading: loadingStats } = useStatistics(timePeriod)
+  const { data: monthlyData, isLoading: loadingMonthly } = useMonthlyStatistics(chartYear)
+
+  // Get year options (current year and 4 years back)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const years = []
+    for (let i = 0; i <= 4; i++) {
+      years.push(currentYear - i)
+    }
+    return years
+  }, [])
+
+  // Get the selected metric config
+  const selectedMetric = CHART_METRICS.find(m => m.value === chartMetric) || CHART_METRICS[0]
 
   // Derive employee name from cached data
   const employeeName = employees.find(
@@ -63,6 +99,40 @@ function Dashboard() {
   const handleLogout = async () => {
     await logout()
     navigate('/')
+  }
+
+  // Custom tooltip for the chart
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const value = payload[0].value
+      const formattedValue = selectedMetric.format === 'currency'
+        ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : value.toLocaleString('en-US')
+
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800">{label} {chartYear}</p>
+          <p style={{ color: selectedMetric.color }} className="font-medium">
+            {selectedMetric.label}: {formattedValue}
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Format Y-axis values
+  const formatYAxis = (value) => {
+    if (selectedMetric.format === 'currency') {
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1)}M`
+      }
+      if (value >= 1000) {
+        return `$${(value / 1000).toFixed(0)}K`
+      }
+      return `$${value}`
+    }
+    return value
   }
 
   if (loading) {
@@ -275,6 +345,99 @@ function Dashboard() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Monthly Chart */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center flex-wrap gap-4">
+                  <h3 className="text-xl font-semibold text-gray-800">Monthly Overview</h3>
+                  <div className="flex gap-3">
+                    <select
+                      value={chartYear}
+                      onChange={(e) => setChartYear(parseInt(e.target.value))}
+                      className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={chartMetric}
+                      onChange={(e) => setChartMetric(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                    >
+                      {CHART_METRICS.map((metric) => (
+                        <option key={metric.value} value={metric.value}>
+                          {metric.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  {loadingMonthly ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pool-blue"></div>
+                    </div>
+                  ) : monthlyData?.monthlyData ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={monthlyData.monthlyData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis
+                            dataKey="month"
+                            tick={{ fill: '#6b7280', fontSize: 12 }}
+                            axisLine={{ stroke: '#d1d5db' }}
+                          />
+                          <YAxis
+                            tickFormatter={formatYAxis}
+                            tick={{ fill: '#6b7280', fontSize: 12 }}
+                            axisLine={{ stroke: '#d1d5db' }}
+                          />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Bar
+                            dataKey={chartMetric}
+                            fill={selectedMetric.color}
+                            radius={[4, 4, 0, 0]}
+                            name={selectedMetric.label}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-16 text-gray-500">
+                      No data available for {chartYear}
+                    </div>
+                  )}
+
+                  {/* Chart Legend / Summary */}
+                  {monthlyData?.monthlyData && !loadingMonthly && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">
+                          <span
+                            className="inline-block w-3 h-3 rounded mr-2"
+                            style={{ backgroundColor: selectedMetric.color }}
+                          ></span>
+                          {selectedMetric.label} for {chartYear}
+                        </span>
+                        <span className="font-semibold text-gray-800">
+                          {selectedMetric.format === 'currency' ? (
+                            <>Total: ${monthlyData.monthlyData.reduce((sum, m) => sum + (m[chartMetric] || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+                          ) : (
+                            <>Total: {monthlyData.monthlyData.reduce((sum, m) => sum + (m[chartMetric] || 0), 0).toLocaleString('en-US')}</>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Projects In Progress */}

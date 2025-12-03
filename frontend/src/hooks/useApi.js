@@ -645,6 +645,29 @@ export const useStatistics = (period = 'total') => {
   })
 }
 
+// Monthly statistics for charts
+export const useMonthlyStatistics = (year) => {
+  const getAuthToken = useAuthToken()
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['monthlyStatistics', year],
+    queryFn: async () => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.get('/api/projects/monthly-statistics', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { year },
+      })
+      return response.data
+    },
+    enabled: !!user && !!year,
+    staleTime: 10 * 60 * 1000, // 10 minutes - monthly data doesn't change often
+    gcTime: 60 * 60 * 1000,
+  })
+}
+
 // ============================================
 // COMPANY INFO
 // ============================================
