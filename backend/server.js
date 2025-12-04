@@ -1024,15 +1024,9 @@ app.get('/api/projects/statistics', async (req, res) => {
       projectCount++;
 
       // Get expenses for this project
-      const { data: subcontractorHours } = await supabase
-        .from('project_subcontractor_hours')
-        .select(`
-          hours,
-          rate,
-          subcontractors (
-            rate
-          )
-        `)
+      const { data: subcontractorFees } = await supabase
+        .from('project_subcontractor_fees')
+        .select('flat_fee')
         .eq('project_id', record.project_id);
 
       const { data: materials } = await supabase
@@ -1047,10 +1041,9 @@ app.get('/api/projects/statistics', async (req, res) => {
 
       // Calculate subcontractor costs
       let subcontractorTotal = 0;
-      if (subcontractorHours) {
-        subcontractorHours.forEach((entry) => {
-          const rate = entry.rate || entry.subcontractors?.rate || 0;
-          subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+      if (subcontractorFees) {
+        subcontractorFees.forEach((entry) => {
+          subcontractorTotal += parseFloat(entry.flat_fee || 0);
         });
       }
 
@@ -1186,9 +1179,9 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         monthValue += estValue;
 
         // Get expenses for this project
-        const { data: subcontractorHours } = await supabase
-          .from('project_subcontractor_hours')
-          .select('hours, rate, subcontractors (rate)')
+        const { data: subcontractorFees } = await supabase
+          .from('project_subcontractor_fees')
+          .select('flat_fee')
           .eq('project_id', record.project_id);
 
         const { data: materials } = await supabase
@@ -1202,10 +1195,9 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
           .eq('project_id', record.project_id);
 
         // Calculate subcontractor costs
-        if (subcontractorHours) {
-          subcontractorHours.forEach((entry) => {
-            const rate = entry.rate || entry.subcontractors?.rate || 0;
-            monthExpenses += parseFloat(entry.hours || 0) * parseFloat(rate);
+        if (subcontractorFees) {
+          subcontractorFees.forEach((entry) => {
+            monthExpenses += parseFloat(entry.flat_fee || 0);
           });
         }
 
@@ -1564,22 +1556,21 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get subcontractor hours with subcontractor details
-    const { data: subcontractorHours, error: hoursError } = await supabase
-      .from('project_subcontractor_hours')
+    // Get subcontractor fees with subcontractor details
+    const { data: subcontractorFees, error: feesError } = await supabase
+      .from('project_subcontractor_fees')
       .select(`
         *,
         subcontractors (
           id,
-          name,
-          rate
+          name
         )
       `)
       .eq('project_id', id)
-      .order('date_worked', { ascending: false });
+      .order('date_added', { ascending: false });
 
-    if (hoursError) {
-      return res.status(500).json({ error: hoursError.message });
+    if (feesError) {
+      return res.status(500).json({ error: feesError.message });
     }
 
     // Get materials with inventory details
@@ -1611,47 +1602,58 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       return res.status(500).json({ error: additionalError.message });
     }
 
-    // Calculate totals
+    // Calculate totals (actual)
     let subcontractorTotal = 0;
-    if (subcontractorHours) {
-      subcontractorHours.forEach((entry) => {
-        // Use stored rate if available, otherwise fall back to subcontractor's default rate
-        const rate = entry.rate || entry.subcontractors?.rate || 0;
-        subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+    let subcontractorExpected = 0;
+    if (subcontractorFees) {
+      subcontractorFees.forEach((entry) => {
+        subcontractorTotal += parseFloat(entry.flat_fee || 0);
+        subcontractorExpected += parseFloat(entry.expected_value || 0);
       });
     }
 
     let materialsTotal = 0;
+    let materialsExpected = 0;
     if (materials) {
       materials.forEach((entry) => {
         materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+        materialsExpected += parseFloat(entry.expected_value || 0);
       });
     }
 
     let additionalTotal = 0;
+    let additionalExpected = 0;
     if (additionalExpenses) {
       additionalExpenses.forEach((entry) => {
         additionalTotal += parseFloat(entry.amount || 0);
+        additionalExpected += parseFloat(entry.expected_value || 0);
       });
     }
 
     const totalExpenses = subcontractorTotal + materialsTotal + additionalTotal;
+    const totalExpected = subcontractorExpected + materialsExpected + additionalExpected;
     const estValue = parseFloat(project.est_value || 0);
     const profit = estValue - totalExpenses;
+    const expectedProfit = estValue - totalExpected;
 
     res.json({
-      subcontractorHours: subcontractorHours || [],
+      subcontractorFees: subcontractorFees || [],
       materials: materials || [],
       additionalExpenses: additionalExpenses || [],
       totals: {
         subcontractors: subcontractorTotal,
+        subcontractorsExpected: subcontractorExpected,
         materials: materialsTotal,
+        materialsExpected: materialsExpected,
         additional: additionalTotal,
+        additionalExpected: additionalExpected,
         total: totalExpenses,
+        totalExpected: totalExpected,
       },
       project: {
         estValue: estValue,
         profit: profit,
+        expectedProfit: expectedProfit,
       },
     });
   } catch (error) {
@@ -1660,8 +1662,8 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
   }
 });
 
-// Add subcontractor hours
-app.post('/api/projects/:id/expenses/subcontractor-hours', async (req, res) => {
+// Add subcontractor fee
+app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -1681,7 +1683,7 @@ app.post('/api/projects/:id/expenses/subcontractor-hours', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { subcontractor_id, hours, rate, date_worked, notes } = req.body;
+    const { subcontractor_id, flat_fee, expected_value, date_added, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1695,37 +1697,26 @@ app.post('/api/projects/:id/expenses/subcontractor-hours', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!subcontractor_id || !hours || !date_worked) {
-      return res.status(400).json({ error: 'subcontractor_id, hours, and date_worked are required' });
-    }
-
-    // Get subcontractor's default rate if rate not provided
-    let finalRate = rate;
-    if (finalRate === undefined || finalRate === null || finalRate === '') {
-      const { data: subcontractor } = await supabase
-        .from('subcontractors')
-        .select('rate')
-        .eq('id', subcontractor_id)
-        .single();
-      finalRate = subcontractor?.rate || 0;
+    if (!subcontractor_id || !date_added) {
+      return res.status(400).json({ error: 'subcontractor_id and date_added are required' });
     }
 
     const { data, error } = await supabase
-      .from('project_subcontractor_hours')
+      .from('project_subcontractor_fees')
       .insert([{
         project_id: id,
         subcontractor_id,
-        hours: parseFloat(hours),
-        rate: parseFloat(finalRate),
-        date_worked,
+        flat_fee: flat_fee ? parseFloat(flat_fee) : null,
+        expected_value: expected_value ? parseFloat(expected_value) : null,
+        date_added,
+        status: status || 'incomplete',
         notes: notes || null,
       }])
       .select(`
         *,
         subcontractors (
           id,
-          name,
-          rate
+          name
         )
       `)
       .single();
@@ -1734,15 +1725,15 @@ app.post('/api/projects/:id/expenses/subcontractor-hours', async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    res.status(201).json({ subcontractorHour: data });
+    res.status(201).json({ subcontractorFee: data });
   } catch (error) {
-    console.error('Add subcontractor hours error:', error);
+    console.error('Add subcontractor fee error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Update subcontractor hours
-app.put('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, res) => {
+// Update subcontractor fee
+app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -1761,8 +1752,8 @@ app.put('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, re
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    const { id, hourId } = req.params;
-    const { hours, rate, date_worked, notes } = req.body;
+    const { id, feeId } = req.params;
+    const { flat_fee, expected_value, date_added, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1780,22 +1771,22 @@ app.put('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, re
       updated_at: new Date().toISOString(),
     };
 
-    if (hours !== undefined) updateData.hours = parseFloat(hours);
-    if (rate !== undefined && rate !== null && rate !== '') updateData.rate = parseFloat(rate);
-    if (date_worked !== undefined) updateData.date_worked = date_worked;
+    if (flat_fee !== undefined) updateData.flat_fee = flat_fee ? parseFloat(flat_fee) : null;
+    if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
+    if (date_added !== undefined) updateData.date_added = date_added;
+    if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes || null;
 
     const { data, error } = await supabase
-      .from('project_subcontractor_hours')
+      .from('project_subcontractor_fees')
       .update(updateData)
-      .eq('id', hourId)
+      .eq('id', feeId)
       .eq('project_id', id)
       .select(`
         *,
         subcontractors (
           id,
-          name,
-          rate
+          name
         )
       `)
       .single();
@@ -1804,15 +1795,15 @@ app.put('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, re
       return res.status(500).json({ error: error.message });
     }
 
-    res.json({ subcontractorHour: data });
+    res.json({ subcontractorFee: data });
   } catch (error) {
-    console.error('Update subcontractor hours error:', error);
+    console.error('Update subcontractor fee error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Delete subcontractor hours
-app.delete('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req, res) => {
+// Delete subcontractor fee
+app.delete('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -1831,7 +1822,7 @@ app.delete('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req,
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    const { id, hourId } = req.params;
+    const { id, feeId } = req.params;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1846,9 +1837,9 @@ app.delete('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req,
     }
 
     const { error } = await supabase
-      .from('project_subcontractor_hours')
+      .from('project_subcontractor_fees')
       .delete()
-      .eq('id', hourId)
+      .eq('id', feeId)
       .eq('project_id', id);
 
     if (error) {
@@ -1857,7 +1848,7 @@ app.delete('/api/projects/:id/expenses/subcontractor-hours/:hourId', async (req,
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Delete subcontractor hours error:', error);
+    console.error('Delete subcontractor fee error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1883,7 +1874,7 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { inventory_id, quantity, unit_cost, date_used, notes } = req.body;
+    const { inventory_id, quantity, unit_cost, expected_value, date_used, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1897,8 +1888,8 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!inventory_id || !quantity || unit_cost === undefined || !date_used) {
-      return res.status(400).json({ error: 'inventory_id, quantity, unit_cost, and date_used are required' });
+    if (!inventory_id || !date_used) {
+      return res.status(400).json({ error: 'inventory_id and date_used are required' });
     }
 
     const { data, error } = await supabase
@@ -1906,9 +1897,11 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
       .insert([{
         project_id: id,
         inventory_id,
-        quantity: parseFloat(quantity),
-        unit_cost: parseFloat(unit_cost),
+        quantity: quantity ? parseFloat(quantity) : null,
+        unit_cost: unit_cost ? parseFloat(unit_cost) : null,
+        expected_value: expected_value ? parseFloat(expected_value) : null,
         date_used,
+        status: status || 'incomplete',
         notes: notes || null,
       }])
       .select(`
@@ -1953,7 +1946,7 @@ app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => 
     }
 
     const { id, materialId } = req.params;
-    const { quantity, unit_cost, date_used, notes } = req.body;
+    const { quantity, unit_cost, expected_value, date_used, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1971,9 +1964,11 @@ app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => 
       updated_at: new Date().toISOString(),
     };
 
-    if (quantity !== undefined) updateData.quantity = parseFloat(quantity);
-    if (unit_cost !== undefined) updateData.unit_cost = parseFloat(unit_cost);
+    if (quantity !== undefined) updateData.quantity = quantity ? parseFloat(quantity) : null;
+    if (unit_cost !== undefined) updateData.unit_cost = unit_cost ? parseFloat(unit_cost) : null;
+    if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
     if (date_used !== undefined) updateData.date_used = date_used;
+    if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes || null;
 
     const { data, error } = await supabase
@@ -2074,7 +2069,7 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { description, amount, expense_date, category, notes } = req.body;
+    const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2088,8 +2083,8 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!description || amount === undefined || !expense_date) {
-      return res.status(400).json({ error: 'description, amount, and expense_date are required' });
+    if (!description || !expense_date) {
+      return res.status(400).json({ error: 'description and expense_date are required' });
     }
 
     const { data, error } = await supabase
@@ -2097,8 +2092,10 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
       .insert([{
         project_id: id,
         description,
-        amount: parseFloat(amount),
+        amount: amount ? parseFloat(amount) : null,
+        expected_value: expected_value ? parseFloat(expected_value) : null,
         expense_date,
+        status: status || 'incomplete',
         category: category || null,
         notes: notes || null,
       }])
@@ -2137,7 +2134,7 @@ app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => 
     }
 
     const { id, expenseId } = req.params;
-    const { description, amount, expense_date, category, notes } = req.body;
+    const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2156,8 +2153,10 @@ app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => 
     };
 
     if (description !== undefined) updateData.description = description;
-    if (amount !== undefined) updateData.amount = parseFloat(amount);
+    if (amount !== undefined) updateData.amount = amount ? parseFloat(amount) : null;
+    if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
     if (expense_date !== undefined) updateData.expense_date = expense_date;
+    if (status !== undefined) updateData.status = status;
     if (category !== undefined) updateData.category = category || null;
     if (notes !== undefined) updateData.notes = notes || null;
 
@@ -3649,15 +3648,9 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
         totalEstValue += estValue;
 
         // Get expenses for this project
-        const { data: subcontractorHours } = await supabase
-          .from('project_subcontractor_hours')
-          .select(`
-            hours,
-            rate,
-            subcontractors (
-              rate
-            )
-          `)
+        const { data: subcontractorFees } = await supabase
+          .from('project_subcontractor_fees')
+          .select('flat_fee')
           .eq('project_id', project.id);
 
         const { data: materials } = await supabase
@@ -3672,10 +3665,9 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
 
         // Calculate subcontractor costs
         let subcontractorTotal = 0;
-        if (subcontractorHours) {
-          subcontractorHours.forEach((entry) => {
-            const rate = entry.rate || entry.subcontractors?.rate || 0;
-            subcontractorTotal += parseFloat(entry.hours || 0) * parseFloat(rate);
+        if (subcontractorFees) {
+          subcontractorFees.forEach((entry) => {
+            subcontractorTotal += parseFloat(entry.flat_fee || 0);
           });
         }
 

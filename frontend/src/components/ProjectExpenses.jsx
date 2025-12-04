@@ -67,9 +67,10 @@ function ProjectExpenses({ project, onClose }) {
 
   const [subcontractorForm, setSubcontractorForm] = useState({
     subcontractor_id: '',
-    hours: '',
-    rate: '',
-    date_worked: new Date().toISOString().split('T')[0],
+    flat_fee: '',
+    expected_value: '',
+    date_added: new Date().toISOString().split('T')[0],
+    status: 'incomplete',
     notes: '',
   })
 
@@ -77,14 +78,18 @@ function ProjectExpenses({ project, onClose }) {
     inventory_id: '',
     quantity: '',
     unit_cost: '',
+    expected_value: '',
     date_used: new Date().toISOString().split('T')[0],
+    status: 'incomplete',
     notes: '',
   })
 
   const [additionalForm, setAdditionalForm] = useState({
     description: '',
     amount: '',
+    expected_value: '',
     expense_date: new Date().toISOString().split('T')[0],
+    status: 'incomplete',
     category: '',
     notes: '',
   })
@@ -145,7 +150,7 @@ function ProjectExpenses({ project, onClose }) {
     }
   }, [user, project])
 
-  // Handle subcontractor hours
+  // Handle subcontractor fee
   const handleSubcontractorSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -157,24 +162,24 @@ function ProjectExpenses({ project, onClose }) {
 
       const payload = {
         ...subcontractorForm,
-        hours: parseFloat(subcontractorForm.hours),
-        rate: subcontractorForm.rate ? parseFloat(subcontractorForm.rate) : undefined,
+        flat_fee: subcontractorForm.flat_fee ? parseFloat(subcontractorForm.flat_fee) : null,
+        expected_value: subcontractorForm.expected_value ? parseFloat(subcontractorForm.expected_value) : null,
       }
 
       if (editingSubcontractor) {
         await axios.put(
-          `/api/projects/${project.id}/expenses/subcontractor-hours/${editingSubcontractor.id}`,
+          `/api/projects/${project.id}/expenses/subcontractor-fees/${editingSubcontractor.id}`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        setSuccess('Subcontractor hours updated!')
+        setSuccess('Subcontractor fee updated!')
       } else {
         await axios.post(
-          `/api/projects/${project.id}/expenses/subcontractor-hours`,
+          `/api/projects/${project.id}/expenses/subcontractor-fees`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        setSuccess('Subcontractor hours added!')
+        setSuccess('Subcontractor fee added!')
       }
 
       // Close form and reset state
@@ -182,41 +187,37 @@ function ProjectExpenses({ project, onClose }) {
       setEditingSubcontractor(null)
       setSubcontractorForm({
         subcontractor_id: '',
-        hours: '',
-        rate: '',
-        date_worked: new Date().toISOString().split('T')[0],
+        flat_fee: '',
+        expected_value: '',
+        date_added: new Date().toISOString().split('T')[0],
+        status: 'incomplete',
         notes: '',
       })
       
       // Refetch expenses to get updated data
       await fetchExpenses()
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save subcontractor hours')
+      setError(err.response?.data?.error || 'Failed to save subcontractor fee')
     }
   }
 
   const handleSubcontractorEdit = (entry) => {
     setEditingSubcontractor(entry)
     // Extract date part only (YYYY-MM-DD) to avoid timezone issues
-    const dateWorked = entry.date_worked ? entry.date_worked.split('T')[0] : ''
+    const dateAdded = entry.date_added ? entry.date_added.split('T')[0] : ''
     setSubcontractorForm({
       subcontractor_id: entry.subcontractor_id,
-      hours: entry.hours,
-      rate: entry.rate || entry.subcontractors?.rate || '',
-      date_worked: dateWorked,
+      flat_fee: entry.flat_fee || '',
+      expected_value: entry.expected_value || '',
+      date_added: dateAdded,
+      status: entry.status || 'incomplete',
       notes: entry.notes || '',
     })
     setShowSubcontractorForm(true)
   }
 
-  // Auto-fill rate when subcontractor is selected
   const handleSubcontractorSelect = (subcontractorId) => {
-    const sub = subcontractors.find((s) => s.id === subcontractorId)
-    if (sub && sub.rate && !subcontractorForm.rate) {
-      setSubcontractorForm({ ...subcontractorForm, subcontractor_id: subcontractorId, rate: sub.rate })
-    } else {
-      setSubcontractorForm({ ...subcontractorForm, subcontractor_id: subcontractorId })
-    }
+    setSubcontractorForm({ ...subcontractorForm, subcontractor_id: subcontractorId })
   }
 
   const handleSubcontractorDelete = async (id) => {
@@ -227,7 +228,7 @@ function ProjectExpenses({ project, onClose }) {
       if (!token) throw new Error('Not authenticated')
 
       await axios.delete(
-        `/api/projects/${project.id}/expenses/subcontractor-hours/${id}`,
+        `/api/projects/${project.id}/expenses/subcontractor-fees/${id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -253,8 +254,9 @@ function ProjectExpenses({ project, onClose }) {
 
       const payload = {
         ...materialForm,
-        quantity: parseFloat(materialForm.quantity),
-        unit_cost: parseFloat(unitCost),
+        quantity: materialForm.quantity ? parseFloat(materialForm.quantity) : null,
+        unit_cost: unitCost ? parseFloat(unitCost) : null,
+        expected_value: materialForm.expected_value ? parseFloat(materialForm.expected_value) : null,
       }
 
       if (editingMaterial) {
@@ -279,7 +281,9 @@ function ProjectExpenses({ project, onClose }) {
         inventory_id: '',
         quantity: '',
         unit_cost: '',
+        expected_value: '',
         date_used: new Date().toISOString().split('T')[0],
+        status: 'incomplete',
         notes: '',
       })
       
@@ -296,9 +300,11 @@ function ProjectExpenses({ project, onClose }) {
     const dateUsed = entry.date_used ? entry.date_used.split('T')[0] : ''
     setMaterialForm({
       inventory_id: entry.inventory_id,
-      quantity: entry.quantity,
-      unit_cost: entry.unit_cost,
+      quantity: entry.quantity || '',
+      unit_cost: entry.unit_cost || '',
+      expected_value: entry.expected_value || '',
       date_used: dateUsed,
+      status: entry.status || 'incomplete',
       notes: entry.notes || '',
     })
     setShowMaterialForm(true)
@@ -335,7 +341,8 @@ function ProjectExpenses({ project, onClose }) {
 
       const payload = {
         ...additionalForm,
-        amount: parseFloat(additionalForm.amount),
+        amount: additionalForm.amount ? parseFloat(additionalForm.amount) : null,
+        expected_value: additionalForm.expected_value ? parseFloat(additionalForm.expected_value) : null,
       }
 
       if (editingAdditional) {
@@ -359,7 +366,9 @@ function ProjectExpenses({ project, onClose }) {
       setAdditionalForm({
         description: '',
         amount: '',
+        expected_value: '',
         expense_date: new Date().toISOString().split('T')[0],
+        status: 'incomplete',
         category: '',
         notes: '',
       })
@@ -377,8 +386,10 @@ function ProjectExpenses({ project, onClose }) {
     const expenseDate = entry.expense_date ? entry.expense_date.split('T')[0] : ''
     setAdditionalForm({
       description: entry.description,
-      amount: entry.amount,
+      amount: entry.amount || '',
+      expected_value: entry.expected_value || '',
       expense_date: expenseDate,
+      status: entry.status || 'incomplete',
       category: entry.category || '',
       notes: entry.notes || '',
     })
@@ -475,7 +486,7 @@ function ProjectExpenses({ project, onClose }) {
           )}
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <p className="text-sm text-gray-500">Est. Value</p>
               <p className="text-xl font-bold text-gray-900">
@@ -483,13 +494,19 @@ function ProjectExpenses({ project, onClose }) {
               </p>
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Total Expenses</p>
+              <p className="text-sm text-gray-500">Expected Expenses</p>
+              <p className="text-xl font-bold text-orange-600">
+                ${totals.totalExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+              </p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-500">Actual Expenses</p>
               <p className="text-xl font-bold text-red-600">
                 ${totals.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Profit</p>
+              <p className="text-sm text-gray-500">Actual Profit</p>
               <p className={`text-xl font-bold ${projectData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ${projectData.profit?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
@@ -508,21 +525,54 @@ function ProjectExpenses({ project, onClose }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-700 font-medium">Subcontractors</p>
-              <p className="text-lg font-bold text-blue-900">
-                ${totals.subcontractors?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-              </p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-blue-600">Expected</p>
+                  <p className="text-sm text-blue-800">
+                    ${totals.subcontractorsExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-blue-600">Actual</p>
+                  <p className="text-lg font-bold text-blue-900">
+                    ${totals.subcontractors?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <p className="text-sm text-purple-700 font-medium">Materials</p>
-              <p className="text-lg font-bold text-purple-900">
-                ${totals.materials?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-              </p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-purple-600">Expected</p>
+                  <p className="text-sm text-purple-800">
+                    ${totals.materialsExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-purple-600">Actual</p>
+                  <p className="text-lg font-bold text-purple-900">
+                    ${totals.materials?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <p className="text-sm text-orange-700 font-medium">Additional</p>
-              <p className="text-lg font-bold text-orange-900">
-                ${totals.additional?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-              </p>
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+              <p className="text-sm text-teal-700 font-medium">Additional</p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-teal-600">Expected</p>
+                  <p className="text-sm text-teal-800">
+                    ${totals.additionalExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-teal-600">Actual</p>
+                  <p className="text-lg font-bold text-teal-900">
+                    ${totals.additional?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -535,15 +585,16 @@ function ProjectExpenses({ project, onClose }) {
                   setEditingSubcontractor(null)
                   setSubcontractorForm({
                     subcontractor_id: '',
-                    hours: '',
-                    rate: '',
-                    date_worked: new Date().toISOString().split('T')[0],
+                    flat_fee: '',
+                    expected_value: '',
+                    date_added: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
                     notes: '',
                   })
                 }}
                 className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
               >
-                + Subcontractor Hours
+                + Subcontractor Fee
               </button>
               <button
                 onClick={() => {
@@ -553,7 +604,9 @@ function ProjectExpenses({ project, onClose }) {
                     inventory_id: '',
                     quantity: '',
                     unit_cost: '',
+                    expected_value: '',
                     date_used: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
                     notes: '',
                   })
                 }}
@@ -568,7 +621,9 @@ function ProjectExpenses({ project, onClose }) {
                   setAdditionalForm({
                     description: '',
                     amount: '',
+                    expected_value: '',
                     expense_date: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
                     category: '',
                     notes: '',
                   })
@@ -580,58 +635,66 @@ function ProjectExpenses({ project, onClose }) {
             </nav>
           </div>
 
-          {/* Subcontractor Hours List */}
+          {/* Subcontractor Fees List */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Subcontractor Hours</h3>
-            {expenses.subcontractorHours && expenses.subcontractorHours.length > 0 ? (
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Subcontractor Fees</h3>
+            {expenses.subcontractorFees && expenses.subcontractorFees.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual Fee</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {expenses.subcontractorHours.map((entry) => {
-                      // Use stored rate if available, otherwise fall back to subcontractor's default rate
-                      const rate = entry.rate || entry.subcontractors?.rate || 0
-                      const total = parseFloat(entry.hours || 0) * parseFloat(rate)
-                      return (
-                        <tr key={entry.id}>
-                          <td className="px-4 py-3 text-sm text-gray-900">{entry.subcontractors?.name || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDateString(entry.date_worked)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{entry.hours}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">${parseFloat(rate).toFixed(2)}/hr</td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">${total.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-right">
-                            <button
-                              onClick={() => handleSubcontractorEdit(entry)}
-                              className="text-pool-blue hover:text-pool-dark mr-3"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleSubcontractorDelete(entry.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {expenses.subcontractorFees.map((entry) => (
+                      <tr key={entry.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{entry.subcontractors?.name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {formatDateString(entry.date_added)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            entry.status === 'complete' ? 'bg-green-100 text-green-800' :
+                            entry.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {entry.status === 'in_progress' ? 'In Progress' : 
+                             entry.status === 'complete' ? 'Complete' : 'Incomplete'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {entry.expected_value ? `$${parseFloat(entry.expected_value).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {entry.flat_fee ? `$${parseFloat(entry.flat_fee).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right">
+                          <button
+                            onClick={() => handleSubcontractorEdit(entry)}
+                            className="text-pool-blue hover:text-pool-dark mr-3"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleSubcontractorDelete(entry.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">No subcontractor hours logged yet.</p>
+              <p className="text-gray-500 text-sm">No subcontractor fees logged yet.</p>
             )}
           </div>
 
@@ -645,7 +708,9 @@ function ProjectExpenses({ project, onClose }) {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -660,9 +725,28 @@ function ProjectExpenses({ project, onClose }) {
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatDateString(entry.date_used)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{entry.quantity} {entry.inventory?.unit || ''}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">${parseFloat(entry.unit_cost).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">${total.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              entry.status === 'complete' ? 'bg-green-100 text-green-800' :
+                              entry.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {entry.status === 'in_progress' ? 'In Progress' : 
+                               entry.status === 'complete' ? 'Complete' : 'Incomplete'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {entry.expected_value ? `$${parseFloat(entry.expected_value).toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {entry.quantity ? `${entry.quantity} ${entry.inventory?.unit || ''}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {entry.unit_cost ? `$${parseFloat(entry.unit_cost).toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {total > 0 ? `$${total.toFixed(2)}` : '-'}
+                          </td>
                           <td className="px-4 py-3 text-sm text-right">
                             <button
                               onClick={() => handleMaterialEdit(entry)}
@@ -698,8 +782,10 @@ function ProjectExpenses({ project, onClose }) {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
@@ -710,8 +796,23 @@ function ProjectExpenses({ project, onClose }) {
                           {formatDateString(entry.expense_date)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.description}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            entry.status === 'complete' ? 'bg-green-100 text-green-800' :
+                            entry.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {entry.status === 'in_progress' ? 'In Progress' : 
+                             entry.status === 'complete' ? 'Complete' : 'Incomplete'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.category || '-'}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">${parseFloat(entry.amount).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {entry.expected_value ? `$${parseFloat(entry.expected_value).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {entry.amount ? `$${parseFloat(entry.amount).toFixed(2)}` : '-'}
+                        </td>
                         <td className="px-4 py-3 text-sm text-right">
                           <button
                             onClick={() => handleAdditionalEdit(entry)}
@@ -744,7 +845,7 @@ function ProjectExpenses({ project, onClose }) {
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold text-gray-800">
-                      {editingSubcontractor ? 'Edit' : 'Add'} Subcontractor Hours
+                      {editingSubcontractor ? 'Edit' : 'Add'} Subcontractor Fee
                     </h3>
                     <button
                       onClick={() => {
@@ -769,49 +870,59 @@ function ProjectExpenses({ project, onClose }) {
                         <option value="">Select subcontractor...</option>
                         {subcontractors.map((sub) => (
                           <option key={sub.id} value={sub.id}>
-                            {sub.name} (${sub.rate ? parseFloat(sub.rate).toFixed(2) : '0.00'}/hr)
+                            {sub.name}
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Hours *</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={subcontractorForm.hours}
-                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, hours: e.target.value })}
-                          required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Rate ($/hr) *</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={subcontractorForm.rate}
-                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, rate: e.target.value })}
-                          required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                          placeholder="0.00"
-                        />
-                        {subcontractorForm.subcontractor_id && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            Default: ${subcontractors.find((s) => s.id === subcontractorForm.subcontractor_id)?.rate ? parseFloat(subcontractors.find((s) => s.id === subcontractorForm.subcontractor_id).rate).toFixed(2) : '0.00'}/hr
-                          </p>
-                        )}
-                      </div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
                         <input
                           type="date"
-                          value={subcontractorForm.date_worked}
-                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, date_worked: e.target.value })}
+                          value={subcontractorForm.date_added}
+                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, date_added: e.target.value })}
                           required
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <select
+                          value={subcontractorForm.status}
+                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, status: e.target.value })}
+                          required
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        >
+                          <option value="incomplete">Incomplete</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="complete">Complete</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={subcontractorForm.expected_value}
+                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, expected_value: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Fee ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={subcontractorForm.flat_fee}
+                          onChange={(e) => setSubcontractorForm({ ...subcontractorForm, flat_fee: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
                         />
                       </div>
                     </div>
@@ -890,38 +1001,63 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Used *</label>
                         <input
-                          type="number"
-                          step="0.01"
-                          value={materialForm.quantity}
-                          onChange={(e) => setMaterialForm({ ...materialForm, quantity: e.target.value })}
+                          type="date"
+                          value={materialForm.date_used}
+                          onChange={(e) => setMaterialForm({ ...materialForm, date_used: e.target.value })}
                           required
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost ($) *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <select
+                          value={materialForm.status}
+                          onChange={(e) => setMaterialForm({ ...materialForm, status: e.target.value })}
+                          required
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        >
+                          <option value="incomplete">Incomplete</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="complete">Complete</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={materialForm.expected_value}
+                        onChange={(e) => setMaterialForm({ ...materialForm, expected_value: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={materialForm.quantity}
+                          onChange={(e) => setMaterialForm({ ...materialForm, quantity: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={materialForm.unit_cost}
                           onChange={(e) => setMaterialForm({ ...materialForm, unit_cost: e.target.value })}
-                          required
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date Used *</label>
-                      <input
-                        type="date"
-                        value={materialForm.date_used}
-                        onChange={(e) => setMaterialForm({ ...materialForm, date_used: e.target.value })}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                      />
                     </div>
 
                     <div>
@@ -992,17 +1128,6 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($) *</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={additionalForm.amount}
-                          onChange={(e) => setAdditionalForm({ ...additionalForm, amount: e.target.value })}
-                          required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        />
-                      </div>
-                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
                         <input
                           type="date"
@@ -1010,6 +1135,44 @@ function ProjectExpenses({ project, onClose }) {
                           onChange={(e) => setAdditionalForm({ ...additionalForm, expense_date: e.target.value })}
                           required
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <select
+                          value={additionalForm.status}
+                          onChange={(e) => setAdditionalForm({ ...additionalForm, status: e.target.value })}
+                          required
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        >
+                          <option value="incomplete">Incomplete</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="complete">Complete</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={additionalForm.expected_value}
+                          onChange={(e) => setAdditionalForm({ ...additionalForm, expected_value: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Amount ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={additionalForm.amount}
+                          onChange={(e) => setAdditionalForm({ ...additionalForm, amount: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
                         />
                       </div>
                     </div>

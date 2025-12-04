@@ -27,7 +27,6 @@ function Subcontractors() {
     primary_contact_name: '',
     primary_contact_phone: '',
     primary_contact_email: '',
-    rate: '',
     coi_expiration: '',
     notes: '',
   })
@@ -88,7 +87,6 @@ function Subcontractors() {
 
       const payload = {
         ...formData,
-        rate: formData.rate ? parseFloat(formData.rate) : null,
       }
 
       if (editingSubcontractor) {
@@ -156,7 +154,6 @@ function Subcontractors() {
       primary_contact_name: subcontractor.primary_contact_name || '',
       primary_contact_phone: subcontractor.primary_contact_phone || '',
       primary_contact_email: subcontractor.primary_contact_email || '',
-      rate: subcontractor.rate || '',
       coi_expiration: formatDateForInput(subcontractor.coi_expiration) || '',
       notes: subcontractor.notes || '',
     })
@@ -170,7 +167,6 @@ function Subcontractors() {
       primary_contact_name: '',
       primary_contact_phone: '',
       primary_contact_email: '',
-      rate: '',
       coi_expiration: '',
       notes: '',
     })
@@ -371,7 +367,6 @@ function Subcontractors() {
           primary_contact_name: row.primary_contact_name || row['primary_contact_name'] || '',
           primary_contact_phone: row.primary_contact_phone || row['primary_contact_phone'] || '',
           primary_contact_email: row.primary_contact_email || row['primary_contact_email'] || '',
-          rate: row.rate || '',
           coi_expiration: row.coi_expiration || row['coi_expiration'] || '',
           notes: row.notes || '',
         }
@@ -386,14 +381,6 @@ function Subcontractors() {
           })
           setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
           continue
-        }
-
-        // Convert rate to number if present
-        if (subcontractorData.rate) {
-          const parsed = parseFloat(subcontractorData.rate)
-          subcontractorData.rate = isNaN(parsed) ? null : parsed
-        } else {
-          subcontractorData.rate = null
         }
 
         // Format coi_expiration date (should be YYYY-MM-DD)
@@ -546,7 +533,6 @@ function Subcontractors() {
                       <li><code className="bg-blue-100 px-1 rounded">primary_contact_name</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">primary_contact_phone</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">primary_contact_email</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">rate</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">coi_expiration</code> (YYYY-MM-DD format)</li>
                       <li><code className="bg-blue-100 px-1 rounded">notes</code></li>
                     </ul>
@@ -557,9 +543,9 @@ function Subcontractors() {
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
                   <h4 className="font-semibold text-gray-900 mb-2">Example CSV Format:</h4>
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
-{`name,primary_contact_name,primary_contact_phone,primary_contact_email,rate,coi_expiration
-ABC Construction,John Smith,555-0100,john@abc.com,75.00,2025-12-31
-XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
+{`name,primary_contact_name,primary_contact_phone,primary_contact_email,coi_expiration
+ABC Construction,John Smith,555-0100,john@abc.com,2025-12-31
+XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                   </pre>
                 </div>
 
@@ -700,31 +686,16 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Rate ($/hr)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.rate}
-                      onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      COI Expiration
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.coi_expiration}
-                      onChange={(e) => setFormData({ ...formData, coi_expiration: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    COI Expiration
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.coi_expiration}
+                    onChange={(e) => setFormData({ ...formData, coi_expiration: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                  />
                 </div>
 
                 <div>
@@ -776,9 +747,6 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
                   Primary Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   COI Expiration
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -789,7 +757,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredSubcontractors.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
                     {subcontractors.length === 0
                       ? 'No subcontractors yet. Click "Add Subcontractor" to get started.'
                       : 'No subcontractors match your search criteria.'}
@@ -807,11 +775,6 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,65.50,2025-06-30`}
                         <div className="text-sm text-gray-900">{subcontractor.primary_contact_name || '-'}</div>
                         <div className="text-sm text-gray-500">{subcontractor.primary_contact_phone || '-'}</div>
                         <div className="text-sm text-gray-500">{subcontractor.primary_contact_email || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {subcontractor.rate ? `$${parseFloat(subcontractor.rate).toFixed(2)}/hr` : '-'}
-                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
