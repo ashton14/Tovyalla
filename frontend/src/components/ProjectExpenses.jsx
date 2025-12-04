@@ -456,8 +456,8 @@ function ProjectExpenses({ project, onClose }) {
   const projectData = expenses.project || {}
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
@@ -840,8 +840,8 @@ function ProjectExpenses({ project, onClose }) {
           {/* Forms will be rendered as modals */}
           {/* Subcontractor Form Modal */}
           {showSubcontractorForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowSubcontractorForm(false); setEditingSubcontractor(null); }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold text-gray-800">
@@ -963,8 +963,8 @@ function ProjectExpenses({ project, onClose }) {
 
           {/* Material Form Modal */}
           {showMaterialForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowMaterialForm(false); setEditingMaterial(null); }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold text-gray-800">
@@ -1096,8 +1096,8 @@ function ProjectExpenses({ project, onClose }) {
 
           {/* Additional Expense Form Modal */}
           {showAdditionalForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowAdditionalForm(false); setEditingAdditional(null); }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold text-gray-800">

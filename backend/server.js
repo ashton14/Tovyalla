@@ -557,6 +557,177 @@ app.put('/api/company', async (req, res) => {
   }
 });
 
+// Upload company logo
+app.post('/api/company/logo', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { file_data, file_name, content_type } = req.body;
+
+    if (!file_data || !file_name || !content_type) {
+      return res.status(400).json({ error: 'file_data, file_name, and content_type are required' });
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(content_type)) {
+      return res.status(400).json({ error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, SVG' });
+    }
+
+    // Convert base64 to buffer
+    const base64Data = file_data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Generate unique file path
+    const fileExt = file_name.split('.').pop();
+    const filePath = `logos/${companyID}/logo_${Date.now()}.${fileExt}`;
+
+    // Delete old logo if exists
+    const { data: existingCompany } = await supabase
+      .from('companies')
+      .select('logo_url')
+      .eq('company_id', companyID)
+      .single();
+
+    if (existingCompany?.logo_url) {
+      // Extract old file path from URL and delete it
+      const oldPath = existingCompany.logo_url.split('/company-logos/')[1];
+      if (oldPath) {
+        await supabase.storage.from('company-logos').remove([oldPath]);
+      }
+    }
+
+    // Upload to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('company-logos')
+      .upload(filePath, buffer, {
+        contentType: content_type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return res.status(500).json({ error: 'Failed to upload logo: ' + uploadError.message });
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('company-logos')
+      .getPublicUrl(filePath);
+
+    const logoUrl = urlData.publicUrl;
+
+    // Update company with logo URL
+    const { data: company, error: updateError } = await supabase
+      .from('companies')
+      .update({
+        logo_url: logoUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (updateError) {
+      // If company doesn't exist, create it
+      if (updateError.code === 'PGRST116') {
+        const { data: newCompany, error: insertError } = await supabase
+          .from('companies')
+          .insert([{
+            company_id: companyID,
+            logo_url: logoUrl,
+          }])
+          .select()
+          .single();
+
+        if (insertError) {
+          return res.status(500).json({ error: insertError.message });
+        }
+
+        return res.json({ company: newCompany, logo_url: logoUrl });
+      }
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    res.json({ company, logo_url: logoUrl });
+  } catch (error) {
+    console.error('Upload logo error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete company logo
+app.delete('/api/company/logo', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    // Get current logo URL
+    const { data: company } = await supabase
+      .from('companies')
+      .select('logo_url')
+      .eq('company_id', companyID)
+      .single();
+
+    if (company?.logo_url) {
+      // Extract file path from URL and delete it
+      const filePath = company.logo_url.split('/company-logos/')[1];
+      if (filePath) {
+        await supabase.storage.from('company-logos').remove([filePath]);
+      }
+    }
+
+    // Update company to remove logo URL
+    const { data: updatedCompany, error: updateError } = await supabase
+      .from('companies')
+      .update({
+        logo_url: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (updateError && updateError.code !== 'PGRST116') {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    res.json({ success: true, company: updatedCompany });
+  } catch (error) {
+    console.error('Delete logo error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all customers for a company
 app.get('/api/customers', async (req, res) => {
   try {
@@ -3627,41 +3798,64 @@ app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, r
 async function calculateDataPointValue(dataPointType, companyID, startDate) {
   switch (dataPointType) {
     case 'profit': {
-      // Get projects
-      let projectsQuery = supabase
-        .from('projects')
-        .select('id, est_value, created_at')
-        .eq('company_id', companyID);
+      // Get projects marked as sold or complete from status history (consistent with dashboard)
+      let soldQuery = supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(id, est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'sold');
+
+      let completeQuery = supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(id, est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'complete');
 
       if (startDate) {
-        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+        soldQuery = soldQuery.gte('changed_at', startDate.toISOString());
+        completeQuery = completeQuery.gte('changed_at', startDate.toISOString());
       }
 
-      const { data: projects, error: projectsError } = await projectsQuery;
-      if (projectsError || !projects) return 0;
+      const [{ data: soldHistory }, { data: completeHistory }] = await Promise.all([
+        soldQuery,
+        completeQuery,
+      ]);
+
+      // Combine sold and complete, avoiding duplicates
+      const processedProjectIds = new Set();
+      const allProjects = [
+        ...(soldHistory || []),
+        ...(completeHistory || []),
+      ];
+
+      if (allProjects.length === 0) return 0;
 
       let totalEstValue = 0;
       let totalExpenses = 0;
 
-      for (const project of projects) {
-        const estValue = parseFloat(project.est_value || 0);
+      for (const record of allProjects) {
+        // Skip duplicates
+        if (processedProjectIds.has(record.project_id)) continue;
+        processedProjectIds.add(record.project_id);
+
+        const estValue = parseFloat(record.projects?.est_value || 0);
         totalEstValue += estValue;
 
         // Get expenses for this project
         const { data: subcontractorFees } = await supabase
           .from('project_subcontractor_fees')
           .select('flat_fee')
-          .eq('project_id', project.id);
+          .eq('project_id', record.project_id);
 
         const { data: materials } = await supabase
           .from('project_materials')
           .select('quantity, unit_cost')
-          .eq('project_id', project.id);
+          .eq('project_id', record.project_id);
 
         const { data: additionalExpenses } = await supabase
           .from('project_additional_expenses')
           .select('amount')
-          .eq('project_id', project.id);
+          .eq('project_id', record.project_id);
 
         // Calculate subcontractor costs
         let subcontractorTotal = 0;
@@ -3694,19 +3888,44 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
     }
 
     case 'est_value': {
-      let projectsQuery = supabase
-        .from('projects')
-        .select('est_value, created_at')
-        .eq('company_id', companyID);
+      // Get projects marked as sold or complete from status history (consistent with dashboard)
+      let soldQuery = supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'sold');
+
+      let completeQuery = supabase
+        .from('project_status_history')
+        .select('project_id, projects!inner(est_value)')
+        .eq('company_id', companyID)
+        .eq('status', 'complete');
 
       if (startDate) {
-        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+        soldQuery = soldQuery.gte('changed_at', startDate.toISOString());
+        completeQuery = completeQuery.gte('changed_at', startDate.toISOString());
       }
 
-      const { data: projects, error: projectsError } = await projectsQuery;
-      if (projectsError || !projects) return 0;
+      const [{ data: soldHistory }, { data: completeHistory }] = await Promise.all([
+        soldQuery,
+        completeQuery,
+      ]);
 
-      return projects.reduce((sum, p) => sum + (parseFloat(p.est_value) || 0), 0);
+      // Combine sold and complete, avoiding duplicates
+      const processedProjectIds = new Set();
+      const allProjects = [
+        ...(soldHistory || []),
+        ...(completeHistory || []),
+      ];
+
+      let total = 0;
+      for (const record of allProjects) {
+        if (processedProjectIds.has(record.project_id)) continue;
+        processedProjectIds.add(record.project_id);
+        total += parseFloat(record.projects?.est_value || 0);
+      }
+
+      return total;
     }
 
     case 'leads': {

@@ -12,6 +12,7 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [previewFileName, setPreviewFileName] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -60,6 +61,17 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
       fetchDocuments()
     }
   }, [entityId, entityType])
+
+  // Close create menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showCreateMenu && !event.target.closest('.create-document-menu')) {
+        setShowCreateMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCreateMenu])
 
   // Handle file upload via backend (bypasses RLS)
   const handleFileUpload = async (event) => {
@@ -240,8 +252,8 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-semibold text-gray-800">
@@ -269,9 +281,61 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
 
           {/* Upload Section */}
           <div className="mb-6 p-4 bg-gray-50 rounded-md">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Document
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Upload Document
+              </label>
+              {/* Create Document Button - Only show for projects */}
+              {entityType === 'projects' && (
+                <div className="relative create-document-menu">
+                  <button
+                    onClick={() => setShowCreateMenu(!showCreateMenu)}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-md transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Document
+                    <svg className={`w-4 h-4 transition-transform ${showCreateMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {/* Dropdown Menu */}
+                  {showCreateMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowCreateMenu(false)
+                            // TODO: Implement proposal creation
+                            alert('Proposal creation coming soon!')
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Proposal
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCreateMenu(false)
+                            // TODO: Implement contract creation
+                            alert('Contract creation coming soon!')
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          Contract
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <input
               type="file"
               onChange={handleFileUpload}
@@ -348,8 +412,8 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
 
       {/* Preview Modal */}
       {showPreview && previewUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4" onClick={() => { setShowPreview(false); setPreviewUrl(null); setPreviewFileName(''); }}>
+          <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Preview Header */}
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-800 truncate flex-1 mr-4">

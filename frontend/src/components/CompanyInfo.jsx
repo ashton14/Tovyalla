@@ -8,6 +8,7 @@ function CompanyInfo() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -127,6 +128,106 @@ function CompanyInfo() {
     setError('')
   }
 
+  // Handle logo upload
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+    if (!allowedTypes.includes(file.type)) {
+      setError('Invalid file type. Please upload a JPEG, PNG, GIF, WebP, or SVG image.')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File too large. Maximum size is 5MB.')
+      return
+    }
+
+    setUploadingLogo(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result
+
+          const response = await axios.post(
+            '/api/company/logo',
+            {
+              file_data: base64Data,
+              file_name: file.name,
+              content_type: file.type,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+
+          setCompany(response.data.company)
+          setSuccess('Logo uploaded successfully!')
+          setTimeout(() => setSuccess(''), 3000)
+        } catch (err) {
+          console.error('Error uploading logo:', err)
+          setError(err.response?.data?.error || 'Failed to upload logo')
+        } finally {
+          setUploadingLogo(false)
+        }
+      }
+      reader.onerror = () => {
+        setError('Failed to read file')
+        setUploadingLogo(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error('Error uploading logo:', err)
+      setError(err.response?.data?.error || 'Failed to upload logo')
+      setUploadingLogo(false)
+    }
+
+    // Reset file input
+    event.target.value = ''
+  }
+
+  // Handle logo delete
+  const handleLogoDelete = async () => {
+    if (!window.confirm('Are you sure you want to remove the company logo?')) return
+
+    setUploadingLogo(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.delete('/api/company/logo', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      setCompany(response.data.company)
+      setSuccess('Logo removed successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      console.error('Error removing logo:', err)
+      setError(err.response?.data?.error || 'Failed to remove logo')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   if (!user?.user_metadata?.companyID) {
     return null
   }
@@ -169,6 +270,86 @@ function CompanyInfo() {
         )}
 
         <div className="space-y-4">
+          {/* Company Logo */}
+          <div className="bg-gray-50 border border-gray-200 rounded-md p-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Company Logo</h4>
+            <div className="flex items-center gap-6">
+              {/* Logo Display */}
+              <div className="flex-shrink-0">
+                {company?.logo_url ? (
+                  <div className="relative group">
+                    <img
+                      src={company.logo_url}
+                      alt="Company Logo"
+                      className="w-32 h-32 object-contain border border-gray-200 rounded-lg bg-white p-2"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-100">
+                    <div className="text-center">
+                      <svg className="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="mt-1 text-xs text-gray-500">No logo</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls */}
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-3">
+                  Upload your company logo. Recommended size: 200x200 pixels or larger. Max file size: 5MB.
+                </p>
+                <div className="flex gap-3">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                      onChange={handleLogoUpload}
+                      disabled={uploadingLogo}
+                      className="hidden"
+                    />
+                    <span className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                      uploadingLogo
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-pool-blue hover:bg-pool-dark text-white cursor-pointer'
+                    }`}>
+                      {uploadingLogo ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          </svg>
+                          Upload Logo
+                        </>
+                      )}
+                    </span>
+                  </label>
+                  {company?.logo_url && (
+                    <button
+                      onClick={handleLogoDelete}
+                      disabled={uploadingLogo}
+                      className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-md text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Remove Logo
+                    </button>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Supported formats: JPEG, PNG, GIF, WebP, SVG
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Company ID (read-only) */}
           <div className="bg-pool-light border border-pool-blue rounded-md p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
