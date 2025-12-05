@@ -485,6 +485,7 @@ app.put('/api/company', async (req, res) => {
       phone,
       email,
       website,
+      license_numbers,
     } = req.body;
 
     // Check if company exists
@@ -512,6 +513,7 @@ app.put('/api/company', async (req, res) => {
             phone: phone || null,
             email: email || null,
             website: website || null,
+            license_numbers: license_numbers || [],
           },
         ])
         .select()
@@ -537,6 +539,7 @@ app.put('/api/company', async (req, res) => {
           phone: phone || null,
           email: email || null,
           website: website || null,
+          license_numbers: license_numbers !== undefined ? license_numbers : undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyID)
@@ -1773,6 +1776,18 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       return res.status(500).json({ error: additionalError.message });
     }
 
+    // Get equipment expenses
+    const { data: equipment, error: equipmentError } = await supabase
+      .from('project_equipment')
+      .select('*')
+      .eq('project_id', id)
+      .order('date_ordered', { ascending: false });
+
+    if (equipmentError) {
+      console.log('Equipment query error (table may not exist yet):', equipmentError.message);
+      // Don't fail - table might not exist yet
+    }
+
     // Calculate totals (actual)
     let subcontractorTotal = 0;
     let subcontractorExpected = 0;
@@ -1801,8 +1816,17 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       });
     }
 
-    const totalExpenses = subcontractorTotal + materialsTotal + additionalTotal;
-    const totalExpected = subcontractorExpected + materialsExpected + additionalExpected;
+    let equipmentTotal = 0;
+    let equipmentExpected = 0;
+    if (equipment) {
+      equipment.forEach((entry) => {
+        equipmentTotal += parseFloat(entry.actual_price || 0) * parseFloat(entry.quantity || 1);
+        equipmentExpected += parseFloat(entry.expected_price || 0) * parseFloat(entry.quantity || 1);
+      });
+    }
+
+    const totalExpenses = subcontractorTotal + materialsTotal + additionalTotal + equipmentTotal;
+    const totalExpected = subcontractorExpected + materialsExpected + additionalExpected + equipmentExpected;
     const estValue = parseFloat(project.est_value || 0);
     const profit = estValue - totalExpenses;
     const expectedProfit = estValue - totalExpected;
@@ -1811,6 +1835,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       subcontractorFees: subcontractorFees || [],
       materials: materials || [],
       additionalExpenses: additionalExpenses || [],
+      equipment: equipment || [],
       totals: {
         subcontractors: subcontractorTotal,
         subcontractorsExpected: subcontractorExpected,
@@ -1818,6 +1843,8 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
         materialsExpected: materialsExpected,
         additional: additionalTotal,
         additionalExpected: additionalExpected,
+        equipment: equipmentTotal,
+        equipmentExpected: equipmentExpected,
         total: totalExpenses,
         totalExpected: totalExpected,
       },
@@ -1854,7 +1881,7 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { subcontractor_id, flat_fee, expected_value, date_added, status, notes } = req.body;
+    const { subcontractor_id, flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1882,6 +1909,7 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
         date_added,
         status: status || 'incomplete',
         notes: notes || null,
+        job_description: job_description || null,
       }])
       .select(`
         *,
@@ -1924,7 +1952,7 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
     }
 
     const { id, feeId } = req.params;
-    const { flat_fee, expected_value, date_added, status, notes } = req.body;
+    const { flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1947,6 +1975,7 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
     if (date_added !== undefined) updateData.date_added = date_added;
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes || null;
+    if (job_description !== undefined) updateData.job_description = job_description || null;
 
     const { data, error } = await supabase
       .from('project_subcontractor_fees')
@@ -2397,6 +2426,420 @@ app.delete('/api/projects/:id/expenses/additional/:expenseId', async (req, res) 
     res.json({ success: true });
   } catch (error) {
     console.error('Delete additional expense error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ========== EQUIPMENT EXPENSE ENDPOINTS ==========
+
+// Add equipment expense
+app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { name, description, expected_price, actual_price, quantity, date_ordered, date_received, status, vendor, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: 'Equipment name is required' });
+    }
+
+    const { data, error } = await supabase
+      .from('project_equipment')
+      .insert([{
+        project_id: id,
+        company_id: companyID,
+        name,
+        description: description || null,
+        expected_price: expected_price ? parseFloat(expected_price) : null,
+        actual_price: actual_price ? parseFloat(actual_price) : null,
+        quantity: quantity ? parseInt(quantity) : 1,
+        date_ordered: date_ordered || null,
+        date_received: date_received || null,
+        status: status || 'pending',
+        vendor: vendor || null,
+        notes: notes || null,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(201).json({ equipment: data });
+  } catch (error) {
+    console.error('Add equipment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update equipment expense
+app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, equipmentId } = req.params;
+    const { name, description, expected_price, actual_price, quantity, date_ordered, date_received, status, vendor, notes } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description || null;
+    if (expected_price !== undefined) updateData.expected_price = expected_price ? parseFloat(expected_price) : null;
+    if (actual_price !== undefined) updateData.actual_price = actual_price ? parseFloat(actual_price) : null;
+    if (quantity !== undefined) updateData.quantity = quantity ? parseInt(quantity) : 1;
+    if (date_ordered !== undefined) updateData.date_ordered = date_ordered || null;
+    if (date_received !== undefined) updateData.date_received = date_received || null;
+    if (status !== undefined) updateData.status = status;
+    if (vendor !== undefined) updateData.vendor = vendor || null;
+    if (notes !== undefined) updateData.notes = notes || null;
+
+    const { data, error } = await supabase
+      .from('project_equipment')
+      .update(updateData)
+      .eq('id', equipmentId)
+      .eq('project_id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ equipment: data });
+  } catch (error) {
+    console.error('Update equipment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete equipment expense
+app.delete('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id, equipmentId } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { error } = await supabase
+      .from('project_equipment')
+      .delete()
+      .eq('id', equipmentId)
+      .eq('project_id', id)
+      .eq('company_id', companyID);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete equipment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ========== CONTRACT GENERATION ENDPOINTS ==========
+
+// Get or create contract number for a project
+app.post('/api/projects/:id/contract', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify project belongs to user's company and get full project data with customer
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        customers (
+          id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          address_line1,
+          address_line2,
+          city,
+          state,
+          zip_code,
+          country
+        )
+      `)
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Check if contract already exists for this project
+    let { data: existingContract, error: contractError } = await supabase
+      .from('contract_numbers')
+      .select('*')
+      .eq('company_id', companyID)
+      .eq('project_id', id)
+      .single();
+
+    if (contractError && contractError.code !== 'PGRST116') {
+      // Error other than "no rows returned"
+      console.log('Contract lookup error:', contractError);
+    }
+
+    let contractNumber;
+    let contractDate;
+
+    if (existingContract) {
+      contractNumber = existingContract.contract_number;
+      contractDate = existingContract.contract_date;
+    } else {
+      // Get the next contract number
+      const { data: maxContract } = await supabase
+        .from('contract_numbers')
+        .select('contract_number')
+        .eq('company_id', companyID)
+        .order('contract_number', { ascending: false })
+        .limit(1)
+        .single();
+
+      contractNumber = (maxContract?.contract_number || 0) + 1;
+      contractDate = new Date().toISOString().split('T')[0];
+
+      // Insert the new contract number
+      const { error: insertError } = await supabase
+        .from('contract_numbers')
+        .insert([{
+          company_id: companyID,
+          project_id: id,
+          contract_number: contractNumber,
+          contract_date: contractDate,
+        }]);
+
+      if (insertError) {
+        console.error('Error inserting contract number:', insertError);
+        // If it's a unique constraint error, try to fetch the existing one
+        if (insertError.code === '23505') {
+          const { data: retryContract } = await supabase
+            .from('contract_numbers')
+            .select('*')
+            .eq('company_id', companyID)
+            .eq('project_id', id)
+            .single();
+          
+          if (retryContract) {
+            contractNumber = retryContract.contract_number;
+            contractDate = retryContract.contract_date;
+          }
+        }
+      }
+    }
+
+    // Get company info
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('company_id', companyID)
+      .single();
+
+    if (companyError) {
+      console.error('Error fetching company:', companyError);
+    }
+
+    // Get expenses for the project
+    const { data: subcontractorFees } = await supabase
+      .from('project_subcontractor_fees')
+      .select(`
+        *,
+        subcontractors (
+          id,
+          name
+        )
+      `)
+      .eq('project_id', id)
+      .order('date_added', { ascending: true });
+
+    const { data: materials } = await supabase
+      .from('project_materials')
+      .select(`
+        *,
+        inventory (
+          id,
+          name,
+          unit
+        )
+      `)
+      .eq('project_id', id)
+      .order('date_used', { ascending: true });
+
+    const { data: additionalExpenses } = await supabase
+      .from('project_additional_expenses')
+      .select('*')
+      .eq('project_id', id)
+      .order('expense_date', { ascending: true });
+
+    const { data: equipment } = await supabase
+      .from('project_equipment')
+      .select('*')
+      .eq('project_id', id)
+      .order('date_ordered', { ascending: true });
+
+    // Calculate totals
+    let subcontractorTotal = 0;
+    if (subcontractorFees) {
+      subcontractorFees.forEach((entry) => {
+        subcontractorTotal += parseFloat(entry.expected_value || entry.flat_fee || 0);
+      });
+    }
+
+    let materialsTotal = 0;
+    if (materials) {
+      materials.forEach((entry) => {
+        materialsTotal += parseFloat(entry.expected_value || 0) || (parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0));
+      });
+    }
+
+    let additionalTotal = 0;
+    if (additionalExpenses) {
+      additionalExpenses.forEach((entry) => {
+        additionalTotal += parseFloat(entry.expected_value || entry.amount || 0);
+      });
+    }
+
+    let equipmentTotal = 0;
+    if (equipment) {
+      equipment.forEach((entry) => {
+        equipmentTotal += parseFloat(entry.expected_price || entry.actual_price || 0) * parseFloat(entry.quantity || 1);
+      });
+    }
+
+    // Format contract number as 5-digit string (e.g., 00001)
+    const formattedContractNumber = String(contractNumber).padStart(5, '0');
+
+    res.json({
+      contractNumber: formattedContractNumber,
+      contractDate,
+      company: company || {},
+      project,
+      customer: project.customers || null,
+      expenses: {
+        subcontractorFees: subcontractorFees || [],
+        materials: materials || [],
+        additionalExpenses: additionalExpenses || [],
+        equipment: equipment || [],
+      },
+      totals: {
+        subcontractors: subcontractorTotal,
+        materials: materialsTotal,
+        additional: additionalTotal,
+        equipment: equipmentTotal,
+        initialFee: 1000,
+        finalInspection: 1000,
+        grandTotal: parseFloat(project.est_value || 0),
+      },
+    });
+  } catch (error) {
+    console.error('Get/create contract error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

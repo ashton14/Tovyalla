@@ -20,7 +20,12 @@ function CompanyInfo() {
     state: '',
     zip_code: '',
     country: 'USA',
+    phone: '',
+    website: '',
+    license_numbers: [],
   })
+  
+  const [newLicense, setNewLicense] = useState('')
 
   // Get auth token
   const getAuthToken = async () => {
@@ -59,6 +64,9 @@ function CompanyInfo() {
           state: companyData.state || '',
           zip_code: companyData.zip_code || '',
           country: companyData.country || 'USA',
+          phone: companyData.phone || '',
+          website: companyData.website || '',
+          license_numbers: companyData.license_numbers || [],
         })
       }
     } catch (err) {
@@ -122,10 +130,33 @@ function CompanyInfo() {
         state: company.state || '',
         zip_code: company.zip_code || '',
         country: company.country || 'USA',
+        phone: company.phone || '',
+        website: company.website || '',
+        license_numbers: company.license_numbers || [],
       })
     }
+    setNewLicense('')
     setEditing(false)
     setError('')
+  }
+
+  // Handle adding a license number
+  const handleAddLicense = () => {
+    if (newLicense.trim()) {
+      setFormData({
+        ...formData,
+        license_numbers: [...formData.license_numbers, newLicense.trim()]
+      })
+      setNewLicense('')
+    }
+  }
+
+  // Handle removing a license number
+  const handleRemoveLicense = (index) => {
+    setFormData({
+      ...formData,
+      license_numbers: formData.license_numbers.filter((_, i) => i !== index)
+    })
   }
 
   // Handle logo upload
@@ -471,6 +502,77 @@ function CompanyInfo() {
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      placeholder="(555) 555-5555"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Website
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.website}
+                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      placeholder="https://www.example.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Numbers
+                  </label>
+                  <div className="space-y-2">
+                    {formData.license_numbers.map((license, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="flex-1 px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm">
+                          {license}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLicense(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newLicense}
+                        onChange={(e) => setNewLicense(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLicense())}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="Enter license number (e.g., CPB #1234567)"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddLicense}
+                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-md transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Add contractor license numbers that will appear on contracts
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleSave}
@@ -511,7 +613,39 @@ function CompanyInfo() {
                     </p>
                   </div>
                 )}
-                {!company?.company_name && !company?.address_line1 && (
+                {(company?.phone || company?.website) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {company?.phone && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Phone:</span>
+                        <p className="text-sm text-gray-900 mt-1">{company.phone}</p>
+                      </div>
+                    )}
+                    {company?.website && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Website:</span>
+                        <p className="text-sm text-gray-900 mt-1">
+                          <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-pool-blue hover:underline">
+                            {company.website}
+                          </a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {company?.license_numbers && company.license_numbers.length > 0 && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">License Numbers:</span>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {company.license_numbers.map((license, index) => (
+                        <span key={index} className="px-3 py-1 bg-pool-light text-pool-dark text-sm rounded-full border border-pool-blue">
+                          {license}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!company?.company_name && !company?.address_line1 && !company?.phone && !company?.website && (
                   <p className="text-sm text-gray-500 italic">
                     No company information set. Click "Edit" to add company details.
                   </p>

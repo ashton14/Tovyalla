@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import { downloadContractPdf, openContractPdf } from '../utils/contractPdfGenerator'
 
 function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const { user, supabase } = useAuth()
@@ -13,6 +14,7 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const [previewFileName, setPreviewFileName] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
+  const [generatingContract, setGeneratingContract] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -72,6 +74,45 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showCreateMenu])
+
+  // Generate contract PDF
+  const handleGenerateContract = async () => {
+    setGeneratingContract(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Fetch contract data from backend
+      const response = await axios.post(
+        `/api/projects/${entityId}/contract`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      const contractData = response.data
+      console.log('Contract data received:', contractData)
+
+      // Generate and download the PDF
+      downloadContractPdf(contractData)
+
+      setSuccess(`Contract #${contractData.contractNumber} generated successfully!`)
+      setTimeout(() => setSuccess(''), 5000)
+    } catch (err) {
+      console.error('Error generating contract:', err)
+      setError(err.response?.data?.error || err.message || 'Failed to generate contract')
+    } finally {
+      setGeneratingContract(false)
+    }
+  }
 
   // Handle file upload via backend (bypasses RLS)
   const handleFileUpload = async (event) => {
@@ -320,15 +361,27 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                         <button
                           onClick={() => {
                             setShowCreateMenu(false)
-                            // TODO: Implement contract creation
-                            alert('Contract creation coming soon!')
+                            handleGenerateContract()
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          disabled={generatingContract}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                          Contract
+                          {generatingContract ? (
+                            <>
+                              <svg className="animate-spin w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                              </svg>
+                              Contract
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

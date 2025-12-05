@@ -72,6 +72,7 @@ function ProjectExpenses({ project, onClose }) {
     date_added: new Date().toISOString().split('T')[0],
     status: 'incomplete',
     notes: '',
+    job_description: '',
   })
 
   const [materialForm, setMaterialForm] = useState({
@@ -91,6 +92,21 @@ function ProjectExpenses({ project, onClose }) {
     expense_date: new Date().toISOString().split('T')[0],
     status: 'incomplete',
     category: '',
+    notes: '',
+  })
+
+  const [showEquipmentForm, setShowEquipmentForm] = useState(false)
+  const [editingEquipment, setEditingEquipment] = useState(null)
+  const [equipmentForm, setEquipmentForm] = useState({
+    name: '',
+    description: '',
+    expected_price: '',
+    actual_price: '',
+    quantity: '1',
+    date_ordered: new Date().toISOString().split('T')[0],
+    date_received: '',
+    status: 'pending',
+    vendor: '',
     notes: '',
   })
 
@@ -192,6 +208,7 @@ function ProjectExpenses({ project, onClose }) {
         date_added: new Date().toISOString().split('T')[0],
         status: 'incomplete',
         notes: '',
+        job_description: '',
       })
       
       // Refetch expenses to get updated data
@@ -212,6 +229,7 @@ function ProjectExpenses({ project, onClose }) {
       date_added: dateAdded,
       status: entry.status || 'incomplete',
       notes: entry.notes || '',
+      job_description: entry.job_description || '',
     })
     setShowSubcontractorForm(true)
   }
@@ -415,6 +433,98 @@ function ProjectExpenses({ project, onClose }) {
     }
   }
 
+  // Handle equipment
+  const handleEquipmentSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const payload = {
+        ...equipmentForm,
+        expected_price: equipmentForm.expected_price ? parseFloat(equipmentForm.expected_price) : null,
+        actual_price: equipmentForm.actual_price ? parseFloat(equipmentForm.actual_price) : null,
+        quantity: equipmentForm.quantity ? parseInt(equipmentForm.quantity) : 1,
+      }
+
+      if (editingEquipment) {
+        await axios.put(
+          `/api/projects/${project.id}/expenses/equipment/${editingEquipment.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        setSuccess('Equipment updated!')
+      } else {
+        await axios.post(
+          `/api/projects/${project.id}/expenses/equipment`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        setSuccess('Equipment added!')
+      }
+
+      setShowEquipmentForm(false)
+      setEditingEquipment(null)
+      setEquipmentForm({
+        name: '',
+        description: '',
+        expected_price: '',
+        actual_price: '',
+        quantity: '1',
+        date_ordered: new Date().toISOString().split('T')[0],
+        date_received: '',
+        status: 'pending',
+        vendor: '',
+        notes: '',
+      })
+
+      await fetchExpenses()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save equipment')
+    }
+  }
+
+  const handleEquipmentEdit = (entry) => {
+    setEditingEquipment(entry)
+    const dateOrdered = entry.date_ordered ? entry.date_ordered.split('T')[0] : ''
+    const dateReceived = entry.date_received ? entry.date_received.split('T')[0] : ''
+    setEquipmentForm({
+      name: entry.name || '',
+      description: entry.description || '',
+      expected_price: entry.expected_price || '',
+      actual_price: entry.actual_price || '',
+      quantity: entry.quantity || '1',
+      date_ordered: dateOrdered,
+      date_received: dateReceived,
+      status: entry.status || 'pending',
+      vendor: entry.vendor || '',
+      notes: entry.notes || '',
+    })
+    setShowEquipmentForm(true)
+  }
+
+  const handleEquipmentDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this equipment?')) return
+
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      await axios.delete(
+        `/api/projects/${project.id}/expenses/equipment/${id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      setSuccess('Equipment deleted!')
+      await fetchExpenses()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete equipment')
+    }
+  }
+
   // Auto-fill unit cost when inventory item is selected
   const handleInventorySelect = (inventoryId) => {
     const item = inventory.find((i) => i.id === inventoryId)
@@ -522,7 +632,7 @@ function ProjectExpenses({ project, onClose }) {
           </div>
 
           {/* Expense Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-700 font-medium">Subcontractors</p>
               <div className="flex justify-between items-end">
@@ -553,6 +663,23 @@ function ProjectExpenses({ project, onClose }) {
                   <p className="text-xs text-purple-600">Actual</p>
                   <p className="text-lg font-bold text-purple-900">
                     ${totals.materials?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm text-orange-700 font-medium">Equipment</p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-orange-600">Expected</p>
+                  <p className="text-sm text-orange-800">
+                    ${totals.equipmentExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-orange-600">Actual</p>
+                  <p className="text-lg font-bold text-orange-900">
+                    ${totals.equipment?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                   </p>
                 </div>
               </div>
@@ -616,6 +743,27 @@ function ProjectExpenses({ project, onClose }) {
               </button>
               <button
                 onClick={() => {
+                  setShowEquipmentForm(true)
+                  setEditingEquipment(null)
+                  setEquipmentForm({
+                    name: '',
+                    description: '',
+                    expected_price: '',
+                    actual_price: '',
+                    quantity: '1',
+                    date_ordered: new Date().toISOString().split('T')[0],
+                    date_received: '',
+                    status: 'pending',
+                    vendor: '',
+                    notes: '',
+                  })
+                }}
+                className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              >
+                + Equipment
+              </button>
+              <button
+                onClick={() => {
                   setShowAdditionalForm(true)
                   setEditingAdditional(null)
                   setAdditionalForm({
@@ -644,6 +792,7 @@ function ProjectExpenses({ project, onClose }) {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job Description</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
@@ -655,6 +804,7 @@ function ProjectExpenses({ project, onClose }) {
                     {expenses.subcontractorFees.map((entry) => (
                       <tr key={entry.id}>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.subcontractors?.name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{entry.job_description || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {formatDateString(entry.date_added)}
                         </td>
@@ -837,6 +987,87 @@ function ProjectExpenses({ project, onClose }) {
             )}
           </div>
 
+          {/* Equipment List */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Equipment</h3>
+            {expenses.equipment && expenses.equipment.length > 0 ? (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {expenses.equipment.map((entry) => {
+                      const expectedTotal = parseFloat(entry.expected_price || 0) * parseFloat(entry.quantity || 1)
+                      const actualTotal = parseFloat(entry.actual_price || 0) * parseFloat(entry.quantity || 1)
+                      return (
+                        <tr key={entry.id}>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            <div>{entry.name}</div>
+                            {entry.description && (
+                              <div className="text-xs text-gray-500">{entry.description}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{entry.vendor || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDateString(entry.date_ordered)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              entry.status === 'complete' ? 'bg-green-100 text-green-800' :
+                              entry.status === 'installed' ? 'bg-blue-100 text-blue-800' :
+                              entry.status === 'received' ? 'bg-teal-100 text-teal-800' :
+                              entry.status === 'ordered' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {entry.status === 'pending' ? 'Pending' :
+                               entry.status === 'ordered' ? 'Ordered' :
+                               entry.status === 'received' ? 'Received' :
+                               entry.status === 'installed' ? 'Installed' :
+                               'Complete'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{entry.quantity || 1}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {expectedTotal > 0 ? `$${expectedTotal.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {actualTotal > 0 ? `$${actualTotal.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <button
+                              onClick={() => handleEquipmentEdit(entry)}
+                              className="text-pool-blue hover:text-pool-dark mr-3"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleEquipmentDelete(entry.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No equipment added yet.</p>
+            )}
+          </div>
+
           {/* Forms will be rendered as modals */}
           {/* Subcontractor Form Modal */}
           {showSubcontractorForm && (
@@ -900,6 +1131,18 @@ function ProjectExpenses({ project, onClose }) {
                           <option value="complete">Complete</option>
                         </select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Job Description *</label>
+                      <input
+                        type="text"
+                        value={subcontractorForm.job_description}
+                        onChange={(e) => setSubcontractorForm({ ...subcontractorForm, job_description: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="e.g., Excavation, Plumbing, Electrical, etc."
+                        required
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1214,6 +1457,168 @@ function ProjectExpenses({ project, onClose }) {
                         className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
                       >
                         {editingAdditional ? 'Update' : 'Add'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Equipment Form Modal */}
+          {showEquipmentForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowEquipmentForm(false); setEditingEquipment(null); }}>
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold text-gray-800">
+                      {editingEquipment ? 'Edit' : 'Add'} Equipment
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowEquipmentForm(false)
+                        setEditingEquipment(null)
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleEquipmentSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Name *</label>
+                      <input
+                        type="text"
+                        value={equipmentForm.name}
+                        onChange={(e) => setEquipmentForm({ ...equipmentForm, name: e.target.value })}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="e.g., Pool Pump, Filter, Heater"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={equipmentForm.description}
+                        onChange={(e) => setEquipmentForm({ ...equipmentForm, description: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="Model number, specifications, etc."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                      <input
+                        type="text"
+                        value={equipmentForm.vendor}
+                        onChange={(e) => setEquipmentForm({ ...equipmentForm, vendor: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        placeholder="Supplier name"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Ordered</label>
+                        <input
+                          type="date"
+                          value={equipmentForm.date_ordered}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, date_ordered: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+                        <input
+                          type="date"
+                          value={equipmentForm.date_received}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, date_received: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={equipmentForm.quantity}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, quantity: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select
+                          value={equipmentForm.status}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, status: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="ordered">Ordered</option>
+                          <option value="received">Received</option>
+                          <option value="installed">Installed</option>
+                          <option value="complete">Complete</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Price ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={equipmentForm.expected_price}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, expected_price: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Price ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={equipmentForm.actual_price}
+                          onChange={(e) => setEquipmentForm({ ...equipmentForm, actual_price: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <textarea
+                        value={equipmentForm.notes}
+                        onChange={(e) => setEquipmentForm({ ...equipmentForm, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEquipmentForm(false)
+                          setEditingEquipment(null)
+                        }}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
+                      >
+                        {editingEquipment ? 'Update' : 'Add'}
                       </button>
                     </div>
                   </form>
