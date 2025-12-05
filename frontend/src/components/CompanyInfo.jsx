@@ -23,6 +23,7 @@ function CompanyInfo() {
     phone: '',
     website: '',
     license_numbers: [],
+    terms_of_service: '',
   })
   
   const [newLicense, setNewLicense] = useState('')
@@ -67,6 +68,7 @@ function CompanyInfo() {
           phone: companyData.phone || '',
           website: companyData.website || '',
           license_numbers: companyData.license_numbers || [],
+          terms_of_service: companyData.terms_of_service || '',
         })
       }
     } catch (err) {
@@ -133,6 +135,7 @@ function CompanyInfo() {
         phone: company.phone || '',
         website: company.website || '',
         license_numbers: company.license_numbers || [],
+        terms_of_service: company.terms_of_service || '',
       })
     }
     setNewLicense('')
@@ -573,6 +576,22 @@ function CompanyInfo() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Terms of Service / Legal Clauses
+                  </label>
+                  <textarea
+                    value={formData.terms_of_service}
+                    onChange={(e) => setFormData({ ...formData, terms_of_service: e.target.value })}
+                    rows={8}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    placeholder="Enter your company's terms of service, legal clauses, warranty information, and other legal text that will appear on generated contracts and proposals..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This text will be included in the legal section of generated documents (contracts, proposals, change orders).
+                  </p>
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleSave}
@@ -642,6 +661,14 @@ function CompanyInfo() {
                           {license}
                         </span>
                       ))}
+                    </div>
+                  </div>
+                )}
+                {company?.terms_of_service && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Terms of Service / Legal Clauses:</span>
+                    <div className="mt-1 p-3 bg-gray-100 rounded-md max-h-40 overflow-y-auto">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.terms_of_service}</p>
                     </div>
                   </div>
                 )}

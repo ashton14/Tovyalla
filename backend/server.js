@@ -486,6 +486,7 @@ app.put('/api/company', async (req, res) => {
       email,
       website,
       license_numbers,
+      terms_of_service,
     } = req.body;
 
     // Check if company exists
@@ -514,6 +515,7 @@ app.put('/api/company', async (req, res) => {
             email: email || null,
             website: website || null,
             license_numbers: license_numbers || [],
+            terms_of_service: terms_of_service || null,
           },
         ])
         .select()
@@ -540,6 +542,7 @@ app.put('/api/company', async (req, res) => {
           email: email || null,
           website: website || null,
           license_numbers: license_numbers !== undefined ? license_numbers : undefined,
+          terms_of_service: terms_of_service !== undefined ? terms_of_service : undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyID)
@@ -2676,6 +2679,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     }
 
     // Get the next document number (global across all document types for this company)
+    // Note: This just calculates the number for display - no record is created until manually uploaded
     const { data: maxDoc } = await supabase
       .from('project_documents')
       .select('document_number')
@@ -2696,30 +2700,6 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     };
     const typeName = typeLabels[document_type] || 'Document';
     const formattedNumber = String(documentNumber).padStart(5, '0');
-
-    // Insert the new document record
-    const { data: newDoc, error: insertError } = await supabase
-      .from('project_documents')
-      .insert([{
-        company_id: companyID,
-        project_id: id,
-        name: `${typeName} #${formattedNumber}`,
-        document_type: document_type,
-        document_number: documentNumber,
-        document_date: documentDate,
-        file_name: `${typeName}_${formattedNumber}.pdf`,
-        file_path: '', // Will be updated if PDF is saved
-        status: 'draft',
-      }])
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Error inserting document:', insertError);
-      return res.status(500).json({ error: 'Failed to create document' });
-    }
-    
-    const documentId = newDoc.id;
 
     // Get company info
     const { data: company, error: companyError } = await supabase
@@ -2800,7 +2780,6 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     }
 
     res.json({
-      documentId: documentId,
       documentNumber: formattedNumber,
       documentDate,
       documentType: document_type,

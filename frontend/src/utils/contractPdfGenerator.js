@@ -411,6 +411,12 @@ export const generateContractPdf = async (contractData) => {
       { text: 'Licensed Contractor Notice', style: 'subHeader' },
       { text: 'Contractors are required by law to be licensed and regulated by the Contractors\' State License Board. Any questions concerning a contractor may be referred to the registrar of the board.', style: 'paragraph', margin: [0, 0, 0, 20] },
       
+      // ================== COMPANY TERMS OF SERVICE ==================
+      ...(company.terms_of_service ? [
+        { text: 'ADDITIONAL TERMS & CONDITIONS', style: 'sectionHeader' },
+        { text: company.terms_of_service, style: 'paragraph', margin: [0, 0, 0, 20] },
+      ] : []),
+      
       // ================== WARRANTY ==================
       { text: 'CONTRACTOR LIABILITY & WARRANTY', style: 'sectionHeader', pageBreak: 'before' },
       
