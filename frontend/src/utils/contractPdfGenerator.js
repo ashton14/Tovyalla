@@ -85,17 +85,46 @@ const generatePaymentSchedule = (data) => {
   return schedule
 }
 
+// Helper function to convert image URL to base64 for pdfmake
+const getImageAsBase64 = async (url) => {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('Error loading image:', error)
+    return null
+  }
+}
+
 // Generate the contract PDF
-export const generateContractPdf = (contractData) => {
+export const generateContractPdf = async (contractData) => {
   const {
-    contractNumber,
-    contractDate,
+    documentNumber,
+    documentDate,
+    documentType,
     company,
     project,
     customer,
     expenses,
     totals,
   } = contractData
+  
+  // Support legacy field names for backwards compatibility
+  const docNumber = documentNumber || contractData.contractNumber
+  const docDate = documentDate || contractData.contractDate
+  const docType = documentType || 'contract'
+  
+  // Load company logo if available
+  let logoBase64 = null
+  if (company.logo_url) {
+    logoBase64 = await getImageAsBase64(company.logo_url)
+  }
   
   // Build company address
   const companyAddress = [
@@ -148,7 +177,7 @@ export const generateContractPdf = (contractData) => {
       columns: [
         { text: '', width: '*' },
         { 
-          text: `Contract #${contractNumber}`, 
+          text: `Document #${docNumber}`, 
           alignment: 'right',
           margin: [0, 20, 40, 0],
           fontSize: 10,
@@ -159,16 +188,24 @@ export const generateContractPdf = (contractData) => {
     
     footer: (currentPage, pageCount) => ({
       columns: [
-        { text: `Contract #${contractNumber}`, fontSize: 8, color: '#666666' },
+        { text: `Document #${docNumber}`, fontSize: 8, color: '#666666' },
         { text: `Page ${currentPage} of ${pageCount}`, alignment: 'right', fontSize: 8, color: '#666666' },
       ],
       margin: [40, 0, 40, 0],
     }),
     
     content: [
-      // ================== COMPANY HEADER ==================
+      // ================== COMPANY HEADER WITH LOGO ==================
       {
         columns: [
+          // Logo column (left side)
+          logoBase64 ? {
+            width: 100,
+            image: logoBase64,
+            fit: [100, 80],
+            margin: [0, 0, 20, 0],
+          } : { text: '', width: 0 },
+          // Company info column (right of logo)
           {
             width: '*',
             stack: [
@@ -190,8 +227,8 @@ export const generateContractPdf = (contractData) => {
       // ================== CONTRACT METADATA ==================
       {
         columns: [
-          { text: `Contract Number: ${contractNumber}`, style: 'label' },
-          { text: `Contract Date: ${formatDate(contractDate)}`, style: 'label', alignment: 'right' },
+          { text: `Document Number: ${docNumber}`, style: 'label' },
+          { text: `Document Date: ${formatDate(docDate)}`, style: 'label', alignment: 'right' },
         ],
         margin: [0, 0, 0, 20],
       },
@@ -508,8 +545,8 @@ export const generateContractPdf = (contractData) => {
               text: [
                 { text: 'Document Generated: ', bold: true },
                 { text: new Date().toLocaleString() },
-                { text: ' | Contract #', bold: true },
-                { text: contractNumber },
+                { text: ' | Document #', bold: true },
+                { text: docNumber },
               ],
               style: 'footer',
               alignment: 'center',
@@ -607,21 +644,24 @@ export const generateContractPdf = (contractData) => {
 }
 
 // Download the PDF
-export const downloadContractPdf = (contractData) => {
-  const pdf = generateContractPdf(contractData)
-  const fileName = `Contract_${contractData.contractNumber}_${contractData.project?.address?.replace(/[^a-zA-Z0-9]/g, '_') || 'Project'}.pdf`
+export const downloadContractPdf = async (contractData) => {
+  const pdf = await generateContractPdf(contractData)
+  const docNum = contractData.documentNumber || contractData.contractNumber
+  const docType = contractData.documentType || 'Contract'
+  const typeLabel = docType.charAt(0).toUpperCase() + docType.slice(1).replace('_', ' ')
+  const fileName = `${typeLabel}_${docNum}_${contractData.project?.address?.replace(/[^a-zA-Z0-9]/g, '_') || 'Project'}.pdf`
   pdf.download(fileName)
 }
 
 // Open the PDF in a new tab
-export const openContractPdf = (contractData) => {
-  const pdf = generateContractPdf(contractData)
+export const openContractPdf = async (contractData) => {
+  const pdf = await generateContractPdf(contractData)
   pdf.open()
 }
 
 // Get the PDF as a blob
 export const getContractPdfBlob = async (contractData) => {
-  const pdf = generateContractPdf(contractData)
+  const pdf = await generateContractPdf(contractData)
   return new Promise((resolve) => {
     pdf.getBlob((blob) => {
       resolve(blob)

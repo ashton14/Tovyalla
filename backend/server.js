@@ -2623,9 +2623,9 @@ app.delete('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res)
   }
 });
 
-// ========== CONTRACT GENERATION ENDPOINTS ==========
+// ========== DOCUMENT GENERATION ENDPOINTS ==========
 
-// Get or create contract number for a project
+// Generate a document (contract/proposal/change_order) for a project
 app.post('/api/projects/:id/contract', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -2646,6 +2646,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     }
 
     const { id } = req.params;
+    const { document_type = 'contract' } = req.body; // 'contract', 'proposal', or 'change_order'
 
     // Verify project belongs to user's company and get full project data with customer
     const { data: project, error: projectError } = await supabase
@@ -2674,66 +2675,51 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Check if contract already exists for this project
-    let { data: existingContract, error: contractError } = await supabase
-      .from('contract_numbers')
-      .select('*')
+    // Get the next document number (global across all document types for this company)
+    const { data: maxDoc } = await supabase
+      .from('project_documents')
+      .select('document_number')
       .eq('company_id', companyID)
-      .eq('project_id', id)
+      .not('document_number', 'is', null)
+      .order('document_number', { ascending: false })
+      .limit(1)
       .single();
 
-    if (contractError && contractError.code !== 'PGRST116') {
-      // Error other than "no rows returned"
-      console.log('Contract lookup error:', contractError);
+    const documentNumber = (maxDoc?.document_number || 0) + 1;
+    const documentDate = new Date().toISOString().split('T')[0];
+
+    // Create document type labels for the name
+    const typeLabels = {
+      contract: 'Contract',
+      proposal: 'Proposal',
+      change_order: 'Change Order',
+    };
+    const typeName = typeLabels[document_type] || 'Document';
+    const formattedNumber = String(documentNumber).padStart(5, '0');
+
+    // Insert the new document record
+    const { data: newDoc, error: insertError } = await supabase
+      .from('project_documents')
+      .insert([{
+        company_id: companyID,
+        project_id: id,
+        name: `${typeName} #${formattedNumber}`,
+        document_type: document_type,
+        document_number: documentNumber,
+        document_date: documentDate,
+        file_name: `${typeName}_${formattedNumber}.pdf`,
+        file_path: '', // Will be updated if PDF is saved
+        status: 'draft',
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting document:', insertError);
+      return res.status(500).json({ error: 'Failed to create document' });
     }
-
-    let contractNumber;
-    let contractDate;
-
-    if (existingContract) {
-      contractNumber = existingContract.contract_number;
-      contractDate = existingContract.contract_date;
-    } else {
-      // Get the next contract number
-      const { data: maxContract } = await supabase
-        .from('contract_numbers')
-        .select('contract_number')
-        .eq('company_id', companyID)
-        .order('contract_number', { ascending: false })
-        .limit(1)
-        .single();
-
-      contractNumber = (maxContract?.contract_number || 0) + 1;
-      contractDate = new Date().toISOString().split('T')[0];
-
-      // Insert the new contract number
-      const { error: insertError } = await supabase
-        .from('contract_numbers')
-        .insert([{
-          company_id: companyID,
-          project_id: id,
-          contract_number: contractNumber,
-          contract_date: contractDate,
-        }]);
-
-      if (insertError) {
-        console.error('Error inserting contract number:', insertError);
-        // If it's a unique constraint error, try to fetch the existing one
-        if (insertError.code === '23505') {
-          const { data: retryContract } = await supabase
-            .from('contract_numbers')
-            .select('*')
-            .eq('company_id', companyID)
-            .eq('project_id', id)
-            .single();
-          
-          if (retryContract) {
-            contractNumber = retryContract.contract_number;
-            contractDate = retryContract.contract_date;
-          }
-        }
-      }
-    }
+    
+    const documentId = newDoc.id;
 
     // Get company info
     const { data: company, error: companyError } = await supabase
@@ -2813,12 +2799,11 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       });
     }
 
-    // Format contract number as 5-digit string (e.g., 00001)
-    const formattedContractNumber = String(contractNumber).padStart(5, '0');
-
     res.json({
-      contractNumber: formattedContractNumber,
-      contractDate,
+      documentId: documentId,
+      documentNumber: formattedNumber,
+      documentDate,
+      documentType: document_type,
       company: company || {},
       project,
       customer: project.customers || null,
@@ -2839,7 +2824,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get/create contract error:', error);
+    console.error('Generate document error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -3986,7 +3971,39 @@ app.get('/api/documents/:entityType/:entityId', async (req, res) => {
       return res.status(404).json({ error: 'Entity not found' });
     }
 
-    // List files from Supabase Storage
+    // For projects, fetch from project_documents table
+    if (entityType === 'projects') {
+      const { data: projectDocs, error: docsError } = await supabase
+        .from('project_documents')
+        .select('*')
+        .eq('project_id', entityId)
+        .eq('company_id', companyID)
+        .order('created_at', { ascending: false });
+
+      if (docsError) {
+        console.error('Error fetching project documents:', docsError);
+        return res.status(500).json({ error: docsError.message });
+      }
+
+      const documents = (projectDocs || []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        document_type: doc.document_type,
+        document_number: doc.document_number,
+        document_date: doc.document_date,
+        status: doc.status,
+        file_name: doc.file_name,
+        path: doc.file_path,
+        size: doc.file_size,
+        mime_type: doc.mime_type,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+      }));
+
+      return res.json({ documents });
+    }
+
+    // For other entity types, list files from Supabase Storage
     // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
     const storagePath = `${entityType}/${companyID}/${entityId}`;
     
@@ -4046,6 +4063,7 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
     }
 
     const { entityType, entityId } = req.params;
+    const { name, document_type = 'other' } = req.body;
     const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
     
     if (!validEntityTypes.includes(entityType)) {
@@ -4086,13 +4104,119 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
       return res.status(500).json({ error: uploadError.message });
     }
 
-    res.json({ 
-      success: true, 
-      path: uploadData.path,
-      message: 'Document uploaded successfully'
-    });
+    // For projects, save document metadata to project_documents table
+    if (entityType === 'projects') {
+      const validDocTypes = ['contract', 'proposal', 'change_order', 'other'];
+      const docType = validDocTypes.includes(document_type) ? document_type : 'other';
+      
+      const { data: docRecord, error: docError } = await supabase
+        .from('project_documents')
+        .insert([{
+          company_id: companyID,
+          project_id: entityId,
+          name: name || req.file.originalname,
+          document_type: docType,
+          file_name: req.file.originalname,
+          file_path: storagePath,
+          file_size: req.file.size,
+          mime_type: req.file.mimetype,
+        }])
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error saving document metadata:', docError);
+        // Don't fail the upload, just log the error
+      }
+
+      res.json({ 
+        success: true, 
+        path: uploadData.path,
+        document: docRecord || null,
+        message: 'Document uploaded successfully'
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        path: uploadData.path,
+        message: 'Document uploaded successfully'
+      });
+    }
   } catch (error) {
     console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update document metadata (for project documents)
+app.put('/api/documents/projects/:projectId/:documentId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { projectId, documentId } = req.params;
+    const { name, document_type, status } = req.body;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id, company_id')
+      .eq('id', projectId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Validate document_type
+    const validDocTypes = ['contract', 'proposal', 'change_order', 'other'];
+    const docType = validDocTypes.includes(document_type) ? document_type : undefined;
+
+    // Validate status
+    const validStatuses = ['draft', 'sent', 'signed', 'cancelled', 'expired'];
+    const docStatus = validStatuses.includes(status) ? status : undefined;
+
+    // Build update object
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+    if (name !== undefined) updateData.name = name;
+    if (docType !== undefined) updateData.document_type = docType;
+    if (docStatus !== undefined) updateData.status = docStatus;
+
+    // Update the document
+    const { data: updatedDoc, error: updateError } = await supabase
+      .from('project_documents')
+      .update(updateData)
+      .eq('id', documentId)
+      .eq('company_id', companyID)
+      .eq('project_id', projectId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating document:', updateError);
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    res.json({ success: true, document: updatedDoc });
+  } catch (error) {
+    console.error('Update document error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -4137,13 +4261,14 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
       return res.status(404).json({ error: 'Entity not found' });
     }
 
+    const { documentId } = req.query;
+
     // Delete file from Supabase Storage
     // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
     const storagePath = `${entityType}/${companyID}/${entityId}/${fileName}`;
     console.log('🗑️ Delete Document Debug:');
     console.log('  - Storage Path:', storagePath);
-    console.log('  - Path parts:', storagePath.split('/'));
-    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
+    console.log('  - Document ID:', documentId);
     
     const { error: deleteError } = await supabase.storage
       .from('documents')
@@ -4157,7 +4282,21 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
         statusCode: deleteError.statusCode,
         error: deleteError.error,
       });
-      return res.status(500).json({ error: deleteError.message });
+      // Don't fail if storage delete fails - file might already be gone
+    }
+
+    // If documentId provided and this is a project, also delete from project_documents table
+    if (documentId && entityType === 'projects') {
+      const { error: dbDeleteError } = await supabase
+        .from('project_documents')
+        .delete()
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('project_id', entityId);
+
+      if (dbDeleteError) {
+        console.error('Error deleting from project_documents:', dbDeleteError);
+      }
     }
 
     res.json({ success: true, message: 'Document deleted successfully' });

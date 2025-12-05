@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
-import { downloadContractPdf, openContractPdf } from '../utils/contractPdfGenerator'
+import { openContractPdf } from '../utils/contractPdfGenerator'
 
 function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const { user, supabase } = useAuth()
@@ -15,6 +15,12 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const [showPreview, setShowPreview] = useState(false)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
   const [generatingContract, setGeneratingContract] = useState(false)
+  const [documentName, setDocumentName] = useState('')
+  const [documentType, setDocumentType] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [editingDocument, setEditingDocument] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', document_type: '', status: '' })
+  const [saving, setSaving] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -101,10 +107,10 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
       const contractData = response.data
       console.log('Contract data received:', contractData)
 
-      // Generate and download the PDF
-      downloadContractPdf(contractData)
+      // Generate and open the PDF in a new tab
+      await openContractPdf(contractData)
 
-      setSuccess(`Contract #${contractData.contractNumber} generated successfully!`)
+      setSuccess(`Document #${contractData.documentNumber} generated successfully!`)
       setTimeout(() => setSuccess(''), 5000)
     } catch (err) {
       console.error('Error generating contract:', err)
@@ -114,10 +120,28 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
     }
   }
 
-  // Handle file upload via backend (bypasses RLS)
-  const handleFileUpload = async (event) => {
+  // Handle file selection
+  const handleFileSelect = (event) => {
     const file = event.target.files[0]
-    if (!file) return
+    if (file) {
+      setSelectedFile(file)
+      // Auto-fill document name from file name if empty
+      if (!documentName) {
+        setDocumentName(file.name.replace(/\.[^/.]+$/, '')) // Remove extension
+      }
+    }
+  }
+
+  // Handle file upload via backend (bypasses RLS)
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select a file')
+      return
+    }
+    if (!documentType) {
+      setError('Please select a document type')
+      return
+    }
 
     setUploading(true)
     setError('')
@@ -135,9 +159,11 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
       console.log('  - Company ID:', companyID)
       console.log('  - Entity Type:', entityType)
       console.log('  - Entity ID:', entityId)
-      console.log('  - File Name:', file.name)
-      console.log('  - File Size:', file.size, 'bytes')
-      console.log('  - File Type:', file.type)
+      console.log('  - Document Name:', documentName)
+      console.log('  - Document Type:', documentType)
+      console.log('  - File Name:', selectedFile.name)
+      console.log('  - File Size:', selectedFile.size, 'bytes')
+      console.log('  - File Type:', selectedFile.type)
 
       if (!companyID) {
         throw new Error('No company ID found')
@@ -145,7 +171,9 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
 
       // Use FormData for multipart/form-data upload
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', selectedFile)
+      formData.append('name', documentName.trim())
+      formData.append('document_type', documentType)
       
       const response = await fetch(
         `/api/documents/${entityType}/${entityId}/upload`,
@@ -172,8 +200,10 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
       // Refresh documents list
       fetchDocuments()
       
-      // Reset file input
-      event.target.value = ''
+      // Reset form
+      setSelectedFile(null)
+      setDocumentName('')
+      setDocumentType('')
     } catch (err) {
       console.error('❌ Error uploading document:', err)
       setError(err.message || 'Failed to upload document')
@@ -234,7 +264,7 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   }
 
   // Handle file delete
-  const handleDelete = async (fileName) => {
+  const handleDelete = async (fileName, documentId = null) => {
     if (!window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
       return
     }
@@ -245,7 +275,13 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
         throw new Error('Not authenticated')
       }
 
-      await axios.delete(`/api/documents/${entityType}/${entityId}/${fileName}`, {
+      // Build URL with optional document ID for project_documents table deletion
+      let url = `/api/documents/${entityType}/${entityId}/${fileName}`
+      if (documentId) {
+        url += `?documentId=${documentId}`
+      }
+
+      await axios.delete(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -259,6 +295,55 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
     } catch (err) {
       console.error('Error deleting document:', err)
       setError(err.response?.data?.error || 'Failed to delete document')
+    }
+  }
+
+  // Handle edit document
+  const handleEditClick = (doc) => {
+    setEditingDocument(doc)
+    setEditForm({
+      name: doc.name || '',
+      document_type: doc.document_type || 'other',
+      status: doc.status || 'draft',
+    })
+  }
+
+  // Handle save edit
+  const handleSaveEdit = async () => {
+    if (!editingDocument) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      await axios.put(
+        `/api/documents/projects/${entityId}/${editingDocument.id}`,
+        {
+          name: editForm.name.trim() || editingDocument.file_name,
+          document_type: editForm.document_type,
+          status: editForm.status,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      setSuccess('Document updated successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      setEditingDocument(null)
+      fetchDocuments()
+    } catch (err) {
+      console.error('Error updating document:', err)
+      setError(err.response?.data?.error || 'Failed to update document')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -383,21 +468,98 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                             </>
                           )}
                         </button>
+                        <button
+                          onClick={() => {
+                            setShowCreateMenu(false)
+                            // TODO: Implement change order creation
+                            alert('Change Order creation coming soon!')
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Change Order
+                        </button>
                       </div>
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <input
-              type="file"
-              onChange={handleFileUpload}
-              disabled={uploading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
-            {uploading && (
-              <p className="mt-2 text-sm text-gray-600">Uploading...</p>
-            )}
+            
+            {/* Upload Form */}
+            <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Name <span className="text-gray-400 font-normal">(optional - defaults to file name)</span>
+                </label>
+                <input
+                  type="text"
+                  value={documentName}
+                  onChange={(e) => setDocumentName(e.target.value)}
+                  placeholder="Enter document name or leave blank"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Type *
+                </label>
+                <select
+                  value={documentType}
+                  onChange={(e) => setDocumentType(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm ${!documentType ? 'border-gray-300 text-gray-500' : 'border-gray-300'}`}
+                >
+                  <option value="" disabled>Select document type...</option>
+                  <option value="contract">Contract</option>
+                  <option value="proposal">Proposal</option>
+                  <option value="change_order">Change Order</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  File *
+                </label>
+                <input
+                  type="file"
+                  onChange={handleFileSelect}
+                  disabled={uploading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                />
+                {selectedFile && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+              
+              <button
+                onClick={handleFileUpload}
+                disabled={uploading || !selectedFile || !documentType}
+                className="w-full px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload Document
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Documents List */}
@@ -417,46 +579,112 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
               </div>
             ) : (
               <div className="space-y-2">
-                {documents.map((doc, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {doc.name}
-                      </p>
-                      <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                        <span>{formatFileSize(doc.size)}</span>
-                        {doc.created_at && (
-                          <span>Uploaded: {formatDate(doc.created_at)}</span>
+                {documents.map((doc, index) => {
+                  const fileName = doc.file_name || doc.name
+                  const displayName = doc.name || fileName
+                  const docType = doc.document_type
+                  
+                  // Type badge colors
+                  const typeColors = {
+                    contract: 'bg-purple-100 text-purple-800',
+                    proposal: 'bg-blue-100 text-blue-800',
+                    change_order: 'bg-orange-100 text-orange-800',
+                    other: 'bg-gray-100 text-gray-800',
+                  }
+                  
+                  const typeLabels = {
+                    contract: 'Contract',
+                    proposal: 'Proposal',
+                    change_order: 'Change Order',
+                    other: 'Other',
+                  }
+
+                  // Status badge colors
+                  const statusColors = {
+                    draft: 'bg-yellow-100 text-yellow-800',
+                    sent: 'bg-blue-100 text-blue-800',
+                    signed: 'bg-green-100 text-green-800',
+                    cancelled: 'bg-red-100 text-red-800',
+                    expired: 'bg-gray-100 text-gray-800',
+                  }
+                  
+                  const statusLabels = {
+                    draft: 'Draft',
+                    sent: 'Sent',
+                    signed: 'Signed',
+                    cancelled: 'Cancelled',
+                    expired: 'Expired',
+                  }
+                  
+                  return (
+                    <div
+                      key={doc.id || index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {displayName}
+                          </p>
+                          {docType && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[docType] || typeColors.other}`}>
+                              {typeLabels[docType] || docType}
+                            </span>
+                          )}
+                          {doc.status && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[doc.status] || statusColors.draft}`}>
+                              {statusLabels[doc.status] || doc.status}
+                            </span>
+                          )}
+                          {doc.document_number && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700">
+                              #{String(doc.document_number).padStart(5, '0')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                          {doc.file_name && doc.file_name !== displayName && (
+                            <span className="truncate max-w-[150px]" title={doc.file_name}>{doc.file_name}</span>
+                          )}
+                          <span>{formatFileSize(doc.size)}</span>
+                          {doc.created_at && (
+                            <span>Uploaded: {formatDate(doc.created_at)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        {isPreviewable(fileName) && (
+                          <button
+                            onClick={() => handleView(fileName)}
+                            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                          >
+                            View
+                          </button>
                         )}
+                        <button
+                          onClick={() => handleDownload(fileName)}
+                          className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
+                        >
+                          Download
+                        </button>
+                        {doc.id && (
+                          <button
+                            onClick={() => handleEditClick(doc)}
+                            className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(fileName, doc.id)}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
-                      {isPreviewable(doc.name) && (
-                        <button
-                          onClick={() => handleView(doc.name)}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          View
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDownload(doc.name)}
-                        className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        Download
-                      </button>
-                      <button
-                        onClick={() => handleDelete(doc.name)}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -530,6 +758,104 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                 className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-medium rounded-md transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Document Modal */}
+      {editingDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={() => setEditingDocument(null)}>
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Edit Document</h3>
+              <button
+                onClick={() => setEditingDocument(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="Enter document name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Type
+                </label>
+                <select
+                  value={editForm.document_type}
+                  onChange={(e) => setEditForm({ ...editForm, document_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                >
+                  <option value="contract">Contract</option>
+                  <option value="proposal">Proposal</option>
+                  <option value="change_order">Change Order</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="signed">Signed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+
+              {editingDocument.document_number && (
+                <div className="text-sm text-gray-500">
+                  Document #: {String(editingDocument.document_number).padStart(5, '0')}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setEditingDocument(null)}
+                disabled={saving}
+                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
             </div>
           </div>
