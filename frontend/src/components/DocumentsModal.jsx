@@ -653,19 +653,11 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                         </div>
                       </div>
                       <div className="flex gap-2 ml-4">
-                        {isPreviewable(fileName) && (
-                          <button
-                            onClick={() => handleView(fileName)}
-                            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
-                          >
-                            View
-                          </button>
-                        )}
                         <button
                           onClick={() => handleDownload(fileName)}
                           className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
                         >
-                          Download
+                          View
                         </button>
                         {doc.id && (
                           <button
