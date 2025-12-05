@@ -38,6 +38,7 @@ function Dashboard() {
   const [timePeriod, setTimePeriod] = useState('total')
   const [chartYear, setChartYear] = useState(new Date().getFullYear())
   const [chartMetric, setChartMetric] = useState('value')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Use cached queries
   const { data: employees = [] } = useEmployees()
@@ -150,19 +151,47 @@ function Dashboard() {
     return null
   }
 
+  // Helper to handle nav clicks on mobile
+  const handleNavClick = (section) => {
+    setActiveSection(section)
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-14 w-auto" />
+          {/* Close button for mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
-            onClick={() => setActiveSection('overview')}
+            onClick={() => handleNavClick('overview')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'overview'
                 ? 'bg-pool-blue text-white'
@@ -172,7 +201,7 @@ function Dashboard() {
             <span className="font-medium">Dashboard</span>
           </button>
           <button
-            onClick={() => setActiveSection('company')}
+            onClick={() => handleNavClick('company')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'company'
                 ? 'bg-pool-blue text-white'
@@ -182,7 +211,7 @@ function Dashboard() {
             <span className="font-medium">Company Info</span>
           </button>
           <button
-            onClick={() => setActiveSection('customers')}
+            onClick={() => handleNavClick('customers')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'customers'
                 ? 'bg-pool-blue text-white'
@@ -192,7 +221,7 @@ function Dashboard() {
             <span className="font-medium">Customers</span>
           </button>
           <button
-            onClick={() => setActiveSection('projects')}
+            onClick={() => handleNavClick('projects')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'projects'
                 ? 'bg-pool-blue text-white'
@@ -202,7 +231,7 @@ function Dashboard() {
             <span className="font-medium">Projects</span>
           </button>
           <button
-            onClick={() => setActiveSection('inventory')}
+            onClick={() => handleNavClick('inventory')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'inventory'
                 ? 'bg-pool-blue text-white'
@@ -212,7 +241,7 @@ function Dashboard() {
             <span className="font-medium">Inventory</span>
           </button>
           <button
-            onClick={() => setActiveSection('subcontractors')}
+            onClick={() => handleNavClick('subcontractors')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'subcontractors'
                 ? 'bg-pool-blue text-white'
@@ -222,7 +251,7 @@ function Dashboard() {
             <span className="font-medium">Subcontractors</span>
           </button>
           <button
-            onClick={() => setActiveSection('employees')}
+            onClick={() => handleNavClick('employees')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'employees'
                 ? 'bg-pool-blue text-white'
@@ -232,7 +261,7 @@ function Dashboard() {
             <span className="font-medium">Employees</span>
           </button>
           <button
-            onClick={() => setActiveSection('calendar')}
+            onClick={() => handleNavClick('calendar')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'calendar'
                 ? 'bg-pool-blue text-white'
@@ -242,7 +271,7 @@ function Dashboard() {
             <span className="font-medium">Calendar</span>
           </button>
           <button
-            onClick={() => setActiveSection('goals')}
+            onClick={() => handleNavClick('goals')}
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'goals'
                 ? 'bg-pool-blue text-white'
@@ -272,8 +301,21 @@ function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main className="flex-1 overflow-auto lg:ml-0">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-8 w-auto ml-3" />
+        </div>
+
+        <div className="p-4 sm:p-6 lg:p-8">
           {activeSection === 'overview' && (
             <div className="space-y-6">
               <div>
@@ -284,12 +326,12 @@ function Dashboard() {
 
               {/* Project Statistics */}
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <h3 className="text-xl font-semibold text-gray-800">Project Statistics</h3>
                   <select
                     value={timePeriod}
                     onChange={(e) => setTimePeriod(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
                   >
                     <option value="day">Last Day</option>
                     <option value="week">Last Week</option>
@@ -349,13 +391,13 @@ function Dashboard() {
 
               {/* Monthly Chart */}
               <div className="space-y-4">
-                <div className="flex justify-between items-center flex-wrap gap-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <h3 className="text-xl font-semibold text-gray-800">Monthly Overview</h3>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <select
                       value={chartYear}
                       onChange={(e) => setChartYear(parseInt(e.target.value))}
-                      className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
                     >
                       {yearOptions.map((year) => (
                         <option key={year} value={year}>
@@ -366,7 +408,7 @@ function Dashboard() {
                     <select
                       value={chartMetric}
                       onChange={(e) => setChartMetric(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
                     >
                       {CHART_METRICS.map((metric) => (
                         <option key={metric.value} value={metric.value}>
@@ -443,7 +485,7 @@ function Dashboard() {
               {/* Projects In Progress */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-gray-800">Projects In Progress</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-400">
                     <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Proposal Request</p>
                     <p className="text-3xl font-bold text-gray-900">{projectsInProgress.proposalRequest}</p>
