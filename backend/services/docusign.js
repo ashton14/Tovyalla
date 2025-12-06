@@ -313,12 +313,14 @@ async function getAccountBaseUrl() {
  * @param {Object} options - Envelope options
  * @param {Buffer} documentBuffer - Document file buffer
  * @param {string} documentName - Document file name
- * @param {string} recipientEmail - Recipient email address
- * @param {string} recipientName - Recipient name
+ * @param {string} recipientEmail - Recipient email address (owner)
+ * @param {string} recipientName - Recipient name (owner)
  * @param {string} subject - Email subject
  * @param {string} emailBlurb - Email message body
  * @param {string[]} ccEmails - CC email addresses (optional)
  * @param {string[]} bccEmails - BCC email addresses (optional)
+ * @param {string} companySignerEmail - Company signer email address (optional, if not provided, company signer won't be added)
+ * @param {string} companyName - Company name for company signer (optional)
  * @returns {Promise<string>} Envelope ID
  */
 export async function createAndSendEnvelope({
@@ -330,6 +332,8 @@ export async function createAndSendEnvelope({
   emailBlurb,
   ccEmails = [],
   bccEmails = [],
+  companySignerEmail = null,
+  companyName = null,
 }) {
   const accessToken = await getAccessToken();
   
@@ -361,46 +365,50 @@ export async function createAndSendEnvelope({
   });
 
   // Create signature tabs for owner signature section
-  // The PDF has "OWNER" section with Signature, Printed Name, and Date fields
-  // We'll use anchor positioning to place tabs at the correct locations
+  // The PDF has "SIGNATURES" section header on the last page, followed by "OWNER" and "CONTRACTOR" sections
+  // IMPORTANT: Anchor to "SIGNATURES" which only appears once on the last page to avoid matching other sections
+  // The recipientId '1' ensures these tabs only appear for the owner signer
   
   // Signature tab - positioned at the signature line in the OWNER section
+  // Anchor to "SIGNATURES" (unique to last page) and position relative to OWNER section below it
   const signHere = docusign.SignHere.constructFromObject({
     documentId: '1',
-    recipientId: '1',
+    recipientId: '1', // Must match owner signer's recipientId - this restricts tabs to owner signer only
     tabLabel: 'OwnerSignature',
-    anchorString: 'Signature',
+    anchorString: 'SIGNATURES',
     anchorXOffset: '0',
-    anchorYOffset: '-25', // Position above the "Signature" label (on the signature line)
+    anchorYOffset: '100', // Position below "SIGNATURES" header, at OWNER signature line (adjust if needed)
     anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true', // Case-sensitive matching
   });
 
-  // Printed name tab - use Text tab for printed name
-  // Anchor to "Printed Name" label in the OWNER section
+  // Printed name tab - positioned at the printed name line in OWNER section
+  // Anchor to "SIGNATURES" to ensure we only get tabs on the last page signature section
   const textTab = docusign.Text.constructFromObject({
     documentId: '1',
-    recipientId: '1',
+    recipientId: '1', // Must match owner signer's recipientId - this restricts tabs to owner signer only
     tabLabel: 'OwnerPrintedName',
-    anchorString: 'Printed Name',
+    anchorString: 'SIGNATURES',
     anchorXOffset: '0',
-    anchorYOffset: '-25', // Position above the "Printed Name" label (on the name line)
+    anchorYOffset: '150', // Position at printed name line in OWNER section (below signature, adjust if needed)
     anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true', // Case-sensitive matching
     value: recipientName || recipientEmail, // Pre-fill with recipient name
     required: 'true',
     locked: 'false',
   });
 
   // Date signed tab - positioned at the date line (right side column in OWNER section)
-  // Anchor directly to "Date" label - DocuSign will find the first occurrence in the OWNER section
-  // since OWNER section comes before CONTRACTOR section in the PDF
+  // Anchor to "SIGNATURES" to ensure we only get the date field on the last page
   const dateSigned = docusign.DateSigned.constructFromObject({
     documentId: '1',
-    recipientId: '1',
+    recipientId: '1', // Must match owner signer's recipientId - this restricts tabs to owner signer only
     tabLabel: 'OwnerDate',
-    anchorString: 'Date',
-    anchorXOffset: '0', // Position at the "Date" label
-    anchorYOffset: '-25', // Position above the "Date" label (on the date line)
+    anchorString: 'SIGNATURES',
+    anchorXOffset: '200', // Position at date column (right side of OWNER section, adjust if needed)
+    anchorYOffset: '100', // Position at date line (same vertical position as signature in OWNER section)
     anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true', // Case-sensitive matching
     required: 'true',
   });
 
@@ -412,9 +420,76 @@ export async function createAndSendEnvelope({
   });
   signer.tabs = tabs;
 
+  // Create signers array - start with owner signer
+  const signers = [signer];
+
+  // Add company signer if provided (signs second with routingOrder '2')
+  if (companySignerEmail) {
+    const companySigner = docusign.Signer.constructFromObject({
+      email: companySignerEmail,
+      name: companyName || companySignerEmail,
+      recipientId: '2',
+      routingOrder: '2', // Signs after owner (routingOrder '1')
+    });
+
+    // Create signature tabs for CONTRACTOR section
+    // The CONTRACTOR section appears below the OWNER section on the same page
+    // Anchor to "SIGNATURES" and position lower (higher Y offset) for CONTRACTOR section
+    
+    // Signature tab - positioned at the signature line in the CONTRACTOR section
+    const companySignHere = docusign.SignHere.constructFromObject({
+      documentId: '1',
+      recipientId: '2', // Must match company signer's recipientId
+      tabLabel: 'CompanySignature',
+      anchorString: 'SIGNATURES',
+      anchorXOffset: '0',
+      anchorYOffset: '250', // Position lower for CONTRACTOR section (below OWNER section, adjust if needed)
+      anchorUnits: 'pixels',
+      anchorCaseSensitive: 'true',
+    });
+
+    // Printed name tab - positioned at the printed name line in CONTRACTOR section
+    const companyTextTab = docusign.Text.constructFromObject({
+      documentId: '1',
+      recipientId: '2', // Must match company signer's recipientId
+      tabLabel: 'CompanyPrintedName',
+      anchorString: 'SIGNATURES',
+      anchorXOffset: '0',
+      anchorYOffset: '300', // Position at printed name line in CONTRACTOR section (adjust if needed)
+      anchorUnits: 'pixels',
+      anchorCaseSensitive: 'true',
+      value: companyName || companySignerEmail, // Pre-fill with company name
+      required: 'true',
+      locked: 'false',
+    });
+
+    // Date signed tab - positioned at the date line (right side column in CONTRACTOR section)
+    const companyDateSigned = docusign.DateSigned.constructFromObject({
+      documentId: '1',
+      recipientId: '2', // Must match company signer's recipientId
+      tabLabel: 'CompanyDate',
+      anchorString: 'SIGNATURES',
+      anchorXOffset: '200', // Position at date column (right side of CONTRACTOR section, adjust if needed)
+      anchorYOffset: '250', // Position at date line (same vertical position as signature in CONTRACTOR section)
+      anchorUnits: 'pixels',
+      anchorCaseSensitive: 'true',
+      required: 'true',
+    });
+
+    // Create tabs for company signer
+    const companyTabs = docusign.Tabs.constructFromObject({
+      signHereTabs: [companySignHere],
+      dateSignedTabs: [companyDateSigned],
+      textTabs: [companyTextTab],
+    });
+    companySigner.tabs = companyTabs;
+
+    signers.push(companySigner);
+  }
+
   // Create recipients
   const recipients = docusign.Recipients.constructFromObject({
-    signers: [signer],
+    signers: signers,
   });
 
   // Add CC recipients if provided
@@ -458,6 +533,113 @@ export async function createAndSendEnvelope({
       throw new Error(`Envelope creation failed (404). Please verify:\n1. Account ID is correct: ${accountId}\n2. The account belongs to the user specified in DOCUSIGN_USER_ID\n3. The account is in the correct environment (demo vs production)`);
     }
     
+    throw error;
+  }
+}
+
+/**
+ * Add company signer to an existing envelope
+ * This is called after the owner has signed, to add the company signer
+ * @param {string} envelopeId - DocuSign envelope ID
+ * @param {string} companySignerEmail - Company signer email address
+ * @param {string} companyName - Company name
+ * @returns {Promise<void>}
+ */
+export async function addCompanySignerToEnvelope(envelopeId, companySignerEmail, companyName) {
+  const accessToken = await getAccessToken();
+  
+  // Get account details (ID and base URL)
+  const accountDetails = await getAccountDetails();
+  const accountId = accountDetails.accountId;
+  const baseUrl = accountDetails.baseUrl;
+  
+  const apiClient = new docusign.ApiClient();
+  apiClient.setBasePath(baseUrl);
+  apiClient.addDefaultHeader('Authorization', `Bearer ${accessToken}`);
+
+  const envelopesApi = new docusign.EnvelopesApi(apiClient);
+
+  // Create company signer (recipientId '2', routingOrder '2' - signs after owner)
+  const companySigner = docusign.Signer.constructFromObject({
+    email: companySignerEmail,
+    name: companyName || companySignerEmail,
+    recipientId: '2',
+    routingOrder: '2',
+  });
+
+  // Create signature tabs for CONTRACTOR section
+  // The CONTRACTOR section appears below the OWNER section on the same page
+  // Anchor to "SIGNATURES" and position lower (higher Y offset) for CONTRACTOR section
+  
+  // Signature tab - positioned at the signature line in the CONTRACTOR section
+  const companySignHere = docusign.SignHere.constructFromObject({
+    documentId: '1',
+    recipientId: '2', // Must match company signer's recipientId
+    tabLabel: 'CompanySignature',
+    anchorString: 'SIGNATURES',
+    anchorXOffset: '0',
+    anchorYOffset: '250', // Position lower for CONTRACTOR section (below OWNER section, adjust if needed)
+    anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true',
+  });
+
+  // Printed name tab - positioned at the printed name line in CONTRACTOR section
+  const companyTextTab = docusign.Text.constructFromObject({
+    documentId: '1',
+    recipientId: '2', // Must match company signer's recipientId
+    tabLabel: 'CompanyPrintedName',
+    anchorString: 'SIGNATURES',
+    anchorXOffset: '0',
+    anchorYOffset: '300', // Position at printed name line in CONTRACTOR section (adjust if needed)
+    anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true',
+    value: companyName || companySignerEmail, // Pre-fill with company name
+    required: 'true',
+    locked: 'false',
+  });
+
+  // Date signed tab - positioned at the date line (right side column in CONTRACTOR section)
+  const companyDateSigned = docusign.DateSigned.constructFromObject({
+    documentId: '1',
+    recipientId: '2', // Must match company signer's recipientId
+    tabLabel: 'CompanyDate',
+    anchorString: 'SIGNATURES',
+    anchorXOffset: '200', // Position at date column (right side of CONTRACTOR section, adjust if needed)
+    anchorYOffset: '250', // Position at date line (same vertical position as signature in CONTRACTOR section)
+    anchorUnits: 'pixels',
+    anchorCaseSensitive: 'true',
+    required: 'true',
+  });
+
+  // Create tabs for company signer
+  const companyTabs = docusign.Tabs.constructFromObject({
+    signHereTabs: [companySignHere],
+    dateSignedTabs: [companyDateSigned],
+    textTabs: [companyTextTab],
+  });
+  companySigner.tabs = companyTabs;
+
+  // Create recipients object with the new company signer
+  const recipients = docusign.Recipients.constructFromObject({
+    signers: [companySigner],
+  });
+
+  // Create envelope update object
+  const envelope = docusign.Envelope.constructFromObject({
+    recipients: recipients,
+  });
+
+  try {
+    // Update the envelope to add the company signer
+    await envelopesApi.updateRecipients(accountId, envelopeId, {
+      recipients: recipients,
+    });
+
+    console.log(`Company signer added to envelope ${envelopeId}`);
+  } catch (error) {
+    console.error('Error adding company signer to envelope:', error);
+    console.error('Account ID used:', accountId);
+    console.error('Base URL:', baseUrl);
     throw error;
   }
 }

@@ -5100,7 +5100,27 @@ app.post('/api/docusign/send', async (req, res) => {
     const ccEmails = cc ? (Array.isArray(cc) ? cc : cc.split(',').map(e => e.trim()).filter(Boolean)) : [];
     const bccEmails = bcc ? (Array.isArray(bcc) ? bcc : bcc.split(',').map(e => e.trim()).filter(Boolean)) : [];
 
+    // Get company name for company signer
+    let companyName = null;
+    try {
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('company_name')
+        .eq('company_id', companyID)
+        .single();
+      
+      if (!companyError && company) {
+        companyName = company.company_name || companyID;
+      } else {
+        companyName = companyID; // Fallback to company ID if name not found
+      }
+    } catch (error) {
+      console.warn('Error fetching company name, using company ID:', error);
+      companyName = companyID; // Fallback to company ID
+    }
+
     // Create and send DocuSign envelope
+    // Include company signer (sender) so they can sign after the owner
     let envelopeId;
     try {
       envelopeId = await docusignService.createAndSendEnvelope({
@@ -5112,6 +5132,8 @@ app.post('/api/docusign/send', async (req, res) => {
         emailBlurb: message || '',
         ccEmails,
         bccEmails,
+        companySignerEmail: user.email, // Add sender as company signer
+        companyName: companyName,
       });
     } catch (docusignError) {
       console.error('DocuSign error:', docusignError);
