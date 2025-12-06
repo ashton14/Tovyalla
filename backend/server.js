@@ -5126,6 +5126,8 @@ app.post('/api/docusign/send', async (req, res) => {
           docusign_envelope_id: envelopeId,
           docusign_status: 'sent',
           docusign_sent_at: new Date().toISOString(),
+          docusign_sender_email: user.email, // Store sender email for notifications
+          docusign_sender_company_id: companyID, // Store company ID for company signer
         })
         .eq('id', documentId)
         .eq('company_id', companyID);
@@ -5200,10 +5202,10 @@ app.post('/api/docusign/webhook', async (req, res) => {
       status = 'sent'; // Default fallback
     }
 
-    // Find document by envelope ID and update status
+    // Find document by envelope ID and get sender info
     const { data: documents, error: findError } = await supabase
       .from('project_documents')
-      .select('id')
+      .select('id, name, docusign_sender_email, docusign_sender_company_id, docusign_status')
       .eq('docusign_envelope_id', envelopeId)
       .limit(1);
 
@@ -5214,6 +5216,7 @@ app.post('/api/docusign/webhook', async (req, res) => {
     }
 
     if (documents && documents.length > 0) {
+      const document = documents[0];
       const updateData = {
         docusign_status: status,
       };
@@ -5226,7 +5229,7 @@ app.post('/api/docusign/webhook', async (req, res) => {
       const { error: updateError } = await supabase
         .from('project_documents')
         .update(updateData)
-        .eq('id', documents[0].id);
+        .eq('id', document.id);
 
       if (updateError) {
         console.error('Error updating document status:', updateError);
@@ -5234,7 +5237,58 @@ app.post('/api/docusign/webhook', async (req, res) => {
         return res.status(200).json({ received: true, error: 'Update failed' });
       }
 
-      console.log(`Updated document ${documents[0].id} with DocuSign status: ${status}`);
+      console.log(`Updated document ${document.id} with DocuSign status: ${status}`);
+
+      // Check if customer (first signer) has signed and company signer hasn't been added yet
+      // Detect customer signing: 
+      // - Status changed to 'signed' (customer signed, but envelope not yet completed)
+      // - Event is 'recipient-signed' with routingOrder 1 (first signer)
+      // - Previous status was not 'signed' (only trigger once)
+      const previousStatus = document.docusign_status;
+      const recipientRoutingOrder = webhookData.data?.routingOrder || webhookData.routingOrder;
+      const isCustomerSigned = 
+        (status === 'signed' || 
+         event === 'recipient-signed' || 
+         event === 'envelope-signed') &&
+        previousStatus !== 'signed' && // Only trigger once (status changed from non-signed to signed)
+        (recipientRoutingOrder === '1' || recipientRoutingOrder === 1 || !recipientRoutingOrder) && // First signer or no routing order specified
+        document.docusign_sender_email && // Must have sender email
+        document.docusign_sender_company_id && // Must have company ID
+        status !== 'completed'; // Don't trigger if envelope is already completed
+
+      if (isCustomerSigned) {
+        console.log(`Customer has signed envelope ${envelopeId}. Adding company signer...`);
+        
+        try {
+          // Get company name from companies table
+          const { data: company, error: companyError } = await supabase
+            .from('companies')
+            .select('company_name')
+            .eq('company_id', document.docusign_sender_company_id)
+            .single();
+
+          if (companyError || !company) {
+            console.error('Error fetching company name:', companyError);
+            // Use company ID as fallback
+            var companyName = document.docusign_sender_company_id;
+          } else {
+            var companyName = company.company_name || document.docusign_sender_company_id;
+          }
+
+          // Add company signer to envelope
+          // DocuSign will automatically email the company signer when they're added
+          await docusignService.addCompanySignerToEnvelope(
+            envelopeId,
+            document.docusign_sender_email,
+            companyName
+          );
+
+          console.log(`✅ Company signer added to envelope ${envelopeId}. DocuSign will email them automatically.`);
+        } catch (signerError) {
+          console.error('Error adding company signer:', signerError);
+          // Don't fail the webhook, but log the error
+        }
+      }
     } else {
       console.log(`No document found for envelope ID: ${envelopeId}`);
     }
