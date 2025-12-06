@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import { openContractPdf } from '../utils/contractPdfGenerator'
 import ContractPreview from './ContractPreview'
+import SendEmailModal from './SendEmailModal'
 
-function DocumentsModal({ entityType, entityId, entityName, onClose }) {
+function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClose }) {
   const { user, supabase } = useAuth()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +25,8 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const [saving, setSaving] = useState(false)
   const [showContractPreview, setShowContractPreview] = useState(false)
   const [contractData, setContractData] = useState(null)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailDocument, setEmailDocument] = useState(null)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -308,6 +311,38 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
     }
   }
 
+  // Handle send for signature
+  const handleSendClick = async (doc) => {
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      const fileName = doc.file_name || doc.name
+
+      // Get the document URL
+      const response = await axios.get(
+        `/api/documents/${entityType}/${entityId}/${fileName}/download`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      // Set the document with URL for the email modal
+      setEmailDocument({
+        ...doc,
+        url: response.data.url,
+      })
+      setShowEmailModal(true)
+    } catch (err) {
+      console.error('Error getting document URL:', err)
+      setError(err.response?.data?.error || 'Failed to prepare document for sending')
+    }
+  }
+
   // Handle edit document
   const handleEditClick = (doc) => {
     setEditingDocument(doc)
@@ -471,10 +506,10 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                             </>
                           ) : (
                             <>
-                              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                              </svg>
-                              Contract
+                          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          Contract
                             </>
                           )}
                         </button>
@@ -534,12 +569,12 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   File *
                 </label>
-                <input
-                  type="file"
+            <input
+              type="file"
                   onChange={handleFileSelect}
-                  disabled={uploading}
+              disabled={uploading}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
-                />
+            />
                 {selectedFile && (
                   <p className="mt-1 text-xs text-gray-500">
                     Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
@@ -567,7 +602,7 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                     </svg>
                     Upload Document
                   </>
-                )}
+            )}
               </button>
             </div>
           </div>
@@ -625,15 +660,34 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                     cancelled: 'Cancelled',
                     expired: 'Expired',
                   }
+
+                  // DocuSign status badge colors
+                  const docusignStatusColors = {
+                    sent: 'bg-blue-100 text-blue-800',
+                    delivered: 'bg-yellow-100 text-yellow-800',
+                    signed: 'bg-green-100 text-green-800',
+                    completed: 'bg-green-100 text-green-800',
+                    declined: 'bg-red-100 text-red-800',
+                    voided: 'bg-gray-100 text-gray-800',
+                  }
+                  
+                  const docusignStatusLabels = {
+                    sent: 'DocuSign: Sent',
+                    delivered: 'DocuSign: Delivered',
+                    signed: 'DocuSign: Signed',
+                    completed: 'DocuSign: Completed',
+                    declined: 'DocuSign: Declined',
+                    voided: 'DocuSign: Voided',
+                  }
                   
                   return (
-                    <div
+                  <div
                       key={doc.id || index}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100"
-                    >
-                      <div className="flex-1 min-w-0">
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100"
+                  >
+                    <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 truncate">
                             {displayName}
                           </p>
                           {docType && (
@@ -651,40 +705,57 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
                               #{String(doc.document_number).padStart(5, '0')}
                             </span>
                           )}
+                          {doc.docusign_status && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${docusignStatusColors[doc.docusign_status] || 'bg-gray-100 text-gray-800'}`}>
+                              {docusignStatusLabels[doc.docusign_status] || `DocuSign: ${doc.docusign_status}`}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                        <div className="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap items-center">
                           {doc.file_name && doc.file_name !== displayName && (
                             <span className="truncate max-w-[150px]" title={doc.file_name}>{doc.file_name}</span>
                           )}
-                          <span>{formatFileSize(doc.size)}</span>
-                          {doc.created_at && (
-                            <span>Uploaded: {formatDate(doc.created_at)}</span>
+                        <span>{formatFileSize(doc.size)}</span>
+                        {doc.created_at && (
+                          <span>Uploaded: {formatDate(doc.created_at)}</span>
+                        )}
+                          {doc.docusign_envelope_id && (
+                            <span className="text-gray-400" title={`Envelope ID: ${doc.docusign_envelope_id}`}>
+                              Envelope: {doc.docusign_envelope_id.substring(0, 8)}...
+                            </span>
                           )}
-                        </div>
                       </div>
-                      <div className="flex gap-2 ml-4">
+                    </div>
+                    <div className="flex gap-2 ml-4">
                         <button
                           onClick={() => handleDownload(fileName)}
                           className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
                         >
                           View
                         </button>
+                        <button
+                          onClick={() => handleSendClick(doc)}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                          title="Send for signature"
+                        >
+                          Send
+                        </button>
                         {doc.id && (
-                          <button
+                      <button
                             onClick={() => handleEditClick(doc)}
                             className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
-                          >
+                      >
                             Edit
-                          </button>
+                      </button>
                         )}
-                        <button
+                      <button
                           onClick={() => handleDelete(fileName, doc.id)}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
+                  </div>
                   )
                 })}
               </div>
@@ -874,6 +945,24 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Send Email Modal */}
+      {showEmailModal && emailDocument && (
+        <SendEmailModal
+          document={emailDocument}
+          projectName={entityName}
+          customerEmail={customerEmail}
+          onClose={() => {
+            setShowEmailModal(false)
+            setEmailDocument(null)
+          }}
+          onSuccess={(message) => {
+            setSuccess(message)
+            setTimeout(() => setSuccess(''), 5000)
+            fetchDocuments() // Refresh to show updated status
+          }}
+        />
       )}
     </div>
   )

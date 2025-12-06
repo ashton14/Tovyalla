@@ -943,6 +943,7 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                             setSelectedEntityForDocuments({
                               id: project.id,
                               name: project.address || `Project ${project.id.substring(0, 8)}`,
+                              customerEmail: project.customers?.email || '',
                             })
                             setShowDocumentsModal(true)
                           }}
@@ -1073,6 +1074,7 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
           entityType="projects"
           entityId={selectedEntityForDocuments.id}
           entityName={selectedEntityForDocuments.name}
+          customerEmail={selectedEntityForDocuments.customerEmail}
           onClose={() => {
             setShowDocumentsModal(false)
             setSelectedEntityForDocuments(null)
