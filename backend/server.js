@@ -1902,6 +1902,8 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
       return res.status(400).json({ error: 'subcontractor_id and date_added are required' });
     }
 
+    const { customer_price } = req.body;
+    
     const { data, error } = await supabase
       .from('project_subcontractor_fees')
       .insert([{
@@ -1909,6 +1911,7 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
         subcontractor_id,
         flat_fee: flat_fee ? parseFloat(flat_fee) : null,
         expected_value: expected_value ? parseFloat(expected_value) : null,
+        customer_price: customer_price ? parseFloat(customer_price) : null,
         date_added,
         status: status || 'incomplete',
         notes: notes || null,
@@ -1934,6 +1937,67 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
   }
 });
 
+// Batch update customer prices for subcontractor fees
+// NOTE: This route MUST be before the /:feeId route to avoid matching 'batch-update-prices' as a feeId
+app.put('/api/projects/:id/expenses/subcontractor-fees/batch-update-prices', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { prices } = req.body; // Array of { id, customer_price }
+
+    if (!prices || !Array.isArray(prices)) {
+      return res.status(400).json({ error: 'prices array is required' });
+    }
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Update each fee's customer_price
+    const updatePromises = prices.map(({ id: feeId, customer_price }) =>
+      supabase
+        .from('project_subcontractor_fees')
+        .update({ 
+          customer_price: customer_price ? parseFloat(customer_price) : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', feeId)
+        .eq('project_id', id)
+    );
+
+    await Promise.all(updatePromises);
+
+    res.json({ success: true, message: 'Customer prices updated successfully' });
+  } catch (error) {
+    console.error('Batch update customer prices error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update subcontractor fee
 app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res) => {
   try {
@@ -1955,7 +2019,7 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
     }
 
     const { id, feeId } = req.params;
-    const { flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
+    const { flat_fee, expected_value, date_added, status, notes, job_description, customer_price } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -1975,6 +2039,7 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
 
     if (flat_fee !== undefined) updateData.flat_fee = flat_fee ? parseFloat(flat_fee) : null;
     if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
+    if (customer_price !== undefined) updateData.customer_price = customer_price ? parseFloat(customer_price) : null;
     if (date_added !== undefined) updateData.date_added = date_added;
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes || null;
@@ -2678,30 +2743,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get the next document number (global across all document types for this company)
-    // Note: This just calculates the number for display - no record is created until manually uploaded
-    const { data: maxDoc } = await supabase
-      .from('project_documents')
-      .select('document_number')
-      .eq('company_id', companyID)
-      .not('document_number', 'is', null)
-      .order('document_number', { ascending: false })
-      .limit(1)
-      .single();
-
-    const documentNumber = (maxDoc?.document_number || 0) + 1;
-    const documentDate = new Date().toISOString().split('T')[0];
-
-    // Create document type labels for the name
-    const typeLabels = {
-      contract: 'Contract',
-      proposal: 'Proposal',
-      change_order: 'Change Order',
-    };
-    const typeName = typeLabels[document_type] || 'Document';
-    const formattedNumber = String(documentNumber).padStart(5, '0');
-
-    // Get company info
+    // Get company info and current document number
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .select('*')
@@ -2710,7 +2752,31 @@ app.post('/api/projects/:id/contract', async (req, res) => {
 
     if (companyError) {
       console.error('Error fetching company:', companyError);
+      return res.status(500).json({ error: 'Failed to fetch company info' });
     }
+
+    // Get the next document number from the company
+    const documentNumber = company.next_document_number || 1;
+    const documentDate = new Date().toISOString().split('T')[0];
+    const formattedNumber = String(documentNumber).padStart(5, '0');
+
+    // Increment the company's document number for next time
+    const { error: updateError } = await supabase
+      .from('companies')
+      .update({ next_document_number: documentNumber + 1 })
+      .eq('company_id', companyID);
+
+    if (updateError) {
+      console.error('Error updating document number:', updateError);
+    }
+
+    // Create document type labels for the name
+    const typeLabels = {
+      contract: 'Contract',
+      proposal: 'Proposal',
+      change_order: 'Change Order',
+    };
+    const typeName = typeLabels[document_type] || 'Document';
 
     // Get expenses for the project
     const { data: subcontractorFees } = await supabase
@@ -2779,6 +2845,13 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       });
     }
 
+    // Get saved milestones for this project (to use as starting customer prices)
+    const { data: savedMilestones } = await supabase
+      .from('milestones')
+      .select('*')
+      .eq('project_id', id)
+      .order('sort_order', { ascending: true });
+
     res.json({
       documentNumber: formattedNumber,
       documentDate,
@@ -2801,9 +2874,145 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         finalInspection: 1000,
         grandTotal: parseFloat(project.est_value || 0),
       },
+      savedMilestones: savedMilestones || [], // Previously saved customer prices for this project
     });
   } catch (error) {
     console.error('Generate document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ==================== MILESTONES ENDPOINTS ====================
+
+// Get milestones for a project (optionally filtered by document number)
+app.get('/api/projects/:id/milestones', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get milestones for the project
+    const { data: milestones, error } = await supabase
+      .from('milestones')
+      .select('*')
+      .eq('project_id', id)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ milestones: milestones || [] });
+  } catch (error) {
+    console.error('Get milestones error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Save/update milestones for a project (batch operation)
+app.put('/api/projects/:id/milestones', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { milestones } = req.body;
+
+    if (!milestones || !Array.isArray(milestones)) {
+      return res.status(400).json({ error: 'milestones array is required' });
+    }
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Delete existing milestones for this project
+    await supabase
+      .from('milestones')
+      .delete()
+      .eq('project_id', id)
+      .eq('company_id', companyID);
+
+    // Insert new milestones
+    const milestonesToInsert = milestones.map((m, index) => ({
+      company_id: companyID,
+      project_id: id,
+      name: m.name,
+      milestone_type: m.milestone_type || 'subcontractor',
+      cost: parseFloat(m.cost) || 0,
+      customer_price: parseFloat(m.customer_price) || 0,
+      subcontractor_fee_id: m.subcontractor_fee_id || null,
+      sort_order: index,
+    }));
+
+    const { data: savedMilestones, error: insertError } = await supabase
+      .from('milestones')
+      .insert(milestonesToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting milestones:', insertError);
+      return res.status(500).json({ error: insertError.message });
+    }
+
+    // Calculate grand total from customer prices
+    const grandTotal = savedMilestones.reduce((sum, m) => sum + parseFloat(m.customer_price || 0), 0);
+
+    res.json({ 
+      milestones: savedMilestones,
+      grandTotal,
+    });
+  } catch (error) {
+    console.error('Save milestones error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

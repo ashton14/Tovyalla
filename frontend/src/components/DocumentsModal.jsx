@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import { openContractPdf } from '../utils/contractPdfGenerator'
+import ContractPreview from './ContractPreview'
 
 function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const { user, supabase } = useAuth()
@@ -21,6 +22,8 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
   const [editingDocument, setEditingDocument] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', document_type: '', status: '' })
   const [saving, setSaving] = useState(false)
+  const [showContractPreview, setShowContractPreview] = useState(false)
+  const [contractData, setContractData] = useState(null)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -81,7 +84,7 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showCreateMenu])
 
-  // Generate contract PDF
+  // Generate contract PDF - now shows preview first
   const handleGenerateContract = async () => {
     setGeneratingContract(true)
     setError('')
@@ -104,20 +107,27 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
         }
       )
 
-      const contractData = response.data
-      console.log('Contract data received:', contractData)
+      const data = response.data
+      console.log('Contract data received:', data)
 
-      // Generate and open the PDF in a new tab
-      await openContractPdf(contractData)
-
-      setSuccess(`Document #${contractData.documentNumber} generated successfully!`)
-      setTimeout(() => setSuccess(''), 5000)
+      // Show the preview instead of generating PDF directly
+      setContractData(data)
+      setShowContractPreview(true)
+      setShowCreateMenu(false)
     } catch (err) {
-      console.error('Error generating contract:', err)
-      setError(err.response?.data?.error || err.message || 'Failed to generate contract')
+      console.error('Error fetching contract data:', err)
+      setError(err.response?.data?.error || err.message || 'Failed to load contract data')
     } finally {
       setGeneratingContract(false)
     }
+  }
+
+  // Handle when PDF is generated from preview
+  const handleContractGenerated = (modifiedData) => {
+    setSuccess(`Document #${modifiedData.documentNumber} generated successfully!`)
+    setTimeout(() => setSuccess(''), 5000)
+    setShowContractPreview(false)
+    setContractData(null)
   }
 
   // Handle file selection
@@ -754,6 +764,18 @@ function DocumentsModal({ entityType, entityId, entityName, onClose }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Contract Preview Modal */}
+      {showContractPreview && contractData && (
+        <ContractPreview
+          contractData={contractData}
+          onClose={() => {
+            setShowContractPreview(false)
+            setContractData(null)
+          }}
+          onGenerate={handleContractGenerated}
+        />
       )}
 
       {/* Edit Document Modal */}
