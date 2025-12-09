@@ -27,6 +27,10 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
   const [contractData, setContractData] = useState(null)
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailDocument, setEmailDocument] = useState(null)
+  const [showNotesModal, setShowNotesModal] = useState(false)
+  const [selectedDocumentForNotes, setSelectedDocumentForNotes] = useState(null)
+  const [documentNotes, setDocumentNotes] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -273,6 +277,62 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     } catch (err) {
       console.error('Error downloading document:', err)
       setError(err.response?.data?.error || 'Failed to download document')
+    }
+  }
+
+  // Handle notes click
+  const handleNotesClick = (doc) => {
+    setSelectedDocumentForNotes(doc)
+    setDocumentNotes(doc.notes || '')
+    setError('')
+    setSuccess('')
+    setShowNotesModal(true)
+  }
+
+  // Handle save notes
+  const handleSaveNotes = async () => {
+    if (!selectedDocumentForNotes || !selectedDocumentForNotes.id) {
+      setError('Document ID is required to save notes')
+      return
+    }
+
+    // Only allow notes for projects, subcontractors, customers, and inventory (they have document tables)
+    if (entityType !== 'projects' && entityType !== 'subcontractors' && entityType !== 'customers' && entityType !== 'inventory') {
+      setError('Notes can only be added for project, subcontractor, customer, and inventory documents')
+      return
+    }
+
+    setSavingNotes(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await axios.put(
+        `/api/documents/${entityType}/${entityId}/${selectedDocumentForNotes.id}/notes`,
+        { notes: documentNotes },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      setSuccess('Notes saved successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      setShowNotesModal(false)
+      
+      // Refresh documents list
+      fetchDocuments()
+    } catch (err) {
+      console.error('Error saving notes:', err)
+      setError(err.response?.data?.error || 'Failed to save notes')
+    } finally {
+      setSavingNotes(false)
     }
   }
 
@@ -561,6 +621,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   <option value="contract">Contract</option>
                   <option value="proposal">Proposal</option>
                   <option value="change_order">Change Order</option>
+                  <option value="insurance">Insurance</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -726,7 +787,23 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                           )}
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex gap-2 ml-4 items-center">
+                        {/* Notes Icon - show for projects, subcontractors, customers, and inventory */}
+                        {(entityType === 'projects' || entityType === 'subcontractors' || entityType === 'customers' || entityType === 'inventory') && doc.id && (
+                          <button
+                            onClick={() => handleNotesClick(doc)}
+                            className={`p-2 rounded-md transition-colors ${
+                              doc.notes && doc.notes.trim() 
+                                ? 'text-orange-600 hover:text-orange-800 hover:bg-orange-50' 
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                            }`}
+                            title={doc.notes && doc.notes.trim() ? 'View/Edit Notes' : 'Add Notes'}
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDownload(fileName)}
                           className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
@@ -963,6 +1040,80 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
             fetchDocuments() // Refresh to show updated status
           }}
         />
+      )}
+
+      {/* Notes Modal */}
+      {showNotesModal && selectedDocumentForNotes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowNotesModal(false); setSelectedDocumentForNotes(null); setDocumentNotes(''); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Notes for {selectedDocumentForNotes.name || selectedDocumentForNotes.file_name}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowNotesModal(false)
+                    setSelectedDocumentForNotes(null)
+                    setDocumentNotes('')
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    value={documentNotes}
+                    onChange={(e) => setDocumentNotes(e.target.value)}
+                    placeholder="Add notes about this document..."
+                    rows={8}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue resize-none"
+                  />
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                    {error}
+                  </div>
+                )}
+
+                {success && (
+                  <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+                    {success}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNotesModal(false)
+                      setSelectedDocumentForNotes(null)
+                      setDocumentNotes('')
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveNotes}
+                    disabled={savingNotes}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
+                  >
+                    {savingNotes ? 'Saving...' : 'Save Notes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

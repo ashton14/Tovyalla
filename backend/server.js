@@ -1209,7 +1209,7 @@ app.get('/api/projects/statistics', async (req, res) => {
 
       const { data: materials } = await supabase
         .from('project_materials')
-        .select('quantity, unit_cost')
+        .select('actual_price')
         .eq('project_id', record.project_id);
 
       const { data: additionalExpenses } = await supabase
@@ -1229,7 +1229,7 @@ app.get('/api/projects/statistics', async (req, res) => {
       let materialsTotal = 0;
       if (materials) {
         materials.forEach((entry) => {
-          materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+          materialsTotal += parseFloat(entry.actual_price || 0);
         });
       }
 
@@ -1364,12 +1364,17 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
 
         const { data: materials } = await supabase
           .from('project_materials')
-          .select('quantity, unit_cost')
+          .select('actual_price')
           .eq('project_id', record.project_id);
 
         const { data: additionalExpenses } = await supabase
           .from('project_additional_expenses')
           .select('amount')
+          .eq('project_id', record.project_id);
+
+        const { data: equipment } = await supabase
+          .from('project_equipment')
+          .select('actual_price')
           .eq('project_id', record.project_id);
 
         // Calculate subcontractor costs
@@ -1382,7 +1387,7 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         // Calculate materials costs
         if (materials) {
           materials.forEach((entry) => {
-            monthExpenses += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+            monthExpenses += parseFloat(entry.actual_price || 0);
           });
         }
 
@@ -1390,6 +1395,13 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         if (additionalExpenses) {
           additionalExpenses.forEach((entry) => {
             monthExpenses += parseFloat(entry.amount || 0);
+          });
+        }
+
+        // Calculate equipment costs
+        if (equipment) {
+          equipment.forEach((entry) => {
+            monthExpenses += parseFloat(entry.actual_price || 0);
           });
         }
       }
@@ -1763,9 +1775,10 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
         )
       `)
       .eq('project_id', id)
-      .order('date_used', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (materialsError) {
+      console.error('Error fetching materials:', materialsError);
       return res.status(500).json({ error: materialsError.message });
     }
 
@@ -1780,10 +1793,10 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       return res.status(500).json({ error: additionalError.message });
     }
 
-    // Get equipment expenses
+    // Get equipment expenses with inventory join
     const { data: equipment, error: equipmentError } = await supabase
       .from('project_equipment')
-      .select('*')
+      .select('*, inventory(id, name, unit_price)')
       .eq('project_id', id)
       .order('date_ordered', { ascending: false });
 
@@ -1806,8 +1819,8 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     let materialsExpected = 0;
     if (materials) {
       materials.forEach((entry) => {
-        materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
-        materialsExpected += parseFloat(entry.expected_value || 0);
+        materialsTotal += parseFloat(entry.actual_price || 0);
+        materialsExpected += parseFloat(entry.expected_price || 0);
       });
     }
 
@@ -1824,8 +1837,8 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     let equipmentExpected = 0;
     if (equipment) {
       equipment.forEach((entry) => {
-        equipmentTotal += parseFloat(entry.actual_price || 0) * parseFloat(entry.quantity || 1);
-        equipmentExpected += parseFloat(entry.expected_price || 0) * parseFloat(entry.quantity || 1);
+        equipmentTotal += parseFloat(entry.actual_price || 0);
+        equipmentExpected += parseFloat(entry.expected_price || 0);
       });
     }
 
@@ -2143,7 +2156,7 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { inventory_id, quantity, unit_cost, expected_value, date_used, status, notes } = req.body;
+    const { inventory_id, quantity, date_ordered, date_received, status, expected_price, actual_price, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2157,8 +2170,8 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!inventory_id || !date_used) {
-      return res.status(400).json({ error: 'inventory_id and date_used are required' });
+    if (!inventory_id) {
+      return res.status(400).json({ error: 'inventory_id is required' });
     }
 
     const { data, error } = await supabase
@@ -2167,10 +2180,11 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
         project_id: id,
         inventory_id,
         quantity: quantity ? parseFloat(quantity) : null,
-        unit_cost: unit_cost ? parseFloat(unit_cost) : null,
-        expected_value: expected_value ? parseFloat(expected_value) : null,
-        date_used,
+        date_ordered: date_ordered || null,
+        date_received: date_received || null,
         status: status || 'incomplete',
+        expected_price: expected_price ? parseFloat(expected_price) : null,
+        actual_price: actual_price ? parseFloat(actual_price) : null,
         notes: notes || null,
       }])
       .select(`
@@ -2215,7 +2229,7 @@ app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => 
     }
 
     const { id, materialId } = req.params;
-    const { quantity, unit_cost, expected_value, date_used, status, notes } = req.body;
+    const { inventory_id, quantity, date_ordered, date_received, status, expected_price, actual_price, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2233,11 +2247,13 @@ app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => 
       updated_at: new Date().toISOString(),
     };
 
+    if (inventory_id !== undefined) updateData.inventory_id = inventory_id;
     if (quantity !== undefined) updateData.quantity = quantity ? parseFloat(quantity) : null;
-    if (unit_cost !== undefined) updateData.unit_cost = unit_cost ? parseFloat(unit_cost) : null;
-    if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
-    if (date_used !== undefined) updateData.date_used = date_used;
+    if (date_ordered !== undefined) updateData.date_ordered = date_ordered || null;
+    if (date_received !== undefined) updateData.date_received = date_received || null;
     if (status !== undefined) updateData.status = status;
+    if (expected_price !== undefined) updateData.expected_price = expected_price ? parseFloat(expected_price) : null;
+    if (actual_price !== undefined) updateData.actual_price = actual_price ? parseFloat(actual_price) : null;
     if (notes !== undefined) updateData.notes = notes || null;
 
     const { data, error } = await supabase
@@ -2522,7 +2538,7 @@ app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, description, expected_price, actual_price, quantity, date_ordered, date_received, status, vendor, notes } = req.body;
+    const { inventory_id, expected_price, actual_price, quantity, date_ordered, date_received, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2536,8 +2552,8 @@ app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!name) {
-      return res.status(400).json({ error: 'Equipment name is required' });
+    if (!inventory_id) {
+      return res.status(400).json({ error: 'Equipment inventory item is required' });
     }
 
     const { data, error } = await supabase
@@ -2545,18 +2561,16 @@ app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
       .insert([{
         project_id: id,
         company_id: companyID,
-        name,
-        description: description || null,
+        inventory_id: inventory_id,
         expected_price: expected_price ? parseFloat(expected_price) : null,
         actual_price: actual_price ? parseFloat(actual_price) : null,
         quantity: quantity ? parseInt(quantity) : 1,
         date_ordered: date_ordered || null,
         date_received: date_received || null,
         status: status || 'pending',
-        vendor: vendor || null,
         notes: notes || null,
       }])
-      .select()
+      .select('*, inventory(id, name, unit_price)')
       .single();
 
     if (error) {
@@ -2591,7 +2605,7 @@ app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) =>
     }
 
     const { id, equipmentId } = req.params;
-    const { name, description, expected_price, actual_price, quantity, date_ordered, date_received, status, vendor, notes } = req.body;
+    const { inventory_id, expected_price, actual_price, quantity, date_ordered, date_received, status, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2609,15 +2623,13 @@ app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) =>
       updated_at: new Date().toISOString(),
     };
 
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description || null;
+    if (inventory_id !== undefined) updateData.inventory_id = inventory_id;
     if (expected_price !== undefined) updateData.expected_price = expected_price ? parseFloat(expected_price) : null;
     if (actual_price !== undefined) updateData.actual_price = actual_price ? parseFloat(actual_price) : null;
     if (quantity !== undefined) updateData.quantity = quantity ? parseInt(quantity) : 1;
     if (date_ordered !== undefined) updateData.date_ordered = date_ordered || null;
     if (date_received !== undefined) updateData.date_received = date_received || null;
     if (status !== undefined) updateData.status = status;
-    if (vendor !== undefined) updateData.vendor = vendor || null;
     if (notes !== undefined) updateData.notes = notes || null;
 
     const { data, error } = await supabase
@@ -2626,7 +2638,7 @@ app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) =>
       .eq('id', equipmentId)
       .eq('project_id', id)
       .eq('company_id', companyID)
-      .select()
+      .select('*, inventory(id, name, unit_price)')
       .single();
 
     if (error) {
@@ -2803,7 +2815,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         )
       `)
       .eq('project_id', id)
-      .order('date_used', { ascending: true });
+      .order('date_ordered', { ascending: true });
 
     const { data: additionalExpenses } = await supabase
       .from('project_additional_expenses')
@@ -2828,7 +2840,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     let materialsTotal = 0;
     if (materials) {
       materials.forEach((entry) => {
-        materialsTotal += parseFloat(entry.expected_value || 0) || (parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0));
+        materialsTotal += parseFloat(entry.actual_price || 0);
       });
     }
 
@@ -3123,6 +3135,7 @@ app.post('/api/inventory', async (req, res) => {
       model,
       color,
       unit_price,
+      type,
     } = req.body;
 
     if (!name || !unit) {
@@ -3141,6 +3154,7 @@ app.post('/api/inventory', async (req, res) => {
           model: model || null,
           color: color || null,
           unit_price: unit_price ? parseFloat(unit_price) : 0,
+          type: type || 'material',
           created_by: user.id,
         },
       ])
@@ -3187,6 +3201,7 @@ app.put('/api/inventory/:id', async (req, res) => {
       model,
       color,
       unit_price,
+      type,
     } = req.body;
 
     // Verify inventory item belongs to user's company
@@ -3211,6 +3226,7 @@ app.put('/api/inventory/:id', async (req, res) => {
         model: model || null,
         color: color || null,
         unit_price: unit_price ? parseFloat(unit_price) : 0,
+        type: type || 'material',
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -4185,6 +4201,97 @@ app.get('/api/documents/:entityType/:entityId', async (req, res) => {
         path: doc.file_path,
         size: doc.file_size,
         mime_type: doc.mime_type,
+        notes: doc.notes,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+      }));
+
+      return res.json({ documents });
+    }
+
+    // For subcontractors, fetch from subcontractor_documents table
+    if (entityType === 'subcontractors') {
+      const { data: subcontractorDocs, error: docsError } = await supabase
+        .from('subcontractor_documents')
+        .select('*')
+        .eq('subcontractor_id', entityId)
+        .eq('company_id', companyID)
+        .order('created_at', { ascending: false });
+
+      if (docsError) {
+        console.error('Error fetching subcontractor documents:', docsError);
+        return res.status(500).json({ error: docsError.message });
+      }
+
+      const documents = (subcontractorDocs || []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        document_type: doc.document_type,
+        file_name: doc.file_name,
+        path: doc.file_path,
+        size: doc.file_size,
+        mime_type: doc.mime_type,
+        notes: doc.notes,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+      }));
+
+      return res.json({ documents });
+    }
+
+    // For customers, fetch from customer_documents table
+    if (entityType === 'customers') {
+      const { data: customerDocs, error: docsError } = await supabase
+        .from('customer_documents')
+        .select('*')
+        .eq('customer_id', entityId)
+        .eq('company_id', companyID)
+        .order('created_at', { ascending: false });
+
+      if (docsError) {
+        console.error('Error fetching customer documents:', docsError);
+        return res.status(500).json({ error: docsError.message });
+      }
+
+      const documents = (customerDocs || []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        document_type: doc.document_type,
+        file_name: doc.file_name,
+        path: doc.file_path,
+        size: doc.file_size,
+        mime_type: doc.mime_type,
+        notes: doc.notes,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+      }));
+
+      return res.json({ documents });
+    }
+
+    // For inventory, fetch from inventory_documents table
+    if (entityType === 'inventory') {
+      const { data: inventoryDocs, error: docsError } = await supabase
+        .from('inventory_documents')
+        .select('*')
+        .eq('inventory_id', entityId)
+        .eq('company_id', companyID)
+        .order('created_at', { ascending: false });
+
+      if (docsError) {
+        console.error('Error fetching inventory documents:', docsError);
+        return res.status(500).json({ error: docsError.message });
+      }
+
+      const documents = (inventoryDocs || []).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        document_type: doc.document_type,
+        file_name: doc.file_name,
+        path: doc.file_path,
+        size: doc.file_size,
+        mime_type: doc.mime_type,
+        notes: doc.notes,
         created_at: doc.created_at,
         updated_at: doc.updated_at,
       }));
@@ -4278,7 +4385,9 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
     }
 
     // Upload using service role key (bypasses RLS)
-    const storagePath = `${entityType}/${companyID}/${entityId}/${req.file.originalname}`;
+    // For subcontractors, use "subcontractor" folder instead of "subcontractors"
+    const folderName = entityType === 'subcontractors' ? 'subcontractor' : entityType;
+    const storagePath = `${folderName}/${companyID}/${entityId}/${req.file.originalname}`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
@@ -4316,23 +4425,271 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
       if (docError) {
         console.error('Error saving document metadata:', docError);
         // Don't fail the upload, just log the error
-    }
+      }
 
-    res.json({ 
-      success: true, 
-      path: uploadData.path,
-        document: docRecord || null,
-      message: 'Document uploaded successfully'
-    });
-    } else {
-      res.json({ 
+      return res.json({ 
         success: true, 
         path: uploadData.path,
+        document: docRecord || null,
         message: 'Document uploaded successfully'
       });
     }
+
+    // For subcontractors, save document metadata to subcontractor_documents table
+    if (entityType === 'subcontractors') {
+      const validDocTypes = ['coi', 'license', 'insurance', 'contract', 'other'];
+      const docType = validDocTypes.includes(document_type) ? document_type : 'other';
+      
+      const { data: docRecord, error: docError } = await supabase
+        .from('subcontractor_documents')
+        .insert([{
+          company_id: companyID,
+          subcontractor_id: entityId,
+          name: name || req.file.originalname,
+          document_type: docType,
+          file_name: req.file.originalname,
+          file_path: storagePath,
+          file_size: req.file.size,
+          mime_type: req.file.mimetype,
+        }])
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error saving subcontractor document metadata:', docError);
+        // Don't fail the upload, just log the error
+      }
+
+      return res.json({ 
+        success: true, 
+        path: uploadData.path,
+        document: docRecord || null,
+        message: 'Document uploaded successfully'
+      });
+    }
+
+    // For customers, save document metadata to customer_documents table
+    if (entityType === 'customers') {
+      const validDocTypes = ['contract', 'proposal', 'invoice', 'receipt', 'other'];
+      const docType = validDocTypes.includes(document_type) ? document_type : 'other';
+      
+      const { data: docRecord, error: docError } = await supabase
+        .from('customer_documents')
+        .insert([{
+          company_id: companyID,
+          customer_id: entityId,
+          name: name || req.file.originalname,
+          document_type: docType,
+          file_name: req.file.originalname,
+          file_path: storagePath,
+          file_size: req.file.size,
+          mime_type: req.file.mimetype,
+        }])
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error saving customer document metadata:', docError);
+        // Don't fail the upload, just log the error
+      }
+
+      return res.json({ 
+        success: true, 
+        path: uploadData.path,
+        document: docRecord || null,
+        message: 'Document uploaded successfully'
+      });
+    }
+
+    // For inventory, save document metadata to inventory_documents table
+    if (entityType === 'inventory') {
+      const validDocTypes = ['warranty', 'manual', 'receipt', 'invoice', 'other'];
+      const docType = validDocTypes.includes(document_type) ? document_type : 'other';
+      
+      const { data: docRecord, error: docError } = await supabase
+        .from('inventory_documents')
+        .insert([{
+          company_id: companyID,
+          inventory_id: entityId,
+          name: name || req.file.originalname,
+          document_type: docType,
+          file_name: req.file.originalname,
+          file_path: storagePath,
+          file_size: req.file.size,
+          mime_type: req.file.mimetype,
+        }])
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error saving inventory document metadata:', docError);
+        // Don't fail the upload, just log the error
+      }
+
+      return res.json({ 
+        success: true, 
+        path: uploadData.path,
+        document: docRecord || null,
+        message: 'Document uploaded successfully'
+      });
+    }
+
+    // For other entity types, just return success
+    res.json({ 
+      success: true, 
+      path: uploadData.path,
+      message: 'Document uploaded successfully'
+    });
   } catch (error) {
     console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update document notes
+app.put('/api/documents/:entityType/:entityId/:documentId/notes', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { entityType, entityId, documentId } = req.params;
+    const { notes } = req.body;
+
+    if (entityType === 'projects') {
+      // Verify project belongs to user's company
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id, company_id')
+        .eq('id', entityId)
+        .eq('company_id', companyID)
+        .single();
+
+      if (projectError || !project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      // Update notes in project_documents
+      const { data: updatedDoc, error: updateError } = await supabase
+        .from('project_documents')
+        .update({ notes: notes || null })
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('project_id', entityId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating document notes:', updateError);
+        return res.status(500).json({ error: updateError.message });
+      }
+
+      return res.json({ success: true, document: updatedDoc });
+    } else if (entityType === 'subcontractors') {
+      // Verify subcontractor belongs to user's company
+      const { data: subcontractor, error: subcontractorError } = await supabase
+        .from('subcontractors')
+        .select('id, company_id')
+        .eq('id', entityId)
+        .eq('company_id', companyID)
+        .single();
+
+      if (subcontractorError || !subcontractor) {
+        return res.status(404).json({ error: 'Subcontractor not found' });
+      }
+
+      // Update notes in subcontractor_documents
+      const { data: updatedDoc, error: updateError } = await supabase
+        .from('subcontractor_documents')
+        .update({ notes: notes || null })
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('subcontractor_id', entityId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating document notes:', updateError);
+        return res.status(500).json({ error: updateError.message });
+      }
+
+      return res.json({ success: true, document: updatedDoc });
+    } else if (entityType === 'customers') {
+      // Verify customer belongs to user's company
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('id, company_id')
+        .eq('id', entityId)
+        .eq('company_id', companyID)
+        .single();
+
+      if (customerError || !customer) {
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+
+      // Update notes in customer_documents
+      const { data: updatedDoc, error: updateError } = await supabase
+        .from('customer_documents')
+        .update({ notes: notes || null })
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('customer_id', entityId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating document notes:', updateError);
+        return res.status(500).json({ error: updateError.message });
+      }
+
+      return res.json({ success: true, document: updatedDoc });
+    } else if (entityType === 'inventory') {
+      // Verify inventory item belongs to user's company
+      const { data: inventoryItem, error: inventoryError } = await supabase
+        .from('inventory')
+        .select('id, company_id')
+        .eq('id', entityId)
+        .eq('company_id', companyID)
+        .single();
+
+      if (inventoryError || !inventoryItem) {
+        return res.status(404).json({ error: 'Inventory item not found' });
+      }
+
+      // Update notes in inventory_documents
+      const { data: updatedDoc, error: updateError } = await supabase
+        .from('inventory_documents')
+        .update({ notes: notes || null })
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('inventory_id', entityId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating document notes:', updateError);
+        return res.status(500).json({ error: updateError.message });
+      }
+
+      return res.json({ success: true, document: updatedDoc });
+    } else {
+      return res.status(400).json({ error: 'Notes can only be updated for projects, subcontractors, customers, and inventory' });
+    }
+  } catch (error) {
+    console.error('Update document notes error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -4454,7 +4811,9 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
 
     // Delete file from Supabase Storage
     // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
-    const storagePath = `${entityType}/${companyID}/${entityId}/${fileName}`;
+    // For subcontractors, use "subcontractor" folder instead of "subcontractors"
+    const folderName = entityType === 'subcontractors' ? 'subcontractor' : entityType;
+    const storagePath = `${folderName}/${companyID}/${entityId}/${fileName}`;
     console.log('🗑️ Delete Document Debug:');
     console.log('  - Storage Path:', storagePath);
     console.log('  - Document ID:', documentId);
@@ -4485,6 +4844,48 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
 
       if (dbDeleteError) {
         console.error('Error deleting from project_documents:', dbDeleteError);
+      }
+    }
+
+    // If documentId provided and this is a subcontractor, also delete from subcontractor_documents table
+    if (documentId && entityType === 'subcontractors') {
+      const { error: dbDeleteError } = await supabase
+        .from('subcontractor_documents')
+        .delete()
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('subcontractor_id', entityId);
+
+      if (dbDeleteError) {
+        console.error('Error deleting from subcontractor_documents:', dbDeleteError);
+      }
+    }
+
+    // If documentId provided and this is a customer, also delete from customer_documents table
+    if (documentId && entityType === 'customers') {
+      const { error: dbDeleteError } = await supabase
+        .from('customer_documents')
+        .delete()
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('customer_id', entityId);
+
+      if (dbDeleteError) {
+        console.error('Error deleting from customer_documents:', dbDeleteError);
+      }
+    }
+
+    // If documentId provided and this is inventory, also delete from inventory_documents table
+    if (documentId && entityType === 'inventory') {
+      const { error: dbDeleteError } = await supabase
+        .from('inventory_documents')
+        .delete()
+        .eq('id', documentId)
+        .eq('company_id', companyID)
+        .eq('inventory_id', entityId);
+
+      if (dbDeleteError) {
+        console.error('Error deleting from inventory_documents:', dbDeleteError);
       }
     }
 
@@ -4537,7 +4938,9 @@ app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, r
 
     // Get signed URL for download (valid for 1 hour)
     // IMPORTANT: Do NOT include "documents" in the path - .from('documents') already specifies the bucket
-    const storagePath = `${entityType}/${companyID}/${entityId}/${fileName}`;
+    // For subcontractors, use "subcontractor" folder instead of "subcontractors"
+    const folderName = entityType === 'subcontractors' ? 'subcontractor' : entityType;
+    const storagePath = `${folderName}/${companyID}/${entityId}/${fileName}`;
     console.log('⬇️ Download URL Debug:');
     console.log('  - Storage Path:', storagePath);
     console.log('  - Path parts:', storagePath.split('/'));
@@ -4620,12 +5023,17 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
 
         const { data: materials } = await supabase
           .from('project_materials')
-          .select('quantity, unit_cost')
+          .select('actual_price')
           .eq('project_id', record.project_id);
 
         const { data: additionalExpenses } = await supabase
           .from('project_additional_expenses')
           .select('amount')
+          .eq('project_id', record.project_id);
+
+        const { data: equipment } = await supabase
+          .from('project_equipment')
+          .select('actual_price')
           .eq('project_id', record.project_id);
 
         // Calculate subcontractor costs
@@ -4640,7 +5048,7 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
         let materialsTotal = 0;
         if (materials) {
           materials.forEach((entry) => {
-            materialsTotal += parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0);
+            materialsTotal += parseFloat(entry.actual_price || 0);
           });
         }
 
@@ -4652,7 +5060,15 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
           });
         }
 
-        totalExpenses += subcontractorTotal + materialsTotal + additionalTotal;
+        // Calculate equipment costs
+        let equipmentTotal = 0;
+        if (equipment) {
+          equipment.forEach((entry) => {
+            equipmentTotal += parseFloat(entry.actual_price || 0);
+          });
+        }
+
+        totalExpenses += subcontractorTotal + materialsTotal + additionalTotal + equipmentTotal;
       }
 
       return totalEstValue - totalExpenses;
@@ -5119,6 +5535,13 @@ app.post('/api/docusign/send', async (req, res) => {
       companyName = companyID; // Fallback to company ID
     }
 
+    // Get sender's name (current logged in user) for contractor signature
+    // Try to get name from user metadata, or use email as fallback
+    const senderName = user.user_metadata?.full_name || 
+                       user.user_metadata?.name || 
+                       user.user_metadata?.display_name ||
+                       user.email;
+
     // Create and send DocuSign envelope
     // Include company signer (sender) so they can sign after the owner
     let envelopeId;
@@ -5134,6 +5557,7 @@ app.post('/api/docusign/send', async (req, res) => {
         bccEmails,
         companySignerEmail: user.email, // Add sender as company signer
         companyName: companyName,
+        companySignerName: senderName, // Use sender's name for contractor signature
       });
     } catch (docusignError) {
       console.error('DocuSign error:', docusignError);

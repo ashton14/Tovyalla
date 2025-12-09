@@ -78,10 +78,11 @@ function ProjectExpenses({ project, onClose }) {
   const [materialForm, setMaterialForm] = useState({
     inventory_id: '',
     quantity: '',
-    unit_cost: '',
-    expected_value: '',
-    date_used: new Date().toISOString().split('T')[0],
+    date_ordered: new Date().toISOString().split('T')[0],
+    date_received: '',
     status: 'incomplete',
+    expected_price: '',
+    actual_price: '',
     notes: '',
   })
 
@@ -98,15 +99,13 @@ function ProjectExpenses({ project, onClose }) {
   const [showEquipmentForm, setShowEquipmentForm] = useState(false)
   const [editingEquipment, setEditingEquipment] = useState(null)
   const [equipmentForm, setEquipmentForm] = useState({
-    name: '',
-    description: '',
-    expected_price: '',
-    actual_price: '',
+    inventory_id: '',
     quantity: '1',
     date_ordered: new Date().toISOString().split('T')[0],
     date_received: '',
     status: 'pending',
-    vendor: '',
+    expected_price: '',
+    actual_price: '',
     notes: '',
   })
 
@@ -154,6 +153,7 @@ function ProjectExpenses({ project, onClose }) {
         ])
 
         setSubcontractors(subsRes.data.subcontractors || [])
+        // Store all inventory items
         setInventory(invRes.data.materials || [])
       } catch (err) {
         console.error('Error fetching data:', err)
@@ -267,14 +267,15 @@ function ProjectExpenses({ project, onClose }) {
       const token = await getAuthToken()
       if (!token) throw new Error('Not authenticated')
 
-      const invItem = inventory.find((item) => item.id === materialForm.inventory_id)
-      const unitCost = materialForm.unit_cost || (invItem ? invItem.unit_price : 0)
-
       const payload = {
-        ...materialForm,
+        inventory_id: materialForm.inventory_id,
         quantity: materialForm.quantity ? parseFloat(materialForm.quantity) : null,
-        unit_cost: unitCost ? parseFloat(unitCost) : null,
-        expected_value: materialForm.expected_value ? parseFloat(materialForm.expected_value) : null,
+        date_ordered: materialForm.date_ordered || null,
+        date_received: materialForm.date_received || null,
+        status: materialForm.status || 'incomplete',
+        expected_price: materialForm.expected_price ? parseFloat(materialForm.expected_price) : null,
+        actual_price: materialForm.actual_price ? parseFloat(materialForm.actual_price) : null,
+        notes: materialForm.notes || null,
       }
 
       if (editingMaterial) {
@@ -298,10 +299,11 @@ function ProjectExpenses({ project, onClose }) {
       setMaterialForm({
         inventory_id: '',
         quantity: '',
-        unit_cost: '',
-        expected_value: '',
-        date_used: new Date().toISOString().split('T')[0],
+        date_ordered: new Date().toISOString().split('T')[0],
+        date_received: '',
         status: 'incomplete',
+        expected_price: '',
+        actual_price: '',
         notes: '',
       })
       
@@ -315,14 +317,16 @@ function ProjectExpenses({ project, onClose }) {
   const handleMaterialEdit = (entry) => {
     setEditingMaterial(entry)
     // Extract date part only (YYYY-MM-DD) to avoid timezone issues
-    const dateUsed = entry.date_used ? entry.date_used.split('T')[0] : ''
+    const dateOrdered = entry.date_ordered ? entry.date_ordered.split('T')[0] : (entry.date_used ? entry.date_used.split('T')[0] : '')
+    const dateReceived = entry.date_received ? entry.date_received.split('T')[0] : ''
     setMaterialForm({
       inventory_id: entry.inventory_id,
       quantity: entry.quantity || '',
-      unit_cost: entry.unit_cost || '',
-      expected_value: entry.expected_value || '',
-      date_used: dateUsed,
+      date_ordered: dateOrdered,
+      date_received: dateReceived,
       status: entry.status || 'incomplete',
+      expected_price: entry.expected_price || entry.expected_value || '',
+      actual_price: entry.actual_price || (entry.unit_cost && entry.quantity ? (parseFloat(entry.unit_cost) * parseFloat(entry.quantity)).toFixed(2) : ''),
       notes: entry.notes || '',
     })
     setShowMaterialForm(true)
@@ -444,10 +448,14 @@ function ProjectExpenses({ project, onClose }) {
       if (!token) throw new Error('Not authenticated')
 
       const payload = {
-        ...equipmentForm,
+        inventory_id: equipmentForm.inventory_id,
         expected_price: equipmentForm.expected_price ? parseFloat(equipmentForm.expected_price) : null,
         actual_price: equipmentForm.actual_price ? parseFloat(equipmentForm.actual_price) : null,
         quantity: equipmentForm.quantity ? parseInt(equipmentForm.quantity) : 1,
+        date_ordered: equipmentForm.date_ordered || null,
+        date_received: equipmentForm.date_received || null,
+        status: equipmentForm.status || 'pending',
+        notes: equipmentForm.notes || null,
       }
 
       if (editingEquipment) {
@@ -469,15 +477,13 @@ function ProjectExpenses({ project, onClose }) {
       setShowEquipmentForm(false)
       setEditingEquipment(null)
       setEquipmentForm({
-        name: '',
-        description: '',
-        expected_price: '',
-        actual_price: '',
+        inventory_id: '',
         quantity: '1',
         date_ordered: new Date().toISOString().split('T')[0],
         date_received: '',
         status: 'pending',
-        vendor: '',
+        expected_price: '',
+        actual_price: '',
         notes: '',
       })
 
@@ -492,15 +498,13 @@ function ProjectExpenses({ project, onClose }) {
     const dateOrdered = entry.date_ordered ? entry.date_ordered.split('T')[0] : ''
     const dateReceived = entry.date_received ? entry.date_received.split('T')[0] : ''
     setEquipmentForm({
-      name: entry.name || '',
-      description: entry.description || '',
+      inventory_id: entry.inventory_id || '',
       expected_price: entry.expected_price || '',
       actual_price: entry.actual_price || '',
       quantity: entry.quantity || '1',
       date_ordered: dateOrdered,
       date_received: dateReceived,
       status: entry.status || 'pending',
-      vendor: entry.vendor || '',
       notes: entry.notes || '',
     })
     setShowEquipmentForm(true)
@@ -525,15 +529,75 @@ function ProjectExpenses({ project, onClose }) {
     }
   }
 
-  // Auto-fill unit cost when inventory item is selected
-  const handleInventorySelect = (inventoryId) => {
+  // Handle inventory selection for materials
+  const handleMaterialInventorySelect = (inventoryId) => {
     const item = inventory.find((i) => i.id === inventoryId)
-    if (item) {
-      // Default to unit_price from inventory if unit_cost is empty (when adding new or when field is cleared)
-      const unitCost = (!materialForm.unit_cost && item.unit_price) ? item.unit_price : materialForm.unit_cost
-      setMaterialForm({ ...materialForm, inventory_id: inventoryId, unit_cost: unitCost })
+    if (item && item.unit_price) {
+      const unitPrice = parseFloat(item.unit_price)
+      const quantity = parseFloat(materialForm.quantity) || 1
+      const calculatedPrice = (unitPrice * quantity).toFixed(2)
+      setMaterialForm({ 
+        ...materialForm, 
+        inventory_id: inventoryId,
+        expected_price: materialForm.expected_price || calculatedPrice,
+        actual_price: materialForm.actual_price || calculatedPrice,
+      })
     } else {
       setMaterialForm({ ...materialForm, inventory_id: inventoryId })
+    }
+  }
+
+  // Handle quantity change for materials - autofill prices
+  const handleMaterialQuantityChange = (quantity) => {
+    const item = inventory.find((i) => i.id === materialForm.inventory_id)
+    if (item && item.unit_price) {
+      const unitPrice = parseFloat(item.unit_price)
+      const qty = parseFloat(quantity) || 0
+      const calculatedPrice = (unitPrice * qty).toFixed(2)
+      setMaterialForm({ 
+        ...materialForm, 
+        quantity: quantity,
+        expected_price: calculatedPrice,
+        actual_price: calculatedPrice,
+      })
+    } else {
+      setMaterialForm({ ...materialForm, quantity: quantity })
+    }
+  }
+
+  // Handle inventory selection for equipment
+  const handleEquipmentInventorySelect = (inventoryId) => {
+    const item = inventory.find((i) => i.id === inventoryId)
+    if (item && item.unit_price) {
+      const unitPrice = parseFloat(item.unit_price)
+      const quantity = parseFloat(equipmentForm.quantity) || 1
+      const calculatedPrice = (unitPrice * quantity).toFixed(2)
+      setEquipmentForm({ 
+        ...equipmentForm, 
+        inventory_id: inventoryId,
+        expected_price: equipmentForm.expected_price || calculatedPrice,
+        actual_price: equipmentForm.actual_price || calculatedPrice,
+      })
+    } else {
+      setEquipmentForm({ ...equipmentForm, inventory_id: inventoryId })
+    }
+  }
+
+  // Handle quantity change for equipment - autofill prices
+  const handleEquipmentQuantityChange = (quantity) => {
+    const item = inventory.find((i) => i.id === equipmentForm.inventory_id)
+    if (item && item.unit_price) {
+      const unitPrice = parseFloat(item.unit_price)
+      const qty = parseFloat(quantity) || 0
+      const calculatedPrice = (unitPrice * qty).toFixed(2)
+      setEquipmentForm({ 
+        ...equipmentForm, 
+        quantity: quantity,
+        expected_price: calculatedPrice,
+        actual_price: calculatedPrice,
+      })
+    } else {
+      setEquipmentForm({ ...equipmentForm, quantity: quantity })
     }
   }
 
@@ -746,7 +810,7 @@ function ProjectExpenses({ project, onClose }) {
                   setShowEquipmentForm(true)
                   setEditingEquipment(null)
                   setEquipmentForm({
-                    name: '',
+                    inventory_id: '',
                     description: '',
                     expected_price: '',
                     actual_price: '',
@@ -754,7 +818,6 @@ function ProjectExpenses({ project, onClose }) {
                     date_ordered: new Date().toISOString().split('T')[0],
                     date_received: '',
                     status: 'pending',
-                    vendor: '',
                     notes: '',
                   })
                 }}
@@ -922,8 +985,84 @@ function ProjectExpenses({ project, onClose }) {
             )}
           </div>
 
-          {/* Additional Expenses List */}
+          {/* Equipment List */}
           <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Equipment</h3>
+            {expenses.equipment && expenses.equipment.length > 0 ? (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {expenses.equipment.map((entry) => {
+                      const expectedTotal = parseFloat(entry.expected_price || 0)
+                      const actualTotal = parseFloat(entry.actual_price || 0)
+                      return (
+                        <tr key={entry.id}>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            <div>{entry.inventory?.name || entry.name || '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDateString(entry.date_ordered)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              entry.status === 'complete' ? 'bg-green-100 text-green-800' :
+                              entry.status === 'installed' ? 'bg-blue-100 text-blue-800' :
+                              entry.status === 'received' ? 'bg-teal-100 text-teal-800' :
+                              entry.status === 'ordered' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {entry.status === 'pending' ? 'Pending' :
+                               entry.status === 'ordered' ? 'Ordered' :
+                               entry.status === 'received' ? 'Received' :
+                               entry.status === 'installed' ? 'Installed' :
+                               'Complete'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{entry.quantity || 1}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {expectedTotal > 0 ? `$${expectedTotal.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {actualTotal > 0 ? `$${actualTotal.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <button
+                              onClick={() => handleEquipmentEdit(entry)}
+                              className="text-pool-blue hover:text-pool-dark mr-3"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleEquipmentDelete(entry.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No equipment added yet.</p>
+            )}
+          </div>
+
+           {/* Additional Expenses List */}
+           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Additional Expenses</h3>
             {expenses.additionalExpenses && expenses.additionalExpenses.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -984,87 +1123,6 @@ function ProjectExpenses({ project, onClose }) {
               </div>
             ) : (
               <p className="text-gray-500 text-sm">No additional expenses yet.</p>
-            )}
-          </div>
-
-          {/* Equipment List */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Equipment</h3>
-            {expenses.equipment && expenses.equipment.length > 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Ordered</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {expenses.equipment.map((entry) => {
-                      const expectedTotal = parseFloat(entry.expected_price || 0) * parseFloat(entry.quantity || 1)
-                      const actualTotal = parseFloat(entry.actual_price || 0) * parseFloat(entry.quantity || 1)
-                      return (
-                        <tr key={entry.id}>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            <div>{entry.name}</div>
-                            {entry.description && (
-                              <div className="text-xs text-gray-500">{entry.description}</div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{entry.vendor || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDateString(entry.date_ordered)}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              entry.status === 'complete' ? 'bg-green-100 text-green-800' :
-                              entry.status === 'installed' ? 'bg-blue-100 text-blue-800' :
-                              entry.status === 'received' ? 'bg-teal-100 text-teal-800' :
-                              entry.status === 'ordered' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {entry.status === 'pending' ? 'Pending' :
-                               entry.status === 'ordered' ? 'Ordered' :
-                               entry.status === 'received' ? 'Received' :
-                               entry.status === 'installed' ? 'Installed' :
-                               'Complete'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{entry.quantity || 1}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {expectedTotal > 0 ? `$${expectedTotal.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {actualTotal > 0 ? `$${actualTotal.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right">
-                            <button
-                              onClick={() => handleEquipmentEdit(entry)}
-                              className="text-pool-blue hover:text-pool-dark mr-3"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleEquipmentDelete(entry.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm">No equipment added yet.</p>
             )}
           </div>
 
@@ -1229,12 +1287,12 @@ function ProjectExpenses({ project, onClose }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Material *</label>
                       <select
                         value={materialForm.inventory_id}
-                        onChange={(e) => handleInventorySelect(e.target.value)}
+                        onChange={(e) => handleMaterialInventorySelect(e.target.value)}
                         required
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                       >
                         <option value="">Select material...</option>
-                        {inventory.map((item) => (
+                        {inventory.filter(item => item.type === 'material').map((item) => (
                           <option key={item.id} value={item.id}>
                             {item.name} {item.unit_price ? `($${parseFloat(item.unit_price).toFixed(2)})` : ''}
                           </option>
@@ -1244,61 +1302,71 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Used *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Ordered</label>
                         <input
                           type="date"
-                          value={materialForm.date_used}
-                          onChange={(e) => setMaterialForm({ ...materialForm, date_used: e.target.value })}
-                          required
+                          value={materialForm.date_ordered}
+                          onChange={(e) => setMaterialForm({ ...materialForm, date_ordered: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
-                        <select
-                          value={materialForm.status}
-                          onChange={(e) => setMaterialForm({ ...materialForm, status: e.target.value })}
-                          required
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+                        <input
+                          type="date"
+                          value={materialForm.date_received}
+                          onChange={(e) => setMaterialForm({ ...materialForm, date_received: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        >
-                          <option value="incomplete">Incomplete</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="complete">Complete</option>
-                        </select>
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
                       <input
                         type="number"
                         step="0.01"
-                        value={materialForm.expected_value}
-                        onChange={(e) => setMaterialForm({ ...materialForm, expected_value: e.target.value })}
+                        value={materialForm.quantity}
+                        onChange={(e) => handleMaterialQuantityChange(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        placeholder="0.00"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                      <select
+                        value={materialForm.status}
+                        onChange={(e) => setMaterialForm({ ...materialForm, status: e.target.value })}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      >
+                        <option value="incomplete">Incomplete</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="complete">Complete</option>
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
-                          value={materialForm.quantity}
-                          onChange={(e) => setMaterialForm({ ...materialForm, quantity: e.target.value })}
+                          value={materialForm.expected_price}
+                          onChange={(e) => setMaterialForm({ ...materialForm, expected_price: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
-                          value={materialForm.unit_cost}
-                          onChange={(e) => setMaterialForm({ ...materialForm, unit_cost: e.target.value })}
+                          value={materialForm.actual_price}
+                          onChange={(e) => setMaterialForm({ ...materialForm, actual_price: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          placeholder="0.00"
                         />
                       </div>
                     </div>
@@ -1487,37 +1555,20 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleEquipmentSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipment Name *</label>
-                      <input
-                        type="text"
-                        value={equipmentForm.name}
-                        onChange={(e) => setEquipmentForm({ ...equipmentForm, name: e.target.value })}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipment *</label>
+                      <select
+                        value={equipmentForm.inventory_id}
+                        onChange={(e) => handleEquipmentInventorySelect(e.target.value)}
                         required
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        placeholder="e.g., Pool Pump, Filter, Heater"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <input
-                        type="text"
-                        value={equipmentForm.description}
-                        onChange={(e) => setEquipmentForm({ ...equipmentForm, description: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        placeholder="Model number, specifications, etc."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
-                      <input
-                        type="text"
-                        value={equipmentForm.vendor}
-                        onChange={(e) => setEquipmentForm({ ...equipmentForm, vendor: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        placeholder="Supplier name"
-                      />
+                      >
+                        <option value="">Select equipment...</option>
+                        {inventory.filter(item => item.type === 'equipment').map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name} {item.unit_price ? `($${parseFloat(item.unit_price).toFixed(2)})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1541,31 +1592,31 @@ function ProjectExpenses({ project, onClose }) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={equipmentForm.quantity}
-                          onChange={(e) => setEquipmentForm({ ...equipmentForm, quantity: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select
-                          value={equipmentForm.status}
-                          onChange={(e) => setEquipmentForm({ ...equipmentForm, status: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="ordered">Ordered</option>
-                          <option value="received">Received</option>
-                          <option value="installed">Installed</option>
-                          <option value="complete">Complete</option>
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={equipmentForm.quantity}
+                        onChange={(e) => handleEquipmentQuantityChange(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select
+                        value={equipmentForm.status}
+                        onChange={(e) => setEquipmentForm({ ...equipmentForm, status: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="ordered">Ordered</option>
+                        <option value="received">Received</option>
+                        <option value="installed">Installed</option>
+                        <option value="complete">Complete</option>
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -948,9 +948,9 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                             setShowDocumentsModal(true)
                           }}
                           className="text-green-600 hover:text-green-800 mr-4"
-                          title="View Files"
+                          title="View Documents"
                         >
-                          Files
+                          Documents
                         </button>
                         <button
                           onClick={() => setSelectedProjectForExpenses(project)}

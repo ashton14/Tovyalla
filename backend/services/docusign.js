@@ -321,6 +321,7 @@ async function getAccountBaseUrl() {
  * @param {string[]} bccEmails - BCC email addresses (optional)
  * @param {string} companySignerEmail - Company signer email address (optional, if not provided, company signer won't be added)
  * @param {string} companyName - Company name for company signer (optional)
+ * @param {string} companySignerName - Company signer's name (sender's name, optional)
  * @returns {Promise<string>} Envelope ID
  */
 export async function createAndSendEnvelope({
@@ -334,6 +335,7 @@ export async function createAndSendEnvelope({
   bccEmails = [],
   companySignerEmail = null,
   companyName = null,
+  companySignerName = null,
 }) {
   const accessToken = await getAccessToken();
   
@@ -405,7 +407,7 @@ export async function createAndSendEnvelope({
     recipientId: '1', // Must match owner signer's recipientId - this restricts tabs to owner signer only
     tabLabel: 'OwnerDate',
     anchorString: 'SIGNATURES',
-    anchorXOffset: '200', // Position at date column (right side of OWNER section, adjust if needed)
+    anchorXOffset: '360', // Position at date column (200 + 160px right = 360px)
     anchorYOffset: '100', // Position at date line (same vertical position as signature in OWNER section)
     anchorUnits: 'pixels',
     anchorCaseSensitive: 'true', // Case-sensitive matching
@@ -424,10 +426,11 @@ export async function createAndSendEnvelope({
   const signers = [signer];
 
   // Add company signer if provided (signs second with routingOrder '2')
-  if (companySignerEmail) {
+  // Skip if company signer email matches owner email to avoid duplicate recipients error
+  if (companySignerEmail && companySignerEmail.toLowerCase() !== recipientEmail.toLowerCase()) {
     const companySigner = docusign.Signer.constructFromObject({
       email: companySignerEmail,
-      name: companyName || companySignerEmail,
+      name: companySignerName || 'Contractor', // Use sender's name (not email)
       recipientId: '2',
       routingOrder: '2', // Signs after owner (routingOrder '1')
     });
@@ -437,40 +440,43 @@ export async function createAndSendEnvelope({
     // Anchor to "SIGNATURES" and position lower (higher Y offset) for CONTRACTOR section
     
     // Signature tab - positioned at the signature line in the CONTRACTOR section
+    // Moved 32px up from previous position (314 - 32 = 282)
     const companySignHere = docusign.SignHere.constructFromObject({
       documentId: '1',
       recipientId: '2', // Must match company signer's recipientId
       tabLabel: 'CompanySignature',
       anchorString: 'SIGNATURES',
       anchorXOffset: '0',
-      anchorYOffset: '250', // Position lower for CONTRACTOR section (below OWNER section, adjust if needed)
+      anchorYOffset: '282', // Position for CONTRACTOR section (314 - 32px up = 282px)
       anchorUnits: 'pixels',
       anchorCaseSensitive: 'true',
     });
 
     // Printed name tab - positioned at the printed name line in CONTRACTOR section
+    // Moved 32px up, using sender's name (not email)
     const companyTextTab = docusign.Text.constructFromObject({
       documentId: '1',
       recipientId: '2', // Must match company signer's recipientId
       tabLabel: 'CompanyPrintedName',
       anchorString: 'SIGNATURES',
       anchorXOffset: '0',
-      anchorYOffset: '300', // Position at printed name line in CONTRACTOR section (adjust if needed)
+      anchorYOffset: '332', // Position at printed name line (364 - 32px up = 332px)
       anchorUnits: 'pixels',
       anchorCaseSensitive: 'true',
-      value: companyName || companySignerEmail, // Pre-fill with company name
+      value: companySignerName || 'Contractor', // Pre-fill with sender's name (not email)
       required: 'true',
       locked: 'false',
     });
 
     // Date signed tab - positioned at the date line (right side column in CONTRACTOR section)
+    // Moved 32px up and 160px right
     const companyDateSigned = docusign.DateSigned.constructFromObject({
       documentId: '1',
       recipientId: '2', // Must match company signer's recipientId
       tabLabel: 'CompanyDate',
       anchorString: 'SIGNATURES',
-      anchorXOffset: '200', // Position at date column (right side of CONTRACTOR section, adjust if needed)
-      anchorYOffset: '250', // Position at date line (same vertical position as signature in CONTRACTOR section)
+      anchorXOffset: '360', // Position at date column (200 + 160px right = 360px)
+      anchorYOffset: '282', // Position at date line (314 - 32px up = 282px)
       anchorUnits: 'pixels',
       anchorCaseSensitive: 'true',
       required: 'true',
@@ -485,6 +491,9 @@ export async function createAndSendEnvelope({
     companySigner.tabs = companyTabs;
 
     signers.push(companySigner);
+  } else if (companySignerEmail && companySignerEmail.toLowerCase() === recipientEmail.toLowerCase()) {
+    // Log warning when company signer email matches owner email
+    console.warn(`Company signer email (${companySignerEmail}) matches owner email (${recipientEmail}). Skipping company signer to avoid duplicate recipients.`);
   }
 
   // Create recipients

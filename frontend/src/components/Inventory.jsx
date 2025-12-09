@@ -20,6 +20,7 @@ function Inventory() {
   const updateItem = useUpdateInventoryItem()
   const deleteItem = useDeleteInventoryItem()
 
+  const [activeTab, setActiveTab] = useState('materials')
   const [showForm, setShowForm] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState(null)
   const [error, setError] = useState('')
@@ -43,6 +44,7 @@ function Inventory() {
     model: '',
     color: '',
     unit_price: '',
+    type: 'material',
   })
 
   // Get auth token for CSV import
@@ -58,26 +60,32 @@ function Inventory() {
     setError('')
     setSuccess('')
 
+    // Determine type: use formData.type if editing, otherwise use activeTab
+    const itemType = editingMaterial 
+      ? (formData.type || 'material')
+      : (activeTab === 'materials' ? 'material' : 'equipment')
+
     const payload = {
       ...formData,
       stock: formData.stock ? parseInt(formData.stock) : 0,
       unit_price: formData.unit_price ? parseFloat(formData.unit_price) : 0,
+      type: itemType,
     }
 
     try {
       if (editingMaterial) {
         await updateItem.mutateAsync({ id: editingMaterial.id, data: payload })
-        setSuccess('Material updated successfully!')
+        setSuccess(`${payload.type === 'material' ? 'Material' : 'Equipment'} updated successfully!`)
       } else {
         await createItem.mutateAsync(payload)
-        setSuccess('Material added successfully!')
+        setSuccess(`${payload.type === 'material' ? 'Material' : 'Equipment'} added successfully!`)
       }
 
       setShowForm(false)
       setEditingMaterial(null)
       resetForm()
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to save material')
+      setError(err.response?.data?.error || err.message || `Failed to save ${formData.type || 'item'}`)
     }
   }
 
@@ -106,7 +114,14 @@ function Inventory() {
       model: material.model || '',
       color: material.color || '',
       unit_price: material.unit_price || '',
+      type: material.type || 'material',
     })
+    // Switch to the appropriate tab based on item type
+    if (material.type === 'equipment') {
+      setActiveTab('equipment')
+    } else {
+      setActiveTab('materials')
+    }
     setShowForm(true)
   }
 
@@ -120,11 +135,21 @@ function Inventory() {
       model: '',
       color: '',
       unit_price: '',
+      type: activeTab === 'materials' ? 'material' : 'equipment',
     })
   }
 
-  // Filter materials
+  // Open form with type set based on active tab
+  const openForm = () => {
+    resetForm()
+    setEditingMaterial(null)
+    setShowForm(true)
+  }
+
+  // Filter materials/equipment by type and search
+  const currentType = activeTab === 'materials' ? 'material' : 'equipment'
   const filteredMaterials = materials.filter((material) => {
+    const matchesType = material.type === currentType
     const matchesSearch =
       searchTerm === '' ||
       material.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -132,7 +157,7 @@ function Inventory() {
       material.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       material.color?.toLowerCase().includes(searchTerm.toLowerCase())
 
-    return matchesSearch
+    return matchesType && matchesSearch
   })
 
   // Pagination
@@ -144,7 +169,7 @@ function Inventory() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm])
+  }, [searchTerm, activeTab])
 
   // CSV parsing helper - handles quoted fields
   const parseCSVLine = (line) => {
@@ -270,6 +295,7 @@ function Inventory() {
           model: row.model || '',
           color: row.color || '',
           unit_price: row.unit_price || row['unit_price'] || '0',
+          type: row.type || (activeTab === 'materials' ? 'material' : 'equipment'),
         }
 
         // Validate required fields
@@ -325,11 +351,11 @@ function Inventory() {
       setImportErrors(errors)
       
       if (successCount > 0) {
-        setSuccess(`Successfully imported ${successCount} material(s)${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
+        setSuccess(`Successfully imported ${successCount} ${activeTab === 'materials' ? 'material(s)' : 'equipment item(s)'}${failedCount > 0 ? `. ${failedCount} failed.` : ''}`)
         // Refetch to update cache
         refetch()
       } else {
-        setError(`Failed to import all materials. ${failedCount} error(s).`)
+        setError(`Failed to import all ${activeTab === 'materials' ? 'materials' : 'equipment'}. ${failedCount} error(s).`)
       }
     } catch (err) {
       setError(err.message || 'Failed to parse CSV file')
@@ -351,64 +377,506 @@ function Inventory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Inventory</h2>
-          <p className="text-gray-600 mt-1">Manage your materials inventory</p>
-        </div>
-        <div className="flex gap-3">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800">Inventory</h2>
+        <p className="text-gray-600 mt-1">Manage your materials and equipment inventory</p>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+            onClick={() => setActiveTab('materials')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'materials'
+                ? 'border-pool-blue text-pool-blue'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
           >
-            📥 Import CSV
+            Materials
           </button>
           <button
-            onClick={() => {
-              resetForm()
-              setEditingMaterial(null)
-              setShowForm(true)
-            }}
-            className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+            onClick={() => setActiveTab('equipment')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'equipment'
+                ? 'border-pool-blue text-pool-blue'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
           >
-            + Add Material
+            Equipment
           </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'materials' && (
+        <div className="space-y-6">
+          {/* Materials Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800">Materials Management</h3>
+              <p className="text-gray-600 mt-1">Add, edit, and manage your materials</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+              >
+                📥 Import CSV
+              </button>
+              <button
+                onClick={openForm}
+                className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+              >
+                + Add Material
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+              {success}
+            </div>
+          )}
+
+          {/* Search Filter */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, brand, model, or color..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+              />
+            </div>
+          </div>
+
+
+          {/* Materials Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stock
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unit
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Brand
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Model
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Color
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unit Price
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMaterials.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                    {materials.filter(m => m.type === currentType).length === 0
+                      ? `No ${currentType === 'material' ? 'materials' : 'equipment'} yet. Click "Add ${currentType === 'material' ? 'Material' : 'Equipment'}" to get started.`
+                      : 'No items match your search criteria.'}
+                  </td>
+                </tr>
+              ) : (
+                paginatedMaterials.map((material) => (
+                  <tr key={material.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{material.name || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{material.stock ?? '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{material.unit || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{material.brand || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{material.model || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{material.color || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {material.unit_price
+                          ? `$${parseFloat(material.unit_price).toFixed(2)}`
+                          : '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => {
+                          setSelectedEntityForDocuments({
+                            id: material.id,
+                            name: material.name,
+                          })
+                          setShowDocumentsModal(true)
+                        }}
+                        className="text-green-600 hover:text-green-800 mr-4"
+                        title="View Documents"
+                      >
+                        Documents
+                      </button>
+                      <button
+                        onClick={() => handleEdit(material)}
+                        className="text-pool-blue hover:text-pool-dark mr-4"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(material.id)}
+                        disabled={deleteItem.isPending}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-          {error}
+          {/* Pagination */}
+          {filteredMaterials.length > itemsPerPage && (
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredMaterials.length)} of {filteredMaterials.length} {currentType === 'material' ? 'materials' : 'equipment'}
+              </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                        currentPage === page
+                          ? 'bg-pool-blue text-white border-pool-blue'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-2 text-gray-500">...</span>
+                }
+                return null
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+          )}
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredMaterials.length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Total Stock Value</p>
+              <p className="text-2xl font-bold text-gray-900">
+                ${filteredMaterials
+                  .reduce((sum, m) => sum + (m.stock || 0) * (m.unit_price || 0), 0)
+                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Low Stock Items</p>
+              <p className="text-2xl font-bold text-red-600">
+                {filteredMaterials.filter((m) => (m.stock || 0) < 10).length}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
-      {success && (
-        <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
-          {success}
+      {activeTab === 'equipment' && (
+        <div className="space-y-6">
+          {/* Equipment Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800">Equipment Management</h3>
+              <p className="text-gray-600 mt-1">Add, edit, and manage your equipment</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+              >
+                📥 Import CSV
+              </button>
+              <button
+                onClick={openForm}
+                className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+              >
+                + Add Equipment
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+              {success}
+            </div>
+          )}
+
+          {/* Search Filter */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, brand, model, or color..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+              />
+            </div>
+          </div>
+
+          {/* Equipment Table */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Stock
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Unit
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Brand
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Model
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Color
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Unit Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredMaterials.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                        {materials.filter(m => m.type === currentType).length === 0
+                          ? `No ${currentType === 'material' ? 'materials' : 'equipment'} yet. Click "Add ${currentType === 'material' ? 'Material' : 'Equipment'}" to get started.`
+                          : 'No items match your search criteria.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedMaterials.map((material) => (
+                      <tr key={material.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{material.name || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{material.stock ?? '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{material.unit || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{material.brand || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{material.model || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{material.color || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {material.unit_price
+                              ? `$${parseFloat(material.unit_price).toFixed(2)}`
+                              : '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => {
+                              setSelectedEntityForDocuments({
+                                id: material.id,
+                                name: material.name,
+                              })
+                              setShowDocumentsModal(true)
+                            }}
+                            className="text-green-600 hover:text-green-800 mr-4"
+                            title="View Documents"
+                          >
+                            Documents
+                          </button>
+                          <button
+                            onClick={() => handleEdit(material)}
+                            className="text-pool-blue hover:text-pool-dark mr-4"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(material.id)}
+                            disabled={deleteItem.isPending}
+                            className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {filteredMaterials.length > itemsPerPage && (
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredMaterials.length)} of {filteredMaterials.length} {currentType === 'material' ? 'materials' : 'equipment'}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                            currentPage === page
+                              ? 'bg-pool-blue text-white border-pool-blue'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-2 text-gray-500">...</span>
+                    }
+                    return null
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredMaterials.length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Total Stock Value</p>
+              <p className="text-2xl font-bold text-gray-900">
+                ${filteredMaterials
+                  .reduce((sum, m) => sum + (m.stock || 0) * (m.unit_price || 0), 0)
+                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500">Low Stock Items</p>
+              <p className="text-2xl font-bold text-red-600">
+                {filteredMaterials.filter((m) => (m.stock || 0) < 10).length}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Search Filter */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, brand, model, or color..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-          />
-        </div>
-      </div>
-
-      {/* CSV Import Modal */}
+      {/* CSV Import Modal - Shared between tabs */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowImportModal(false); setImportErrors([]); setImportProgress({ success: 0, failed: 0, total: 0 }); }}>
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Import Materials from CSV</h3>
+                <h3 className="text-xl font-semibold text-gray-800">Import {activeTab === 'materials' ? 'Materials' : 'Equipment'} from CSV</h3>
                 <button
                   onClick={() => {
                     setShowImportModal(false)
@@ -472,7 +940,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                      <span className="font-medium text-blue-900">Importing materials...</span>
+                      <span className="font-medium text-blue-900">Importing {activeTab === 'materials' ? 'materials' : 'equipment'}...</span>
                     </div>
                     <div className="text-sm text-blue-800">
                       <p>Progress: {importProgress.success + importProgress.failed} / {importProgress.total}</p>
@@ -518,14 +986,16 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
         </div>
       )}
 
-      {/* Material Form Modal */}
+      {/* Form Modal - Shared between tabs */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingMaterial(null); resetForm(); }}>
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {editingMaterial ? 'Edit Material' : 'Add New Material'}
+                  {editingMaterial 
+                    ? `Edit ${formData.type === 'equipment' ? 'Equipment' : 'Material'}` 
+                    : `Add New ${formData.type === 'equipment' ? 'Equipment' : 'Material'}`}
                 </h3>
                 <button
                   onClick={() => {
@@ -654,7 +1124,11 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                     disabled={createItem.isPending || updateItem.isPending}
                     className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
-                    {(createItem.isPending || updateItem.isPending) ? 'Saving...' : (editingMaterial ? 'Update Material' : 'Add Material')}
+                    {(createItem.isPending || updateItem.isPending) 
+                      ? 'Saving...' 
+                      : (editingMaterial 
+                        ? `Update ${formData.type === 'equipment' ? 'Equipment' : 'Material'}` 
+                        : `Add ${formData.type === 'equipment' ? 'Equipment' : 'Material'}`)}
                   </button>
                 </div>
               </form>
@@ -662,184 +1136,6 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
           </div>
         </div>
       )}
-
-      {/* Materials Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Unit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Brand
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Model
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Color
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Unit Price
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMaterials.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
-                    {materials.length === 0
-                      ? 'No materials yet. Click "Add Material" to get started.'
-                      : 'No materials match your search criteria.'}
-                  </td>
-                </tr>
-              ) : (
-                paginatedMaterials.map((material) => (
-                  <tr key={material.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{material.name || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.stock ?? '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.unit || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.brand || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.model || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.color || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {material.unit_price
-                          ? `$${parseFloat(material.unit_price).toFixed(2)}`
-                          : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => {
-                          setSelectedEntityForDocuments({
-                            id: material.id,
-                            name: material.name,
-                          })
-                          setShowDocumentsModal(true)
-                        }}
-                        className="text-green-600 hover:text-green-800 mr-4"
-                        title="View Files"
-                      >
-                        Files
-                      </button>
-                      <button
-                        onClick={() => handleEdit(material)}
-                        className="text-pool-blue hover:text-pool-dark mr-4"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(material.id)}
-                        disabled={deleteItem.isPending}
-                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {filteredMaterials.length > itemsPerPage && (
-        <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredMaterials.length)} of {filteredMaterials.length} materials
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <div className="flex gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                        currentPage === page
-                          ? 'bg-pool-blue text-white border-pool-blue'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  )
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return <span key={page} className="px-2 text-gray-500">...</span>
-                }
-                return null
-              })}
-            </div>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Total Materials</p>
-          <p className="text-2xl font-bold text-gray-900">{materials.length}</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Total Stock Value</p>
-          <p className="text-2xl font-bold text-gray-900">
-            ${materials
-              .reduce((sum, m) => sum + (m.stock || 0) * (m.unit_price || 0), 0)
-              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Low Stock Items</p>
-          <p className="text-2xl font-bold text-red-600">
-            {materials.filter((m) => (m.stock || 0) < 10).length}
-          </p>
-        </div>
-      </div>
 
       {/* Documents Modal */}
       {showDocumentsModal && selectedEntityForDocuments && (

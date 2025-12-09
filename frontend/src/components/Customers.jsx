@@ -483,16 +483,16 @@ function Customers() {
                     <ul className="list-disc list-inside ml-2">
                       <li><code className="bg-blue-100 px-1 rounded">email</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">phone</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">address_line1</code>, <code className="bg-blue-100 px-1 rounded">address line 1</code>, or <code className="bg-blue-100 px-1 rounded">address</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">address_line2</code> or <code className="bg-blue-100 px-1 rounded">address line 2</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">address_line1</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">address_line2</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">city</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">state</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">zip_code</code>, <code className="bg-blue-100 px-1 rounded">zip code</code>, or <code className="bg-blue-100 px-1 rounded">zip</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">zip_code</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">country</code> (defaults to "USA")</li>
-                      <li><code className="bg-blue-100 px-1 rounded">referred_by</code> or <code className="bg-blue-100 px-1 rounded">referred by</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">pipeline_status</code>, <code className="bg-blue-100 px-1 rounded">pipeline status</code>, or <code className="bg-blue-100 px-1 rounded">status</code> (defaults to "lead")</li>
+                      <li><code className="bg-blue-100 px-1 rounded">referred_by</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">pipeline_status</code> (defaults to "lead")</li>
                       <li><code className="bg-blue-100 px-1 rounded">notes</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">estimated_value</code> or <code className="bg-blue-100 px-1 rounded">estimated value</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">estimated_value</code></li>
                     </ul>
                   </div>
                 </div>
@@ -869,9 +869,9 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                             setShowDocumentsModal(true)
                           }}
                           className="text-green-600 hover:text-green-800 mr-4"
-                          title="View Files"
+                          title="View Documents"
                         >
-                          Files
+                          Documents
                         </button>
                         <button
                           onClick={() => handleEdit(customer)}
