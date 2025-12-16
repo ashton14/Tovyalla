@@ -1916,8 +1916,6 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
       return res.status(400).json({ error: 'subcontractor_id and date_added are required' });
     }
 
-    const { customer_price } = req.body;
-
     const { data, error } = await supabase
       .from('project_subcontractor_fees')
       .insert([{
@@ -1925,7 +1923,6 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
         subcontractor_id,
         flat_fee: flat_fee ? parseFloat(flat_fee) : null,
         expected_value: expected_value ? parseFloat(expected_value) : null,
-        customer_price: customer_price ? parseFloat(customer_price) : null,
         date_added,
         status: status || 'incomplete',
         notes: notes || null,
@@ -1991,21 +1988,11 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/batch-update-prices', asy
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Update each fee's customer_price
-    const updatePromises = prices.map(({ id: feeId, customer_price }) =>
-      supabase
-        .from('project_subcontractor_fees')
-        .update({ 
-          customer_price: customer_price ? parseFloat(customer_price) : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', feeId)
-        .eq('project_id', id)
-    );
-
-    await Promise.all(updatePromises);
-
-    res.json({ success: true, message: 'Customer prices updated successfully' });
+    // Note: customer_price column doesn't exist in project_subcontractor_fees table
+    // Customer prices are stored in milestones table instead
+    // This endpoint is kept for backwards compatibility but doesn't update anything
+    // Return success to avoid breaking existing clients
+    res.json({ success: true, message: 'Customer prices are managed via milestones table' });
   } catch (error) {
     console.error('Batch update customer prices error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -2033,7 +2020,7 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
     }
 
     const { id, feeId } = req.params;
-    const { flat_fee, expected_value, date_added, status, notes, job_description, customer_price } = req.body;
+    const { flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -2053,7 +2040,6 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
 
     if (flat_fee !== undefined) updateData.flat_fee = flat_fee ? parseFloat(flat_fee) : null;
     if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
-    if (customer_price !== undefined) updateData.customer_price = customer_price ? parseFloat(customer_price) : null;
     if (date_added !== undefined) updateData.date_added = date_added;
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes || null;
