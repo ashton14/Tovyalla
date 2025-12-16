@@ -1187,7 +1187,8 @@ app.get('/api/projects/statistics', async (req, res) => {
       });
     }
 
-    // Calculate value and expenses for sold/complete projects
+    // Calculate revenue (from milestones customer_price) and expenses for sold/complete projects
+    let totalRevenue = 0;
     let totalEstValue = 0;
     let totalExpenses = 0;
     let projectCount = 0;
@@ -1201,6 +1202,25 @@ app.get('/api/projects/statistics', async (req, res) => {
       totalEstValue += estValue;
       projectCount++;
 
+      // Get revenue from milestones (customer_price)
+      const { data: milestones } = await supabase
+        .from('milestones')
+        .select('customer_price')
+        .eq('project_id', record.project_id);
+
+      // Calculate revenue from milestones
+      let projectRevenue = 0;
+      if (milestones) {
+        milestones.forEach((milestone) => {
+          projectRevenue += parseFloat(milestone.customer_price || 0);
+        });
+      }
+      // If no milestones, fall back to est_value
+      if (projectRevenue === 0) {
+        projectRevenue = estValue;
+      }
+      totalRevenue += projectRevenue;
+
       // Get expenses for this project
       const { data: subcontractorFees } = await supabase
         .from('project_subcontractor_fees')
@@ -1209,6 +1229,11 @@ app.get('/api/projects/statistics', async (req, res) => {
 
       const { data: materials } = await supabase
         .from('project_materials')
+        .select('actual_price')
+        .eq('project_id', record.project_id);
+
+      const { data: equipment } = await supabase
+        .from('project_equipment')
         .select('actual_price')
         .eq('project_id', record.project_id);
 
@@ -1233,6 +1258,14 @@ app.get('/api/projects/statistics', async (req, res) => {
         });
       }
 
+      // Calculate equipment costs
+      let equipmentTotal = 0;
+      if (equipment) {
+        equipment.forEach((entry) => {
+          equipmentTotal += parseFloat(entry.actual_price || 0);
+        });
+      }
+
       // Calculate additional expenses
       let additionalTotal = 0;
       if (additionalExpenses) {
@@ -1241,13 +1274,14 @@ app.get('/api/projects/statistics', async (req, res) => {
         });
       }
 
-      totalExpenses += subcontractorTotal + materialsTotal + additionalTotal;
+      totalExpenses += subcontractorTotal + materialsTotal + equipmentTotal + additionalTotal;
     }
 
-    const totalProfit = totalEstValue - totalExpenses;
+    const totalProfit = totalRevenue - totalExpenses;
 
     res.json({
       totalEstValue: totalEstValue,
+      totalRevenue: totalRevenue,
       totalProfit: totalProfit,
       totalExpenses: totalExpenses,
       projectCount: projectCount,
@@ -1334,8 +1368,9 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
-      // Calculate value and profit from SOLD or COMPLETE projects in this month
-      let monthValue = 0;
+      // Calculate value (est_value), revenue (from milestones), and profit from SOLD or COMPLETE projects in this month
+      let monthValue = 0; // Total est_value
+      let monthRevenue = 0; // Total revenue from milestones customer_price
       let monthExpenses = 0;
       const soldCount = soldHistory?.length || 0;
       const completedCount = completedHistory?.length || 0;
@@ -1354,7 +1389,26 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         processedProjectIds.add(record.project_id);
 
         const estValue = parseFloat(record.projects?.est_value || 0);
-        monthValue += estValue;
+        monthValue += estValue; // Add to total est_value
+
+        // Get revenue from milestones (customer_price)
+        const { data: milestones } = await supabase
+          .from('milestones')
+          .select('customer_price')
+          .eq('project_id', record.project_id);
+
+        // Calculate revenue from milestones
+        let projectRevenue = 0;
+        if (milestones) {
+          milestones.forEach((milestone) => {
+            projectRevenue += parseFloat(milestone.customer_price || 0);
+          });
+        }
+        // If no milestones, fall back to est_value
+        if (projectRevenue === 0) {
+          projectRevenue = estValue;
+        }
+        monthRevenue += projectRevenue;
 
         // Get expenses for this project
         const { data: subcontractorFees } = await supabase
@@ -1409,8 +1463,9 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
       monthlyData.push({
         month: monthNames[month],
         monthIndex: month + 1,
-        value: monthValue,
-        profit: monthValue - monthExpenses,
+        value: monthValue, // Total est_value
+        revenue: monthRevenue, // Total revenue from milestones
+        profit: monthRevenue - monthExpenses, // Profit based on revenue
         expenses: monthExpenses,
         leads: leadsHistory?.length || 0,
         customersSigned: signedHistory?.length || 0,

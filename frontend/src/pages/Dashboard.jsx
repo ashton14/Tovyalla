@@ -23,6 +23,7 @@ import { useEmployees, useProjects, useEvents, useStatistics, useMonthlyStatisti
 
 const CHART_METRICS = [
   { value: 'value', label: 'Total Value', color: '#0ea5e9', format: 'currency' },
+  { value: 'revenue', label: 'Total Revenue', color: '#3b82f6', format: 'currency' },
   { value: 'profit', label: 'Profit', color: '#22c55e', format: 'currency' },
   { value: 'leads', label: 'Leads', color: '#f59e0b', format: 'number' },
   { value: 'customersSigned', label: 'Customers Signed', color: '#06b6d4', format: 'number' },
@@ -374,14 +375,14 @@ function Dashboard() {
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
-                        Est. Value: ${statistics.totalEstValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        Revenue: ${(statistics.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-gray-500">
                         Expenses: ${statistics.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      {statistics.totalEstValue > 0 && (
+                      {(statistics.totalRevenue || 0) > 0 && (
                         <p className={`text-xs font-medium mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Margin: {((statistics.totalProfit / statistics.totalEstValue) * 100).toFixed(1)}%
+                          Margin: {((statistics.totalProfit / (statistics.totalRevenue || 1)) * 100).toFixed(1)}%
                         </p>
                       )}
                     </div>
