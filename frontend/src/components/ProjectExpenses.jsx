@@ -680,7 +680,7 @@ function ProjectExpenses({ project, onClose }) {
               </p>
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Actual Profit</p>
+              <p className="text-sm text-gray-500">Profit</p>
               <p className={`text-xl font-bold ${projectData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ${projectData.profit?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
@@ -924,19 +924,20 @@ function ProjectExpenses({ project, onClose }) {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {expenses.materials.map((entry) => {
-                      const total = parseFloat(entry.quantity || 0) * parseFloat(entry.unit_cost || 0)
+                      const expectedPrice = parseFloat(entry.expected_price || 0)
+                      const actualPrice = parseFloat(entry.actual_price || 0)
                       return (
                         <tr key={entry.id}>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.inventory?.name || '-'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDateString(entry.date_used)}
+                            {formatDateString(entry.date_ordered || entry.date_received)}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -949,16 +950,16 @@ function ProjectExpenses({ project, onClose }) {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            {entry.expected_value ? `$${parseFloat(entry.expected_value).toFixed(2)}` : '-'}
+                            {expectedPrice > 0 ? `$${expectedPrice.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {entry.quantity ? `${entry.quantity} ${entry.inventory?.unit || ''}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {entry.unit_cost ? `$${parseFloat(entry.unit_cost).toFixed(2)}` : '-'}
+                            {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {total > 0 ? `$${total.toFixed(2)}` : '-'}
+                            {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : (expectedPrice > 0 ? `$${expectedPrice.toFixed(2)}` : '-')}
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
                             <button

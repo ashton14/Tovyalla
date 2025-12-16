@@ -62,7 +62,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
         const prevPrice = findSavedPrice(savedMilestones, 'subcontractor', fee.id)
         generatedMilestones.push({
           id: `new-subcontractor-${fee.id}`,
-          name: `${fee.subcontractors?.name || 'Subcontractor'} - ${fee.job_description || 'Work'}`,
+          name: fee.job_description || 'Work',
           costAmount,
           customerPrice: prevPrice ?? costAmount, // Use previous price or default to cost
           milestoneType: 'subcontractor',
@@ -72,14 +72,13 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
       })
     }
 
-    // 3. Equipment Order
-    let equipmentCost = 0
-    if (expenses.equipment && expenses.equipment.length > 0) {
+    // 3. Equipment Order (always include if there are equipment items)
+    if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
+      let equipmentCost = 0
       expenses.equipment.forEach((eq) => {
-        equipmentCost += parseFloat(eq.expected_price || eq.actual_price || 0) * parseFloat(eq.quantity || 1)
+        // Match expenses endpoint: prices are totals, not per-unit (no quantity multiplication)
+        equipmentCost += parseFloat(eq.expected_price || eq.actual_price || 0)
       })
-    }
-    if (equipmentCost > 0) {
       const prevPrice = findSavedPrice(savedMilestones, 'equipment')
       generatedMilestones.push({
         id: `new-equipment`,
@@ -91,14 +90,12 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
       })
     }
 
-    // 4. Material Order
+    // 4. Material Order (always include if there are material items)
     let materialsCost = 0
     if (expenses.materials && expenses.materials.length > 0) {
       expenses.materials.forEach((mat) => {
-        materialsCost += parseFloat(mat.expected_value || 0) || (parseFloat(mat.quantity || 0) * parseFloat(mat.unit_cost || 0))
+        materialsCost += parseFloat(mat.expected_price || mat.actual_price || 0)
       })
-    }
-    if (materialsCost > 0) {
       const prevPrice = findSavedPrice(savedMilestones, 'materials')
       generatedMilestones.push({
         id: `new-materials`,

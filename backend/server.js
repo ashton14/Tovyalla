@@ -2823,11 +2823,17 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       .eq('project_id', id)
       .order('expense_date', { ascending: true });
 
-    const { data: equipment } = await supabase
+    // Get equipment expenses with inventory join (same as expenses endpoint)
+    const { data: equipment, error: equipmentError } = await supabase
       .from('project_equipment')
-      .select('*')
+      .select('*, inventory(id, name, unit_price)')
       .eq('project_id', id)
-      .order('date_ordered', { ascending: true });
+      .order('date_ordered', { ascending: false });
+
+    if (equipmentError) {
+      console.error('Error fetching equipment for contract:', equipmentError);
+      // Don't fail - return empty array, but log the error
+    }
 
     // Calculate totals
     let subcontractorTotal = 0;
@@ -2838,9 +2844,11 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     }
 
     let materialsTotal = 0;
+    let materialsExpectedTotal = 0;
     if (materials) {
       materials.forEach((entry) => {
         materialsTotal += parseFloat(entry.actual_price || 0);
+        materialsExpectedTotal += parseFloat(entry.expected_price || entry.actual_price || 0);
       });
     }
 
@@ -2852,9 +2860,12 @@ app.post('/api/projects/:id/contract', async (req, res) => {
     }
 
     let equipmentTotal = 0;
+    let equipmentExpectedTotal = 0;
     if (equipment) {
       equipment.forEach((entry) => {
-        equipmentTotal += parseFloat(entry.expected_price || entry.actual_price || 0) * parseFloat(entry.quantity || 1);
+        // Match expenses endpoint calculation: prices are totals, not per-unit
+        equipmentTotal += parseFloat(entry.actual_price || 0);
+        equipmentExpectedTotal += parseFloat(entry.expected_price || 0);
       });
     }
 
@@ -2881,8 +2892,10 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       totals: {
         subcontractors: subcontractorTotal,
         materials: materialsTotal,
+        materialsExpected: materialsExpectedTotal,
         additional: additionalTotal,
         equipment: equipmentTotal,
+        equipmentExpected: equipmentExpectedTotal,
         initialFee: 1000,
         finalInspection: 1000,
         grandTotal: parseFloat(project.est_value || 0),

@@ -52,23 +52,23 @@ const generatePaymentSchedule = (data) => {
       const amount = parseFloat(fee.expected_value || fee.flat_fee || 0)
       if (amount > 0) {
         schedule.push({
-          description: `${fee.subcontractors?.name || 'Subcontractor'} - ${fee.job_description || 'Work'}`,
+          description: fee.job_description || 'Work',
           amount,
         })
       }
     })
   }
   
-  // 3. Equipment Order (total of all equipment)
-  if (totals.equipment > 0 || totals.equipmentExpected > 0) {
+  // 3. Equipment Order (total of all equipment) - always include if equipment exists
+  if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
     schedule.push({
       description: 'Equipment Order',
       amount: totals.equipmentExpected || totals.equipment || 0,
     })
   }
   
-  // 4. Material Order (total of all materials)
-  if (totals.materials > 0 || totals.materialsExpected > 0) {
+  // 4. Material Order (total of all materials) - always include if materials exist
+  if (expenses.materials && expenses.materials.length > 0) {
     schedule.push({
       description: 'Material Order',
       amount: totals.materialsExpected || totals.materials || 0,
@@ -159,8 +159,8 @@ export const generateContractPdf = async (contractData) => {
   // Build equipment list (no prices - prices are shown in payment schedule)
   const equipmentList = expenses.equipment && expenses.equipment.length > 0
     ? expenses.equipment.map((eq) => ({
-        name: eq.name,
-        description: eq.description || '',
+        name: eq.inventory?.name || eq.name || 'Equipment',
+        description: eq.description || eq.inventory?.description || '',
         quantity: eq.quantity || 1,
       }))
     : []
