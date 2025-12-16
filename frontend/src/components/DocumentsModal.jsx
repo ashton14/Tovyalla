@@ -106,7 +106,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       // Fetch contract data from backend
       const response = await axios.post(
         `/api/projects/${entityId}/contract`,
-        {},
+        { document_type: 'contract' },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -124,6 +124,80 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     } catch (err) {
       console.error('Error fetching contract data:', err)
       setError(err.response?.data?.error || err.message || 'Failed to load contract data')
+    } finally {
+      setGeneratingContract(false)
+    }
+  }
+
+  const handleGenerateProposal = async () => {
+    setGeneratingContract(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Fetch proposal data from backend
+      const response = await axios.post(
+        `/api/projects/${entityId}/contract`,
+        { document_type: 'proposal' },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      const data = response.data
+      console.log('Proposal data received:', data)
+
+      // Show the preview instead of generating PDF directly
+      setContractData(data)
+      setShowContractPreview(true)
+      setShowCreateMenu(false)
+    } catch (err) {
+      console.error('Error fetching proposal data:', err)
+      setError(err.response?.data?.error || err.message || 'Failed to load proposal data')
+    } finally {
+      setGeneratingContract(false)
+    }
+  }
+
+  const handleGenerateChangeOrder = async () => {
+    setGeneratingContract(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Fetch contract data from backend (change orders use same data structure as contracts)
+      const response = await axios.post(
+        `/api/projects/${entityId}/contract`,
+        { document_type: 'change_order' },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      const data = response.data
+      console.log('Change order data received:', data)
+
+      // Show the preview instead of generating PDF directly
+      setContractData(data)
+      setShowContractPreview(true)
+      setShowCreateMenu(false)
+    } catch (err) {
+      console.error('Error fetching change order data:', err)
+      setError(err.response?.data?.error || err.message || 'Failed to load change order data')
     } finally {
       setGeneratingContract(false)
     }
@@ -538,15 +612,27 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         <button
                           onClick={() => {
                             setShowCreateMenu(false)
-                            // TODO: Implement proposal creation
-                            alert('Proposal creation coming soon!')
+                            handleGenerateProposal()
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          disabled={generatingContract}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Proposal
+                          {generatingContract ? (
+                            <>
+                              <svg className="animate-spin w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Proposal
+                            </>
+                          )}
                         </button>
                         <button
                           onClick={() => {
@@ -576,15 +662,27 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         <button
                           onClick={() => {
                             setShowCreateMenu(false)
-                            // TODO: Implement change order creation
-                            alert('Change Order creation coming soon!')
+                            handleGenerateChangeOrder()
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          disabled={generatingContract}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Change Order
+                          {generatingContract ? (
+                            <>
+                              <svg className="animate-spin w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Change Order
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

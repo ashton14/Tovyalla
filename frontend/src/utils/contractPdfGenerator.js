@@ -31,6 +31,49 @@ const formatDate = (dateString) => {
 // Generate payment schedule based on expenses
 // If customerPaymentSchedule is provided, use that instead (customer-facing prices)
 const generatePaymentSchedule = (data) => {
+  const docType = data.documentType || 'contract'
+  
+  // For proposals, return simplified schedule
+  if (docType === 'proposal') {
+    // If customer payment schedule is provided, use it (but should only have initial fee for proposals)
+    if (data.customerPaymentSchedule && data.customerPaymentSchedule.length > 0) {
+      return data.customerPaymentSchedule
+    }
+    
+    // Otherwise, return proposal schedule: Initial sign fee + balance message
+    return [
+      {
+        description: 'Initial Sign Fee',
+        amount: 1000,
+      },
+      {
+        description: 'Balance of schedule will be provided with contract',
+        amount: 0,
+      },
+    ]
+  }
+  
+  // For change orders, return simplified schedule
+  if (docType === 'change_order') {
+    // If customer payment schedule is provided, use it
+    if (data.customerPaymentSchedule && data.customerPaymentSchedule.length > 0) {
+      return data.customerPaymentSchedule
+    }
+    
+    // Otherwise, return change order schedule: Initial fee + balance message
+    return [
+      {
+        description: 'Initial Fee',
+        amount: 0,
+      },
+      {
+        description: 'Balance of schedule will be provided with contract',
+        amount: 0,
+      },
+    ]
+  }
+  
+  // For contracts (default behavior)
   // If customer payment schedule is provided, use it directly
   if (data.customerPaymentSchedule && data.customerPaymentSchedule.length > 0) {
     return data.customerPaymentSchedule
@@ -43,7 +86,7 @@ const generatePaymentSchedule = (data) => {
   // 1. Initial Contract Fee ($1,000)
   schedule.push({
     description: 'Initial Contract Fee',
-    amount: 1000,
+    amount: 0,
   })
   
   // 2. Subcontractor payments (one per job)
@@ -165,13 +208,25 @@ export const generateContractPdf = async (contractData) => {
       }))
     : []
   
-  // Build scope of work items from subcontractor fees (no amounts - prices are in payment schedule)
-  const scopeOfWork = expenses.subcontractorFees && expenses.subcontractorFees.length > 0
-    ? expenses.subcontractorFees.map((fee) => ({
-        job: fee.job_description || 'Work',
-        subcontractor: fee.subcontractors?.name || 'TBD',
+  // Build scope of work items
+  // For change orders, use custom change order items
+  // For contracts/proposals, use subcontractor fees
+  let scopeOfWork = []
+  if (docType === 'change_order' && contractData.changeOrderItems && contractData.changeOrderItems.length > 0) {
+    // For change orders, use custom items with name + description
+    scopeOfWork = contractData.changeOrderItems
+      .filter(item => item.name) // Only include items with a name
+      .map((item) => ({
+        item: item.name,
+        description: item.description || '',
       }))
-    : []
+  } else if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
+    // For contracts/proposals, use subcontractor fees
+    scopeOfWork = expenses.subcontractorFees.map((fee) => ({
+      job: fee.job_description || 'Work',
+      subcontractor: fee.subcontractors?.name || 'TBD',
+    }))
+  }
 
   // Build contact info string (phone, website on same line if both exist)
   const contactParts = []
@@ -236,7 +291,16 @@ export const generateContractPdf = async (contractData) => {
     
     content: [
       // ================== CONTRACT TITLE ==================
-      { text: 'POOL CONSTRUCTION CONTRACT', style: 'title', alignment: 'center', margin: [0, 0, 0, 20] },
+      { 
+        text: docType === 'proposal' 
+          ? 'POOL CONSTRUCTION PROPOSAL' 
+          : docType === 'change_order'
+          ? 'CHANGE ORDER'
+          : 'POOL CONSTRUCTION CONTRACT', 
+        style: 'title', 
+        alignment: 'center', 
+        margin: [0, 0, 0, 20] 
+      },
       
       // ================== PROJECT INFORMATION ==================
       { text: 'PROJECT INFORMATION', style: 'sectionHeader' },
@@ -275,29 +339,55 @@ export const generateContractPdf = async (contractData) => {
       { text: '\n' },
       
       // Scope of work items (no amounts - prices are shown in payment schedule)
-      scopeOfWork.length > 0 ? {
-        table: {
-          headerRows: 1,
-          widths: ['60%', '40%'],
-          body: [
-            [
-              { text: 'Work Description', style: 'tableHeader' },
-              { text: 'Subcontractor', style: 'tableHeader' },
+      scopeOfWork.length > 0 ? (
+        docType === 'change_order' ? {
+          // For change orders, show item name and description
+          table: {
+            headerRows: 1,
+            widths: ['100%'],
+            body: [
+              [
+                { text: 'Item', style: 'tableHeader' },
+              ],
+              ...scopeOfWork.map(item => [
+                { 
+                  text: [
+                    { text: item.item || '', style: 'tableValue', bold: true },
+                    item.description ? { text: `\n${item.description}`, style: 'tableValue' } : '',
+                  ],
+                  style: 'tableValue',
+                },
+              ]),
             ],
-            ...scopeOfWork.map(item => [
-              { text: item.job, style: 'tableValue' },
-              { text: item.subcontractor, style: 'tableValue' },
-            ]),
-          ],
-        },
-        layout: 'lightHorizontalLines',
-        margin: [0, 0, 0, 10],
-      } : { text: 'Scope of work to be determined.', style: 'note' },
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 0, 0, 10],
+        } : {
+          // For contracts/proposals, show work description and subcontractor
+          table: {
+            headerRows: 1,
+            widths: ['60%', '40%'],
+            body: [
+              [
+                { text: 'Work Description', style: 'tableHeader' },
+                { text: 'Subcontractor', style: 'tableHeader' },
+              ],
+              ...scopeOfWork.map(item => [
+                { text: item.job, style: 'tableValue' },
+                { text: item.subcontractor, style: 'tableValue' },
+              ]),
+            ],
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 0, 0, 10],
+        }
+      ) : { text: 'Scope of work to be determined.', style: 'note' },
       
       { text: '\n' },
       
       // ================== EQUIPMENT LIST ==================
-      equipmentList.length > 0 ? [
+      // Hide equipment list for change orders
+      (docType !== 'change_order' && equipmentList.length > 0) ? [
         { text: 'EQUIPMENT LIST', style: 'sectionHeader' },
         {
           table: {
@@ -334,7 +424,7 @@ export const generateContractPdf = async (contractData) => {
             ],
             ...paymentSchedule.map(item => [
               { text: item.description, style: 'tableValue' },
-              { text: formatCurrency(item.amount), style: 'tableValue', alignment: 'right' },
+              { text: item.amount === 0 && item.description.toLowerCase().includes('balance') ? '-' : formatCurrency(item.amount), style: 'tableValue', alignment: 'right' },
             ]),
             [
               { text: 'GRAND TOTAL', style: 'tableHeader', fillColor: '#f3f4f6' },

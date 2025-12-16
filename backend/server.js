@@ -2999,6 +2999,7 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
       company_id: companyID,
       project_id: id,
       name: m.name,
+      description: m.description || null,
       milestone_type: m.milestone_type || 'subcontractor',
       cost: parseFloat(m.cost) || 0,
       customer_price: parseFloat(m.customer_price) || 0,
