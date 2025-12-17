@@ -6,6 +6,7 @@ import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as docusignService from './services/docusign.js';
+import * as googleCalendarService from './services/googleCalendar.js';
 
 // Get the directory of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -1565,7 +1566,6 @@ app.post('/api/projects', async (req, res) => {
       est_value,
       project_manager,
       notes,
-      documents,
     } = req.body;
 
     if (!project_type || !pool_or_spa) {
@@ -1589,7 +1589,6 @@ app.post('/api/projects', async (req, res) => {
           est_value: est_value ? parseFloat(est_value) : null,
           project_manager: project_manager || null,
           notes: notes || null,
-          documents: documents || [],
           created_by: user.id,
         },
       ])
@@ -1649,7 +1648,6 @@ app.put('/api/projects/:id', async (req, res) => {
       est_value,
       project_manager,
       notes,
-      documents,
     } = req.body;
 
     // Verify project belongs to user's company
@@ -1680,7 +1678,6 @@ app.put('/api/projects/:id', async (req, res) => {
         est_value: est_value ? parseFloat(est_value) : null,
         project_manager: project_manager || null,
         notes: notes || null,
-        documents: documents || [],
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -2597,12 +2594,25 @@ app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
       return res.status(400).json({ error: 'Equipment inventory item is required' });
     }
 
+    // Fetch inventory item to get the name (required by schema constraint)
+    const { data: inventoryItem, error: inventoryError } = await supabase
+      .from('inventory')
+      .select('name')
+      .eq('id', inventory_id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (inventoryError || !inventoryItem) {
+      return res.status(404).json({ error: 'Inventory item not found' });
+    }
+
     const { data, error } = await supabase
       .from('project_equipment')
       .insert([{
         project_id: id,
         company_id: companyID,
         inventory_id: inventory_id,
+        name: inventoryItem.name, // Required by schema constraint
         expected_price: expected_price ? parseFloat(expected_price) : null,
         actual_price: actual_price ? parseFloat(actual_price) : null,
         quantity: quantity ? parseInt(quantity) : 1,
@@ -2664,7 +2674,25 @@ app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) =>
       updated_at: new Date().toISOString(),
     };
 
-    if (inventory_id !== undefined) updateData.inventory_id = inventory_id;
+    // If inventory_id is being updated, fetch the new inventory item name
+    if (inventory_id !== undefined) {
+      updateData.inventory_id = inventory_id;
+      
+      // Fetch inventory item to get the name (required by schema constraint)
+      const { data: inventoryItem, error: inventoryError } = await supabase
+        .from('inventory')
+        .select('name')
+        .eq('id', inventory_id)
+        .eq('company_id', companyID)
+        .single();
+
+      if (inventoryError || !inventoryItem) {
+        return res.status(404).json({ error: 'Inventory item not found' });
+      }
+
+      updateData.name = inventoryItem.name; // Required by schema constraint
+    }
+
     if (expected_price !== undefined) updateData.expected_price = expected_price ? parseFloat(expected_price) : null;
     if (actual_price !== undefined) updateData.actual_price = actual_price ? parseFloat(actual_price) : null;
     if (quantity !== undefined) updateData.quantity = quantity ? parseInt(quantity) : 1;
@@ -3453,7 +3481,6 @@ app.post('/api/subcontractors', async (req, res) => {
       primary_contact_name,
       primary_contact_phone,
       primary_contact_email,
-      rate,
       coi_expiration,
       coi_documents,
       notes,
@@ -3472,7 +3499,6 @@ app.post('/api/subcontractors', async (req, res) => {
           primary_contact_name: primary_contact_name || null,
           primary_contact_phone: primary_contact_phone || null,
           primary_contact_email: primary_contact_email || null,
-          rate: rate ? parseFloat(rate) : null,
           coi_expiration: coi_expiration || null,
           coi_documents: coi_documents || [],
           notes: notes || null,
@@ -3519,7 +3545,6 @@ app.put('/api/subcontractors/:id', async (req, res) => {
       primary_contact_name,
       primary_contact_phone,
       primary_contact_email,
-      rate,
       coi_expiration,
       coi_documents,
       notes,
@@ -3544,7 +3569,6 @@ app.put('/api/subcontractors/:id', async (req, res) => {
         primary_contact_name: primary_contact_name || null,
         primary_contact_phone: primary_contact_phone || null,
         primary_contact_email: primary_contact_email || null,
-        rate: rate ? parseFloat(rate) : null,
         coi_expiration: coi_expiration || null,
         coi_documents: coi_documents || [],
         notes: notes || null,
@@ -5059,7 +5083,7 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
 
       if (allProjects.length === 0) return 0;
 
-      let totalEstValue = 0;
+      let totalRevenue = 0;
       let totalExpenses = 0;
 
       for (const record of allProjects) {
@@ -5068,7 +5092,25 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
         processedProjectIds.add(record.project_id);
 
         const estValue = parseFloat(record.projects?.est_value || 0);
-        totalEstValue += estValue;
+
+        // Get revenue from milestones (customer_price) - same as dashboard
+        const { data: milestones } = await supabase
+          .from('milestones')
+          .select('customer_price')
+          .eq('project_id', record.project_id);
+
+        // Calculate revenue from milestones
+        let projectRevenue = 0;
+        if (milestones) {
+          milestones.forEach((milestone) => {
+            projectRevenue += parseFloat(milestone.customer_price || 0);
+          });
+        }
+        // If no milestones, fall back to est_value (same as dashboard)
+        if (projectRevenue === 0) {
+          projectRevenue = estValue;
+        }
+        totalRevenue += projectRevenue;
 
         // Get expenses for this project
         const { data: subcontractorFees } = await supabase
@@ -5126,7 +5168,7 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
         totalExpenses += subcontractorTotal + materialsTotal + additionalTotal + equipmentTotal;
       }
 
-      return totalEstValue - totalExpenses;
+      return totalRevenue - totalExpenses;
     }
 
     case 'est_value': {
@@ -5800,6 +5842,249 @@ app.post('/api/docusign/webhook', async (req, res) => {
     console.error('Webhook error:', error);
     // Still return 200 to prevent DocuSign from retrying
     res.status(200).json({ received: true, error: error.message });
+  }
+});
+
+// ==================== Google Calendar OAuth Endpoints ====================
+
+// Initiate Google OAuth flow
+app.get('/api/google/oauth/authorize', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const authUrl = googleCalendarService.getAuthUrl(user.id);
+    res.json({ authUrl });
+  } catch (error) {
+    console.error('OAuth authorize error:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate OAuth URL' });
+  }
+});
+
+// Handle Google OAuth callback
+app.get('/api/google/oauth/callback', async (req, res) => {
+  try {
+    const { code, state, error } = req.query;
+
+    if (error) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent(error)}`);
+    }
+
+    if (!code || !state) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent('Missing code or state')}`);
+    }
+
+    const result = await googleCalendarService.handleOAuthCallback(code, state);
+    
+    // Redirect to frontend dashboard with calendar section active
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&success=true&email=${encodeURIComponent(result.email || '')}`;
+    res.redirect(redirectUrl);
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent(error.message || 'OAuth failed')}`;
+    res.redirect(redirectUrl);
+  }
+});
+
+// ==================== Google Calendar API Endpoints ====================
+
+// Check Google Calendar connection status
+app.get('/api/google/calendar/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const connected = await googleCalendarService.isConnected(user.id);
+    const email = connected ? await googleCalendarService.getCalendarEmail(user.id) : null;
+
+    res.json({ connected, email });
+  } catch (error) {
+    console.error('Status check error:', error);
+    res.status(500).json({ error: error.message || 'Failed to check status' });
+  }
+});
+
+// Get events from Google Calendar
+app.get('/api/google/calendar/events', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { timeMin, timeMax } = req.query;
+    const events = await googleCalendarService.getEvents(user.id, timeMin, timeMax);
+
+    res.json({ events });
+  } catch (error) {
+    console.error('Get events error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch events' });
+  }
+});
+
+// Create event in Google Calendar
+app.post('/api/google/calendar/events', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location } = req.body;
+
+    if (!name && !summary) {
+      return res.status(400).json({ error: 'Event name/summary is required' });
+    }
+
+    if (!startDateTime && !start) {
+      return res.status(400).json({ error: 'Start date/time is required' });
+    }
+
+    // Calculate end time if not provided (default to 1 hour after start)
+    let endTime = endDateTime || end;
+    if (!endTime) {
+      const startTime = new Date(startDateTime || start);
+      endTime = new Date(startTime.getTime() + 60 * 60 * 1000).toISOString();
+    }
+
+    const eventData = {
+      name: name || summary,
+      summary: summary || name,
+      description,
+      startDateTime: startDateTime || start,
+      endDateTime: endTime,
+      timeZone: timeZone || 'America/New_York',
+      location,
+    };
+
+    const event = await googleCalendarService.createEvent(user.id, eventData);
+
+    res.json({ event });
+  } catch (error) {
+    console.error('Create event error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create event' });
+  }
+});
+
+// Update event in Google Calendar
+app.put('/api/google/calendar/events/:eventId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { eventId } = req.params;
+    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location } = req.body;
+
+    const eventData = {
+      ...(name && { name }),
+      ...(summary && { summary }),
+      ...(name && !summary && { summary: name }),
+      ...(summary && !name && { name: summary }),
+      ...(description !== undefined && { description }),
+      ...(startDateTime && { startDateTime }),
+      ...(start && !startDateTime && { startDateTime: start }),
+      ...(endDateTime && { endDateTime }),
+      ...(end && !endDateTime && { endDateTime: end }),
+      ...(timeZone && { timeZone }),
+      ...(location !== undefined && { location }),
+    };
+
+    const event = await googleCalendarService.updateEvent(user.id, eventId, eventData);
+
+    res.json({ event });
+  } catch (error) {
+    console.error('Update event error:', error);
+    res.status(500).json({ error: error.message || 'Failed to update event' });
+  }
+});
+
+// Delete event from Google Calendar
+app.delete('/api/google/calendar/events/:eventId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { eventId } = req.params;
+    await googleCalendarService.deleteEvent(user.id, eventId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete event error:', error);
+    res.status(500).json({ error: error.message || 'Failed to delete event' });
+  }
+});
+
+// Disconnect Google Calendar
+app.post('/api/google/calendar/disconnect', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    await googleCalendarService.disconnect(user.id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Disconnect error:', error);
+    res.status(500).json({ error: error.message || 'Failed to disconnect' });
   }
 });
 

@@ -23,6 +23,30 @@ DOCUSIGN_RSA_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nYour key here\n-----EN
 DOCUSIGN_API_BASE_URL=https://demo.docusign.net/restapi
 ```
 
+## Required Google Calendar Variables
+
+Add these to your `.env` file for Google Calendar integration:
+
+```env
+# Google Calendar OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/oauth/callback
+FRONTEND_URL=http://localhost:5173
+```
+
+**Note:** For production, update `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` to your production URLs.
+
+### Setting up Google Calendar OAuth:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Google Calendar API
+4. Go to "Credentials" → "Create Credentials" → "OAuth client ID"
+5. Choose "Web application"
+6. Add authorized redirect URI: `http://localhost:5000/api/google/oauth/callback` (or your production URL)
+7. Copy the Client ID and Client Secret to your `.env` file
+
 ## Important Notes
 
 1. **No spaces around `=`**: 

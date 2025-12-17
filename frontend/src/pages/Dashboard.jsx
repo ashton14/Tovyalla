@@ -98,6 +98,20 @@ function Dashboard() {
     }
   }, [user, loading, navigate])
 
+  // Handle URL query parameters for section navigation (e.g., from OAuth redirect)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const section = urlParams.get('section')
+    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals'].includes(section)) {
+      setActiveSection(section)
+      // Clean up URL
+      const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString().replace(/section=[^&]*&?/g, '').replace(/&$/, '') : '')
+      if (newUrl !== window.location.pathname + window.location.search) {
+        window.history.replaceState({}, '', newUrl || window.location.pathname)
+      }
+    }
+  }, [])
+
   const handleLogout = async () => {
     await logout()
     navigate('/')
