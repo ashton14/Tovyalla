@@ -845,10 +845,10 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100"
                   >
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-1" title={displayName}>
                             {displayName}
                           </p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
                           {docType && (
                             <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[docType] || typeColors.other}`}>
                               {typeLabels[docType] || docType}
