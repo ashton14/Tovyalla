@@ -515,6 +515,9 @@ function Calendar() {
       })
 
       setGoogleSuccess('Event deleted successfully!')
+      setShowGoogleForm(false)
+      setEditingGoogleEvent(null)
+      resetGoogleForm()
       fetchGoogleEvents()
     } catch (err) {
       setGoogleError(err.response?.data?.error || err.message || 'Failed to delete event')
