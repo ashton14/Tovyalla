@@ -257,6 +257,9 @@ function Calendar() {
       })
 
       setSuccess('Event deleted successfully!')
+      setShowForm(false)
+      setEditingEvent(null)
+      resetForm()
       fetchEvents(employeesMap)
       // Dispatch custom event to notify Dashboard of calendar update
       window.dispatchEvent(new CustomEvent('calendar-events-updated'))
