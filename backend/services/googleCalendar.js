@@ -190,6 +190,12 @@ export async function isConnected(userId) {
       return false;
     }
 
+    // Check if explicitly disconnected
+    if (user.user_metadata?.google_calendar_connected === false) {
+      return false;
+    }
+
+    // Check if refresh token exists
     return !!user.user_metadata?.google_calendar_refresh_token;
   } catch (error) {
     console.error('Error checking connection status:', error);

@@ -381,10 +381,14 @@ function Calendar() {
         },
       })
 
+      // Clear all Google Calendar state immediately
       setGoogleConnected(false)
       setGoogleEmail('')
       setGoogleEvents([])
+      setGoogleError('')
       setGoogleSuccess('Google Calendar disconnected successfully')
+      
+      // Don't re-check status after disconnect - stay disconnected
     } catch (err) {
       setGoogleError(err.response?.data?.error || err.message || 'Failed to disconnect')
     }
