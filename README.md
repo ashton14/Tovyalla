@@ -1,83 +1,126 @@
 # Tovyalla CRM
 
-A full-stack Customer Relationship Management system for pool construction companies, built with Node.js, React, and Supabase.
+A comprehensive full-stack Customer Relationship Management system designed specifically for pool construction companies. Built with Node.js, React, and Supabase, featuring project management, customer tracking, document management, calendar integration, and electronic signature capabilities.
 
-## Project Structure
+## 🚀 Features
+
+### Core CRM Features
+- **Customer Management**: Track customer information, pipeline status, and communication history
+- **Project Management**: Manage projects from proposal to completion with status tracking
+- **Employee Management**: Organize team members with roles and assignments
+- **Inventory Management**: Track materials and equipment
+- **Subcontractor Management**: Manage subcontractor relationships and COI documents
+- **Goals & Analytics**: Set and track business goals with real-time statistics
+- **Dashboard**: Comprehensive overview with charts and metrics
+
+### Advanced Features
+- **Google Calendar Integration**: Sync events with Google Calendar via OAuth 2.0
+- **DocuSign Integration**: Send contracts, proposals, and change orders for electronic signatures
+- **Document Management**: Upload, organize, and manage documents for customers, projects, and other entities
+- **PDF Generation**: Generate contracts, proposals, and change orders as PDFs
+- **CSV Import/Export**: Bulk import customers, projects, inventory, and subcontractors
+- **Real-time Data Caching**: Optimized data fetching with React Query
+
+## 📋 Prerequisites
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn**
+- **Supabase Account** ([supabase.com](https://supabase.com))
+- **Google Cloud Project** (for Google Calendar integration - optional)
+- **DocuSign Account** (for e-signature features - optional)
+
+## 🏗️ Project Structure
 
 ```
-Tovyalla-CRM/
-├── backend/           # Express.js server
-│   ├── server.js     # Main server file
-│   └── package.json  # Backend dependencies
-├── frontend/         # React application (Vite)
+Tovyalla/
+├── backend/                    # Express.js server
+│   ├── server.js              # Main server file
+│   ├── services/              # Service modules
+│   │   ├── docusign.js        # DocuSign integration
+│   │   └── googleCalendar.js  # Google Calendar integration
+│   ├── scripts/               # Utility scripts
+│   │   └── setup-docusign-webhook.js
+│   └── package.json
+├── frontend/                   # React application (Vite)
 │   ├── src/
-│   │   ├── pages/    # Page components
-│   │   ├── context/  # React context (Auth)
-│   │   └── App.jsx   # Main app component
-│   └── package.json  # Frontend dependencies
-└── package.json      # Root package.json with dev scripts
+│   │   ├── components/        # React components
+│   │   ├── pages/             # Page components
+│   │   ├── context/            # React context (Auth)
+│   │   ├── hooks/              # Custom hooks (API, etc.)
+│   │   └── utils/              # Utility functions
+│   ├── vercel.json            # Vercel deployment config
+│   └── package.json
+├── .env                       # Environment variables (create this)
+└── package.json               # Root package.json with dev scripts
 ```
 
-## Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- A Supabase project (get one at [supabase.com](https://supabase.com))
-
-## Setup Instructions
+## ⚙️ Setup Instructions
 
 ### 1. Install Dependencies
 
-From the root directory, run:
+From the root directory:
 
 ```bash
 npm run install-all
 ```
 
-This will install dependencies for the root, backend, and frontend.
+This installs dependencies for the root, backend, and frontend.
 
-### 2. Configure Supabase
+### 2. Configure Environment Variables
 
-Create a single `.env` file in the root directory with all your environment variables:
+Create a `.env` file in the **root directory** (same level as `package.json`):
 
-1. Create `.env` in the root directory (same level as `package.json`)
+```env
+# Backend Configuration
+PORT=5000
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-2. Add the following variables:
-   ```
-   # Backend Configuration
-   PORT=5000
-   SUPABASE_URL=your_supabase_project_url
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-   
-   # Frontend Configuration (must be prefixed with VITE_)
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+# Frontend Configuration (must be prefixed with VITE_)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-   You can find these values in your Supabase project settings:
-   - Go to your Supabase project dashboard
-   - Navigate to Settings → API
-   - Copy the Project URL and the anon/public key
-   - Copy the service_role key (keep this secret!)
+# Google Calendar OAuth (Optional)
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/oauth/callback
+FRONTEND_URL=http://localhost:5173
 
-**Note:** 
-- The backend reads all variables from the root `.env` file
-- The frontend only reads variables prefixed with `VITE_` (this is a Vite requirement)
-- Both backend and frontend are configured to read from the root `.env` file automatically
+# DocuSign Integration (Optional)
+DOCUSIGN_INTEGRATION_KEY=your-integration-key
+DOCUSIGN_USER_ID=your-email@example.com
+DOCUSIGN_ACCOUNT_ID=your-account-id
+DOCUSIGN_RSA_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nYour key here\n-----END RSA PRIVATE KEY-----
+DOCUSIGN_API_BASE_URL=https://demo.docusign.net/restapi
+DOCUSIGN_WEBHOOK_URL=http://localhost:5000/api/docusign/webhook
+```
+
+**Important Notes:**
+- Backend reads all variables from the root `.env` file
+- Frontend only reads variables prefixed with `VITE_` (Vite requirement)
+- For production, update `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` to your production URLs
+- See `ENV_VARIABLES_EXAMPLE.md` for detailed configuration instructions
 
 ### 3. Database Schema Setup
 
-In your Supabase project, you'll need to set up the authentication to store `companyID` in user metadata and create the email whitelist table.
+The application requires a Supabase database with the following tables:
+- `companies`
+- `customers`
+- `projects`
+- `employees`
+- `inventory`
+- `subcontractors`
+- `project_documents`
+- `customer_documents`
+- `company_whitelist`
+- `goals`
+- And more...
 
-#### Required: Email Whitelist Table
+**Required: Email Whitelist Table**
 
-The system uses an email whitelist to control which users can register with each Company ID. You must create this table:
-
-1. Go to your Supabase project SQL Editor
-2. Run the SQL from `database_setup.sql` file, or copy the following:
+Create the email whitelist table in your Supabase SQL Editor:
 
 ```sql
--- Create company_whitelist table
 CREATE TABLE IF NOT EXISTS public.company_whitelist (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id TEXT NOT NULL,
@@ -89,161 +132,174 @@ CREATE TABLE IF NOT EXISTS public.company_whitelist (
   UNIQUE(company_id, email)
 );
 
--- Enable Row Level Security
 ALTER TABLE public.company_whitelist ENABLE ROW LEVEL SECURITY;
 
--- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_company_whitelist_company_id ON public.company_whitelist(company_id);
 CREATE INDEX IF NOT EXISTS idx_company_whitelist_email ON public.company_whitelist(email);
-
--- Create policy to allow users to view whitelist for their company
-CREATE POLICY "Users can view whitelist for their company" ON public.company_whitelist
-  FOR SELECT USING (
-    company_id = (
-      SELECT raw_user_meta_data->>'companyID' 
-      FROM auth.users 
-      WHERE id = auth.uid()
-    )
-  );
-
--- Create policy to allow users to add emails to their company whitelist
-CREATE POLICY "Users can add to their company whitelist" ON public.company_whitelist
-  FOR INSERT WITH CHECK (
-    company_id = (
-      SELECT raw_user_meta_data->>'companyID' 
-      FROM auth.users 
-      WHERE id = auth.uid()
-    )
-  );
-
--- Create policy to allow users to delete from their company whitelist
-CREATE POLICY "Users can delete from their company whitelist" ON public.company_whitelist
-  FOR DELETE USING (
-    company_id = (
-      SELECT raw_user_meta_data->>'companyID' 
-      FROM auth.users 
-      WHERE id = auth.uid()
-    )
-  );
 ```
 
-#### Optional: Custom Users Table (Recommended for Production)
+### 4. Google Calendar Setup (Optional)
 
-For better data management, you can also create a custom users table:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **Google Calendar API**
+4. Go to "Credentials" → "Create Credentials" → "OAuth client ID"
+5. Choose "Web application"
+6. Add authorized redirect URI: `http://localhost:5000/api/google/oauth/callback` (or your production URL)
+7. Copy the Client ID and Client Secret to your `.env` file
 
-```sql
--- Create a users table that extends auth.users
-CREATE TABLE public.users (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  company_id TEXT NOT NULL,
-  email TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
+### 5. DocuSign Setup (Optional)
 
--- Enable Row Level Security
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+1. Create a DocuSign Developer account at [developers.docusign.com](https://developers.docusign.com)
+2. Create an Integration (OAuth application)
+3. Generate an RSA key pair for JWT authentication
+4. Add the credentials to your `.env` file
+5. Run the webhook setup script: `node backend/scripts/setup-docusign-webhook.js`
 
--- Create a policy to allow users to read their own data
-CREATE POLICY "Users can view own data" ON public.users
-  FOR SELECT USING (auth.uid() = id);
-
--- Create a function to automatically create a user record when a user signs up
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.users (id, company_id, email)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'companyID', NEW.email);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create a trigger to call the function when a new user is created
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-```
-
-### 4. Create a Test User
-
-You can create a test user through the Supabase dashboard:
-
-1. Go to Authentication → Users in your Supabase dashboard
-2. Click "Add user" → "Create new user"
-3. Enter an email and password
-4. In the "User Metadata" section, add:
-   ```json
-   {
-     "companyID": "TEST001"
-   }
-   ```
-
-Alternatively, you can use the registration endpoint (if you implement it in the frontend) or create users programmatically.
-
-## Running the Application
+## 🏃 Running the Application
 
 ### Development Mode
 
-From the root directory, run:
+From the root directory:
 
 ```bash
 npm run dev
 ```
 
-This will start:
-- Backend server on `http://localhost:5000`
-- Frontend development server on `http://localhost:3000`
+This starts:
+- **Backend server** on `http://localhost:5000`
+- **Frontend dev server** on `http://localhost:3000` (Vite default port)
 
 The frontend is configured to proxy API requests to the backend.
 
 ### Individual Services
 
-You can also run the services separately:
-
 **Backend only:**
 ```bash
 npm run server
+# or
+cd backend && npm run dev
 ```
 
 **Frontend only:**
 ```bash
 npm run client
+# or
+cd frontend && npm run dev
 ```
 
-## Features
+### Production Build
 
-- **Authentication**: Login with Company ID, Username (email), and Password
-- **Protected Routes**: Dashboard is protected and requires authentication
-- **Responsive Design**: Mobile-friendly UI with Tailwind CSS
-- **Error Handling**: User-friendly error messages for login failures
+**Frontend:**
+```bash
+cd frontend
+npm run build
+```
 
-## Tech Stack
+**Backend:**
+```bash
+cd backend
+npm start
+```
 
-- **Backend**:**
-  - Node.js with Express.js
-  - Supabase JS client for server-side operations
+## 🚢 Deployment
 
-- **Frontend**:**
-  - React 18 with Vite
-  - React Router for navigation
-  - Tailwind CSS for styling
-  - Supabase JS client for client-side auth
+### Frontend (Vercel)
 
-## Next Steps
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Set build command: `cd frontend && npm install && npm run build`
+4. Set output directory: `frontend/dist`
+5. Add environment variables in Vercel dashboard (all `VITE_*` variables)
+6. The `vercel.json` file handles API proxying and SPA routing
 
-- Add more dashboard features (customer management, project tracking, etc.)
-- Implement user registration
-- Add password reset functionality
-- Create additional protected routes
-- Add more API endpoints for CRM functionality
+### Backend (Railway)
 
-## Troubleshooting
+1. Push your code to GitHub
+2. Create a new project on [Railway](https://railway.app)
+3. Connect your GitHub repository
+4. Set root directory to `backend`
+5. Set start command: `npm start`
+6. Add all environment variables in Railway dashboard
+7. **Important**: Remove the `PORT` variable if you set it manually - Railway sets this automatically
+8. Ensure the server listens on `0.0.0.0` (already configured)
+
+### Environment Variables for Production
+
+Update these for production:
+- `GOOGLE_REDIRECT_URI`: `https://your-backend-url.railway.app/api/google/oauth/callback`
+- `FRONTEND_URL`: `https://your-frontend-url.vercel.app`
+- `DOCUSIGN_WEBHOOK_URL`: `https://your-backend-url.railway.app/api/docusign/webhook`
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Node.js** with Express.js
+- **Supabase** for database and authentication
+- **Google APIs** (googleapis) for Calendar integration
+- **DocuSign eSignature API** for electronic signatures
+- **Multer** for file uploads
+
+### Frontend
+- **React 18** with Vite
+- **React Router** for navigation
+- **TanStack Query (React Query)** for data fetching and caching
+- **Tailwind CSS** for styling
+- **Recharts** for data visualization
+- **React Big Calendar** for calendar views
+- **PDFMake** for PDF generation
+- **Axios** for API requests
+
+## 📚 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/update-last-logon` - Update last login timestamp
+
+### Customers
+- `GET /api/customers` - List all customers
+- `POST /api/customers` - Create customer
+- `PUT /api/customers/:id` - Update customer
+- `DELETE /api/customers/:id` - Delete customer
+
+### Projects
+- `GET /api/projects` - List all projects
+- `POST /api/projects` - Create project
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project
+- `GET /api/projects/statistics` - Get project statistics
+- `GET /api/projects/monthly-statistics` - Get monthly statistics
+
+### Google Calendar
+- `GET /api/google/oauth/authorize` - Initiate OAuth flow
+- `GET /api/google/oauth/callback` - OAuth callback handler
+- `GET /api/google/calendar/status` - Check connection status
+- `GET /api/google/calendar/events` - Fetch calendar events
+- `POST /api/google/calendar/events` - Create event
+- `PUT /api/google/calendar/events/:eventId` - Update event
+- `DELETE /api/google/calendar/events/:eventId` - Delete event
+- `POST /api/google/calendar/disconnect` - Disconnect Google Calendar
+
+### DocuSign
+- `POST /api/docusign/send-envelope` - Send document for signature
+- `GET /api/docusign/webhook` - Webhook endpoint for status updates
+
+### Documents
+- `GET /api/documents/:entityType/:entityId` - List documents
+- `POST /api/documents/:entityType/:entityId/upload` - Upload document
+- `DELETE /api/documents/:entityId` - Delete document
+- `GET /api/documents/:entityId/download` - Download document
+
+And many more...
+
+## 🔧 Troubleshooting
 
 ### Port Already in Use
 
-If port 5000 or 3000 is already in use, you can change them:
-- Backend: Update `PORT` in `backend/.env`
-- Frontend: Update `server.port` in `frontend/vite.config.js`
+If port 5000 or 3000 is already in use:
+- **Backend**: Update `PORT` in `.env` file
+- **Frontend**: Update `server.port` in `frontend/vite.config.js`
 
 ### Supabase Connection Issues
 
@@ -255,7 +311,31 @@ If port 5000 or 3000 is already in use, you can change them:
 
 Make sure you've run `npm run install-all` to install all dependencies in all directories.
 
-## License
+### Google Calendar OAuth Errors
+
+- Verify `GOOGLE_REDIRECT_URI` matches exactly in Google Cloud Console
+- Ensure Google Calendar API is enabled
+- Check that OAuth consent screen is configured
+- For testing, add your email as a test user in OAuth consent screen
+
+### DocuSign Integration Issues
+
+- Verify all DocuSign credentials are correct
+- Check RSA private key format (see `ENV_VARIABLES_EXAMPLE.md`)
+- Ensure webhook URL is configured in DocuSign
+- Run the webhook setup script: `node backend/scripts/setup-docusign-webhook.js`
+
+### Data Caching
+
+The application uses React Query for data caching:
+- Default `staleTime`: 5 minutes
+- Data is refetched automatically after mutations
+- To force refresh, use the `refetch()` function from queries
+
+## 📝 License
 
 ISC
 
+## 🤝 Contributing
+
+This is a private project. For questions or issues, please contact the project maintainer.
