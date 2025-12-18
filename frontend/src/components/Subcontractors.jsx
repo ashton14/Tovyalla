@@ -54,9 +54,6 @@ function Subcontractors() {
       })
 
       setSubcontractors(response.data.subcontractors || [])
-      if (response.data.subcontractors && response.data.subcontractors.length > 0) {
-        console.log('Fetched subcontractors:', response.data.subcontractors.length)
-      }
     } catch (err) {
       console.error('Error fetching subcontractors:', err)
       console.error('Error details:', err.response?.data || err.message)

@@ -74,9 +74,6 @@ function Employees() {
       })
 
       setEmployees(response.data.employees || [])
-      if (response.data.employees && response.data.employees.length > 0) {
-        console.log('Fetched employees:', response.data.employees.length)
-      }
     } catch (err) {
       console.error('Error fetching employees:', err)
       console.error('Error details:', err.response?.data || err.message)
@@ -113,10 +110,6 @@ function Employees() {
         current: formData.current || false,
         color: formData.color && formData.color.trim() !== '' ? formData.color.trim() : null,
       }
-      
-      console.log('Sending payload:', payload)
-      console.log('Color value in formData:', formData.color, 'Type:', typeof formData.color)
-      console.log('Color value in payload:', payload.color)
 
       if (editingEmployee) {
         await axios.put(`/api/employees/${editingEmployee.id}`, payload, {

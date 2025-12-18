@@ -344,8 +344,6 @@ export async function createAndSendEnvelope({
   const accountId = accountDetails.accountId;
   const baseUrl = accountDetails.baseUrl;
   
-  console.log(`Using account: ${accountDetails.accountName} (${accountId})`);
-  
   const apiClient = new docusign.ApiClient();
   apiClient.setBasePath(baseUrl);
   apiClient.addDefaultHeader('Authorization', `Bearer ${accessToken}`);
@@ -644,7 +642,6 @@ export async function addCompanySignerToEnvelope(envelopeId, companySignerEmail,
       recipients: recipients,
     });
 
-    console.log(`Company signer added to envelope ${envelopeId}`);
   } catch (error) {
     console.error('Error adding company signer to envelope:', error);
     console.error('Account ID used:', accountId);

@@ -51,18 +51,11 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         throw new Error('Not authenticated')
       }
 
-      console.log('📥 Fetch Documents Debug:')
-      console.log('  - Entity Type:', entityType)
-      console.log('  - Entity ID:', entityId)
-      console.log('  - Company ID:', user?.user_metadata?.companyID)
-
       const response = await axios.get(`/api/documents/${entityType}/${entityId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
-
-      console.log('  - Response:', response.data)
       setDocuments(response.data.documents || [])
     } catch (err) {
       console.error('❌ Error fetching documents:', err)
@@ -115,7 +108,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       )
 
       const data = response.data
-      console.log('Contract data received:', data)
 
       // Show the preview instead of generating PDF directly
       setContractData(data)
@@ -152,7 +144,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       )
 
       const data = response.data
-      console.log('Proposal data received:', data)
 
       // Show the preview instead of generating PDF directly
       setContractData(data)
@@ -189,7 +180,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       )
 
       const data = response.data
-      console.log('Change order data received:', data)
 
       // Show the preview instead of generating PDF directly
       setContractData(data)
@@ -245,16 +235,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       }
 
       const companyID = user?.user_metadata?.companyID
-      console.log('📤 Upload Debug Info:')
-      console.log('  - User:', user?.email)
-      console.log('  - Company ID:', companyID)
-      console.log('  - Entity Type:', entityType)
-      console.log('  - Entity ID:', entityId)
-      console.log('  - Document Name:', documentName)
-      console.log('  - Document Type:', documentType)
-      console.log('  - File Name:', selectedFile.name)
-      console.log('  - File Size:', selectedFile.size, 'bytes')
-      console.log('  - File Type:', selectedFile.type)
 
       if (!companyID) {
         throw new Error('No company ID found')
@@ -284,7 +264,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         throw new Error(data.error || 'Upload failed')
       }
 
-      console.log('✅ Upload successful!', data)
       setSuccess('Document uploaded successfully!')
       setTimeout(() => setSuccess(''), 3000)
       

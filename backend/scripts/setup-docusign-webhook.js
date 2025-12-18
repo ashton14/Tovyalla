@@ -21,10 +21,6 @@ const ACCOUNT_ID = process.env.DOCUSIGN_ACCOUNT_ID;
 
 async function setupWebhook() {
   try {
-    console.log('Setting up DocuSign Connect webhook...');
-    console.log('Webhook URL:', WEBHOOK_URL);
-    console.log('Account ID:', ACCOUNT_ID);
-
     if (!ACCOUNT_ID) {
       throw new Error('DOCUSIGN_ACCOUNT_ID not set in .env');
     }
@@ -69,28 +65,14 @@ async function setupWebhook() {
     );
 
     if (existing) {
-      console.log('Updating existing webhook configuration...');
-      const result = await connectApi.updateConfiguration(ACCOUNT_ID, existing.connectId, {
+      await connectApi.updateConfiguration(ACCOUNT_ID, existing.connectId, {
         connectConfigInformation: connectConfig,
       });
-      console.log('✅ Webhook configuration updated successfully!');
-      console.log('   Connect ID:', existing.connectId);
     } else {
-      console.log('Creating new webhook configuration...');
-      const result = await connectApi.createConfiguration(ACCOUNT_ID, {
+      await connectApi.createConfiguration(ACCOUNT_ID, {
         connectConfigInformation: connectConfig,
       });
-      console.log('✅ Webhook configuration created successfully!');
-      console.log('   Connect ID:', result.connectId);
     }
-
-    console.log('\n📋 Webhook Events Configured:');
-    console.log('   - Envelope Sent');
-    console.log('   - Envelope Delivered');
-    console.log('   - Envelope Completed');
-    console.log('   - Envelope Declined');
-    console.log('   - Envelope Voided');
-    console.log('\n✅ Setup complete!');
   } catch (error) {
     console.error('❌ Error setting up webhook:', error.message);
     if (error.response) {

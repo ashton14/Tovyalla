@@ -4893,15 +4893,10 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
     // For subcontractors, use "subcontractor" folder instead of "subcontractors"
     const folderName = entityType === 'subcontractors' ? 'subcontractor' : entityType;
     const storagePath = `${folderName}/${companyID}/${entityId}/${fileName}`;
-    console.log('🗑️ Delete Document Debug:');
-    console.log('  - Storage Path:', storagePath);
-    console.log('  - Document ID:', documentId);
     
     const { error: deleteError } = await supabase.storage
       .from('documents')
       .remove([storagePath]);
-
-    console.log('  - Delete Response:', { error: deleteError });
 
     if (deleteError) {
       console.error('  - Delete Error Details:', {
@@ -5020,16 +5015,10 @@ app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, r
     // For subcontractors, use "subcontractor" folder instead of "subcontractors"
     const folderName = entityType === 'subcontractors' ? 'subcontractor' : entityType;
     const storagePath = `${folderName}/${companyID}/${entityId}/${fileName}`;
-    console.log('⬇️ Download URL Debug:');
-    console.log('  - Storage Path:', storagePath);
-    console.log('  - Path parts:', storagePath.split('/'));
-    console.log('  - Expected companyID at index [1]:', storagePath.split('/')[1]);
     
     const { data: urlData, error: urlError } = await supabase.storage
       .from('documents')
       .createSignedUrl(storagePath, 3600); // 1 hour expiry
-
-    console.log('  - URL Response:', { url: urlData?.signedUrl ? 'Generated' : 'None', error: urlError });
 
     if (urlError) {
       console.error('  - URL Error Details:', {
@@ -5780,7 +5769,6 @@ app.post('/api/docusign/webhook', async (req, res) => {
         return res.status(200).json({ received: true, error: 'Update failed' });
       }
 
-      console.log(`Updated document ${document.id} with DocuSign status: ${status}`);
 
       // Check if customer (first signer) has signed and company signer hasn't been added yet
       // Detect customer signing: 
@@ -5800,8 +5788,6 @@ app.post('/api/docusign/webhook', async (req, res) => {
         status !== 'completed'; // Don't trigger if envelope is already completed
 
       if (isCustomerSigned) {
-        console.log(`Customer has signed envelope ${envelopeId}. Adding company signer...`);
-        
         try {
           // Get company name from companies table
           const { data: company, error: companyError } = await supabase
@@ -5826,14 +5812,11 @@ app.post('/api/docusign/webhook', async (req, res) => {
             companyName
           );
 
-          console.log(`✅ Company signer added to envelope ${envelopeId}. DocuSign will email them automatically.`);
         } catch (signerError) {
           console.error('Error adding company signer:', signerError);
           // Don't fail the webhook, but log the error
         }
       }
-    } else {
-      console.log(`No document found for envelope ID: ${envelopeId}`);
     }
 
     // Always return 200 to acknowledge receipt
@@ -6089,5 +6072,5 @@ app.post('/api/google/calendar/disconnect', async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  // Server started
 });
