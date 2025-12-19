@@ -14,10 +14,10 @@ function Login() {
   // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pool-light via-blue-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pool-blue mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="relative min-h-screen w-screen overflow-hidden flex items-center justify-center">
+        <div className="relative text-center z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-white/80">Loading...</p>
         </div>
       </div>
     )
@@ -46,16 +46,16 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pool-light via-blue-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen w-screen overflow-hidden flex items-center justify-center p-4">
+      <div className="relative w-full max-w-md z-10">
         {/* Header */}
         <div className="text-center mb-8">
           <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-20 w-auto mx-auto mb-2" />
-          <p className="text-gray-600">Pool Construction Management</p>
+          <p className="text-white/80">Pool Construction Management</p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-white rounded-lg shadow-xl p-8 border border-pool-light">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-8 border border-white/20">
           <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
             Sign In
           </h2>
@@ -132,7 +132,7 @@ function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-gray-500 text-sm mt-6">
+        <p className="text-center text-white/60 text-sm mt-6">
           © 2025 Tovyalla CRM. All rights reserved.
         </p>
       </div>

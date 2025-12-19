@@ -107,6 +107,7 @@ app.post('/api/auth/register', async (req, res) => {
     // This creates the company and adds them as the first user
     if (!companyCheckError && (!companyWhitelist || companyWhitelist.length === 0)) {
       // Company doesn't exist yet - allow registration and create whitelist entry
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -114,6 +115,7 @@ app.post('/api/auth/register', async (req, res) => {
           data: {
             companyID: companyID,
           },
+          emailRedirectTo: `${frontendUrl}/login`,
         },
       });
 
@@ -155,6 +157,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Email is whitelisted - proceed with registration
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -162,6 +165,7 @@ app.post('/api/auth/register', async (req, res) => {
         data: {
           companyID: companyID,
         },
+        emailRedirectTo: `${frontendUrl}/login`,
       },
     });
 

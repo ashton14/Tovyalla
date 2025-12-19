@@ -101,7 +101,19 @@ DOCUSIGN_WEBHOOK_URL=http://localhost:5000/api/docusign/webhook
 - For production, update `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` to your production URLs
 - See `ENV_VARIABLES_EXAMPLE.md` for detailed configuration instructions
 
-### 3. Database Schema Setup
+### 3. Configure Supabase Authentication
+
+**Important**: Configure the Site URL in your Supabase dashboard:
+
+1. Go to your Supabase project dashboard
+2. Navigate to **Authentication** → **URL Configuration**
+3. Set **Site URL** to your production frontend URL (e.g., `https://your-app.vercel.app`)
+4. Add your production URL to **Redirect URLs** (e.g., `https://your-app.vercel.app/**`)
+5. For development, you can also add `http://localhost:5173/**`
+
+This ensures email confirmation links point to your production site instead of localhost.
+
+### 4. Database Schema Setup
 
 The application requires a Supabase database with the following tables:
 - `companies`
@@ -331,6 +343,22 @@ The application uses React Query for data caching:
 - Default `staleTime`: 5 minutes
 - Data is refetched automatically after mutations
 - To force refresh, use the `refetch()` function from queries
+
+### Email Confirmation Links Go to Localhost
+
+If email confirmation links are pointing to localhost instead of your production URL:
+
+1. **Update Supabase Site URL**:
+   - Go to Supabase Dashboard → Authentication → URL Configuration
+   - Set **Site URL** to your production frontend URL (e.g., `https://your-app.vercel.app`)
+   - Add your production URL to **Redirect URLs**
+
+2. **Update Environment Variable**:
+   - Ensure `FRONTEND_URL` in your `.env` file (or Railway environment variables) is set to your production URL
+   - Example: `FRONTEND_URL=https://your-app.vercel.app`
+
+3. **Redeploy Backend**:
+   - After updating `FRONTEND_URL`, redeploy your backend so the new value is used in email confirmation links
 
 ## 📝 License
 
