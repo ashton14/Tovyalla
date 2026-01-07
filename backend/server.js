@@ -1320,165 +1320,222 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
 
     const { year = new Date().getFullYear() } = req.query;
     const yearNum = parseInt(year);
+    
+    // Date range for the entire year
+    const yearStart = new Date(yearNum, 0, 1).toISOString();
+    const yearEnd = new Date(yearNum, 11, 31, 23, 59, 59).toISOString();
 
-    // Initialize monthly data
-    const monthlyData = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    for (let month = 0; month < 12; month++) {
-      const startDate = new Date(yearNum, month, 1);
-      const endDate = new Date(yearNum, month + 1, 0, 23, 59, 59);
-
-      // Get projects that were marked as SOLD in this month (from status history)
-      const { data: soldHistory } = await supabase
+    // Batch all queries in parallel - only 5 database calls instead of 60+
+    const [
+      { data: soldHistory },
+      { data: completedHistory },
+      { data: leadsHistory },
+      { data: signedHistory },
+      { data: totalCustomers }
+    ] = await Promise.all([
+      // Get all sold projects for the year
+      supabase
         .from('project_status_history')
-        .select('project_id, projects!inner(est_value)')
+        .select('project_id, changed_at, projects!inner(est_value)')
         .eq('company_id', companyID)
         .eq('status', 'sold')
-        .gte('changed_at', startDate.toISOString())
-        .lte('changed_at', endDate.toISOString());
-
-      // Get projects that were marked as COMPLETE in this month (from status history)
-      const { data: completedHistory } = await supabase
+        .gte('changed_at', yearStart)
+        .lte('changed_at', yearEnd),
+      
+      // Get all completed projects for the year
+      supabase
         .from('project_status_history')
-        .select('project_id, projects!inner(est_value)')
+        .select('project_id, changed_at, projects!inner(est_value)')
         .eq('company_id', companyID)
         .eq('status', 'complete')
-        .gte('changed_at', startDate.toISOString())
-        .lte('changed_at', endDate.toISOString());
-
-      // Get customers who became leads in this month (from status history)
-      const { data: leadsHistory } = await supabase
+        .gte('changed_at', yearStart)
+        .lte('changed_at', yearEnd),
+      
+      // Get all leads for the year
+      supabase
         .from('customer_status_history')
-        .select('customer_id')
+        .select('customer_id, changed_at')
         .eq('company_id', companyID)
         .eq('status', 'lead')
-        .gte('changed_at', startDate.toISOString())
-        .lte('changed_at', endDate.toISOString());
-
-      // Get customers who signed in this month (from status history)
-      const { data: signedHistory } = await supabase
+        .gte('changed_at', yearStart)
+        .lte('changed_at', yearEnd),
+      
+      // Get all signed customers for the year
+      supabase
         .from('customer_status_history')
-        .select('customer_id')
+        .select('customer_id, changed_at')
         .eq('company_id', companyID)
         .eq('status', 'signed')
-        .gte('changed_at', startDate.toISOString())
-        .lte('changed_at', endDate.toISOString());
-
-      // Get total customers created in this month
-      const { data: totalCustomers } = await supabase
+        .gte('changed_at', yearStart)
+        .lte('changed_at', yearEnd),
+      
+      // Get all customers created in the year
+      supabase
         .from('customers')
-        .select('id')
+        .select('id, created_at')
         .eq('company_id', companyID)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
+        .gte('created_at', yearStart)
+        .lte('created_at', yearEnd)
+    ]);
 
-      // Calculate value (est_value), revenue (from milestones), and profit from SOLD or COMPLETE projects in this month
-      let monthValue = 0; // Total est_value
-      let monthRevenue = 0; // Total revenue from milestones customer_price
-      let monthExpenses = 0;
-      const soldCount = soldHistory?.length || 0;
-      const completedCount = completedHistory?.length || 0;
+    // Collect unique project IDs that need expense calculations
+    const projectIds = new Set();
+    (soldHistory || []).forEach(h => projectIds.add(h.project_id));
+    (completedHistory || []).forEach(h => projectIds.add(h.project_id));
+    const projectIdArray = Array.from(projectIds);
 
-      // Combine sold and complete projects, avoiding duplicates
-      const processedProjectIds = new Set();
-      const allProfitProjects = [
-        ...(soldHistory || []),
-        ...(completedHistory || []),
-      ];
-
-      // Calculate value and expenses from projects sold or completed this month
-      for (const record of allProfitProjects) {
-        // Skip if we've already processed this project (could be in both sold and complete)
-        if (processedProjectIds.has(record.project_id)) continue;
-        processedProjectIds.add(record.project_id);
-
-        const estValue = parseFloat(record.projects?.est_value || 0);
-        monthValue += estValue; // Add to total est_value
-
-        // Get revenue from milestones (customer_price)
-        const { data: milestones } = await supabase
+    // Batch fetch all expense data for relevant projects in parallel
+    let milestones = [], subcontractorFees = [], materials = [], additionalExpenses = [], equipment = [];
+    
+    if (projectIdArray.length > 0) {
+      const [
+        { data: milestonesData },
+        { data: subcontractorFeesData },
+        { data: materialsData },
+        { data: additionalExpensesData },
+        { data: equipmentData }
+      ] = await Promise.all([
+        supabase
           .from('milestones')
-          .select('customer_price')
-          .eq('project_id', record.project_id);
-
-        // Calculate revenue from milestones
-        let projectRevenue = 0;
-        if (milestones) {
-          milestones.forEach((milestone) => {
-            projectRevenue += parseFloat(milestone.customer_price || 0);
-          });
-        }
-        // If no milestones, fall back to est_value
-        if (projectRevenue === 0) {
-          projectRevenue = estValue;
-        }
-        monthRevenue += projectRevenue;
-
-        // Get expenses for this project
-        const { data: subcontractorFees } = await supabase
+          .select('project_id, customer_price')
+          .in('project_id', projectIdArray),
+        supabase
           .from('project_subcontractor_fees')
-          .select('flat_fee')
-          .eq('project_id', record.project_id);
-
-        const { data: materials } = await supabase
+          .select('project_id, flat_fee')
+          .in('project_id', projectIdArray),
+        supabase
           .from('project_materials')
-          .select('actual_price')
-          .eq('project_id', record.project_id);
-
-        const { data: additionalExpenses } = await supabase
+          .select('project_id, actual_price')
+          .in('project_id', projectIdArray),
+        supabase
           .from('project_additional_expenses')
-          .select('amount')
-          .eq('project_id', record.project_id);
-
-        const { data: equipment } = await supabase
+          .select('project_id, amount')
+          .in('project_id', projectIdArray),
+        supabase
           .from('project_equipment')
-          .select('actual_price')
-          .eq('project_id', record.project_id);
-
-        // Calculate subcontractor costs
-        if (subcontractorFees) {
-          subcontractorFees.forEach((entry) => {
-            monthExpenses += parseFloat(entry.flat_fee || 0);
-          });
-        }
-
-        // Calculate materials costs
-        if (materials) {
-          materials.forEach((entry) => {
-            monthExpenses += parseFloat(entry.actual_price || 0);
-          });
-        }
-
-        // Calculate additional expenses
-        if (additionalExpenses) {
-          additionalExpenses.forEach((entry) => {
-            monthExpenses += parseFloat(entry.amount || 0);
-          });
-        }
-
-        // Calculate equipment costs
-        if (equipment) {
-          equipment.forEach((entry) => {
-            monthExpenses += parseFloat(entry.actual_price || 0);
-          });
-        }
-      }
-
-      monthlyData.push({
-        month: monthNames[month],
-        monthIndex: month + 1,
-        value: monthValue, // Total est_value
-        revenue: monthRevenue, // Total revenue from milestones
-        profit: monthRevenue - monthExpenses, // Profit based on revenue
-        expenses: monthExpenses,
-        leads: leadsHistory?.length || 0,
-        customersSigned: signedHistory?.length || 0,
-        sold: soldCount,
-        totalCustomers: totalCustomers?.length || 0,
-        completedProjects: completedCount,
-      });
+          .select('project_id, actual_price')
+          .in('project_id', projectIdArray)
+      ]);
+      
+      milestones = milestonesData || [];
+      subcontractorFees = subcontractorFeesData || [];
+      materials = materialsData || [];
+      additionalExpenses = additionalExpensesData || [];
+      equipment = equipmentData || [];
     }
+
+    // Pre-compute expense totals per project
+    const projectExpenses = {};
+    const projectRevenue = {};
+    const projectEstValue = {};
+    
+    // Build lookup for est_value from sold/completed history
+    (soldHistory || []).forEach(h => {
+      projectEstValue[h.project_id] = parseFloat(h.projects?.est_value || 0);
+    });
+    (completedHistory || []).forEach(h => {
+      projectEstValue[h.project_id] = parseFloat(h.projects?.est_value || 0);
+    });
+    
+    // Calculate revenue per project from milestones
+    milestones.forEach(m => {
+      if (!projectRevenue[m.project_id]) projectRevenue[m.project_id] = 0;
+      projectRevenue[m.project_id] += parseFloat(m.customer_price || 0);
+    });
+    
+    // Calculate expenses per project
+    projectIdArray.forEach(id => {
+      projectExpenses[id] = 0;
+    });
+    
+    subcontractorFees.forEach(f => {
+      projectExpenses[f.project_id] = (projectExpenses[f.project_id] || 0) + parseFloat(f.flat_fee || 0);
+    });
+    materials.forEach(m => {
+      projectExpenses[m.project_id] = (projectExpenses[m.project_id] || 0) + parseFloat(m.actual_price || 0);
+    });
+    additionalExpenses.forEach(e => {
+      projectExpenses[e.project_id] = (projectExpenses[e.project_id] || 0) + parseFloat(e.amount || 0);
+    });
+    equipment.forEach(e => {
+      projectExpenses[e.project_id] = (projectExpenses[e.project_id] || 0) + parseFloat(e.actual_price || 0);
+    });
+
+    // Helper to get month index (0-11) from ISO date string
+    const getMonthIndex = (dateStr) => new Date(dateStr).getMonth();
+
+    // Initialize monthly data
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyData = monthNames.map((name, idx) => ({
+      month: name,
+      monthIndex: idx + 1,
+      value: 0,
+      revenue: 0,
+      profit: 0,
+      expenses: 0,
+      leads: 0,
+      customersSigned: 0,
+      sold: 0,
+      totalCustomers: 0,
+      completedProjects: 0,
+      _processedProjects: new Set() // Track processed projects to avoid duplicates
+    }));
+
+    // Process sold projects
+    (soldHistory || []).forEach(record => {
+      const monthIdx = getMonthIndex(record.changed_at);
+      const monthData = monthlyData[monthIdx];
+      monthData.sold++;
+      
+      if (!monthData._processedProjects.has(record.project_id)) {
+        monthData._processedProjects.add(record.project_id);
+        const estValue = projectEstValue[record.project_id] || 0;
+        monthData.value += estValue;
+        const rev = projectRevenue[record.project_id] || estValue; // Fall back to est_value if no milestones
+        monthData.revenue += rev;
+        monthData.expenses += projectExpenses[record.project_id] || 0;
+      }
+    });
+
+    // Process completed projects
+    (completedHistory || []).forEach(record => {
+      const monthIdx = getMonthIndex(record.changed_at);
+      const monthData = monthlyData[monthIdx];
+      monthData.completedProjects++;
+      
+      if (!monthData._processedProjects.has(record.project_id)) {
+        monthData._processedProjects.add(record.project_id);
+        const estValue = projectEstValue[record.project_id] || 0;
+        monthData.value += estValue;
+        const rev = projectRevenue[record.project_id] || estValue;
+        monthData.revenue += rev;
+        monthData.expenses += projectExpenses[record.project_id] || 0;
+      }
+    });
+
+    // Process leads
+    (leadsHistory || []).forEach(record => {
+      const monthIdx = getMonthIndex(record.changed_at);
+      monthlyData[monthIdx].leads++;
+    });
+
+    // Process signed customers
+    (signedHistory || []).forEach(record => {
+      const monthIdx = getMonthIndex(record.changed_at);
+      monthlyData[monthIdx].customersSigned++;
+    });
+
+    // Process total customers
+    (totalCustomers || []).forEach(record => {
+      const monthIdx = getMonthIndex(record.created_at);
+      monthlyData[monthIdx].totalCustomers++;
+    });
+
+    // Calculate profit and clean up internal tracking
+    monthlyData.forEach(m => {
+      m.profit = m.revenue - m.expenses;
+      delete m._processedProjects; // Remove internal tracking property
+    });
 
     res.json({
       year: yearNum,

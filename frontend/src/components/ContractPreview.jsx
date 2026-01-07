@@ -402,53 +402,192 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     return null
   }
 
+  // Mobile card component for milestones
+  const MilestoneCard = ({ milestone, index }) => (
+    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+      <div className="flex justify-between items-start mb-3">
+        <h4 className="font-medium text-gray-900 text-base flex-1 pr-2">{milestone.name}</h4>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-gray-500">
+          <span className="text-xs uppercase tracking-wide">Cost:</span>
+          <span className="ml-1 font-medium">{formatCurrency(milestone.costAmount)}</span>
+        </div>
+        {milestone.milestoneType === 'balance_message' ? (
+          <span className="text-gray-500 italic text-sm">N/A</span>
+        ) : (
+          <div className="relative flex items-center">
+            <span className="absolute left-3 text-gray-500 text-sm">$</span>
+            <input
+              type="number"
+              value={milestone.customerPrice || ''}
+              onChange={(e) => updateCustomerPrice(milestone.id, e.target.value)}
+              className="w-32 pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  // Mobile card component for custom rows (change orders)
+  const CustomRowCard = ({ row, index }) => (
+    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+      <div className="flex justify-between items-start mb-3">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Change Order Item</span>
+        <button
+          onClick={() => removeCustomRow(row.id)}
+          className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
+          title="Remove row"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+      <div className="space-y-3">
+        <input
+          type="text"
+          value={row.name}
+          onChange={(e) => updateCustomRow(row.id, 'name', e.target.value)}
+          placeholder="Enter item name"
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+        />
+        <textarea
+          value={row.description || ''}
+          onChange={(e) => updateCustomRow(row.id, 'description', e.target.value)}
+          placeholder="Enter description"
+          rows={2}
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Cost</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+              <input
+                type="number"
+                value={row.costAmount || ''}
+                onChange={(e) => updateCustomRow(row.id, 'costAmount', e.target.value)}
+                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                inputMode="decimal"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Customer Price</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+              <input
+                type="number"
+                value={row.customerPrice || ''}
+                onChange={(e) => updateCustomRow(row.id, 'customerPrice', e.target.value)}
+                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                inputMode="decimal"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-white sm:rounded-lg shadow-xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-gray-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-                Preview Scope & Pricing - {
-                  (contractData.documentType || 'contract') === 'proposal' ? 'Proposal' :
-                  (contractData.documentType || 'contract') === 'change_order' ? 'Change Order' :
-                  'Contract'
-                }
+        <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+          <div className="flex justify-between items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-800 leading-tight">
+                {(contractData.documentType || 'contract') === 'proposal' ? 'Proposal' :
+                 (contractData.documentType || 'contract') === 'change_order' ? 'Change Order' :
+                 'Contract'} Preview
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Document #{contractData.documentNumber} - {contractData.project?.address || 'Project'}
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
+                #{contractData.documentNumber} • {contractData.project?.address || 'Project'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
+              className="text-gray-400 hover:text-gray-600 p-1 -mr-1 flex-shrink-0"
+              aria-label="Close"
             >
-              ✕
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
           {/* Info Banner */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Set Customer Prices:</strong> The "Cost" column shows your internal costs. 
-              Enter the prices you want to charge the customer in the "Customer Price" column. 
-              Only the customer prices will appear on the generated PDF.
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+              <strong>Set Customer Prices:</strong> <span className="hidden sm:inline">The "Cost" column shows your internal costs. </span>
+              Enter prices you want to charge<span className="hidden sm:inline"> the customer</span>. 
+              Only customer prices appear on the PDF.
             </p>
           </div>
 
-          {/* Milestones Table */}
-          <div className="overflow-x-auto">
+          {/* Mobile Card Layout */}
+          <div className="sm:hidden space-y-3">
+            {(isChangeOrder 
+              ? milestones.filter(m => m.milestoneType === 'initial_fee')
+              : milestones
+            ).map((milestone, index) => (
+              <MilestoneCard key={milestone.id} milestone={milestone} index={index} />
+            ))}
+            
+            {/* Custom Rows for Change Orders - Mobile */}
+            {isChangeOrder && customRows.map((row, index) => (
+              <CustomRowCard key={row.id} row={row} index={index} />
+            ))}
+            
+            {/* Add Row Button for Change Orders - Mobile */}
+            {isChangeOrder && (
+              <button
+                onClick={addCustomRow}
+                className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Milestone
+              </button>
+            )}
+
+            {/* Mobile Total Card */}
+            <div className="p-4 bg-gray-100 rounded-lg border-2 border-gray-300 mt-4">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-gray-900">TOTAL</span>
+                <span className="font-bold text-gray-900 text-xl">{formatCurrency(totalCustomerPrice)}</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Cost: {formatCurrency(totalCost)}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Table Layout */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">
                     {isChangeOrder ? 'Milestone / Description' : 'Milestone'}
                   </th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-500 hidden sm:table-cell">Cost</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-500">Cost</th>
                   <th className="text-right py-3 px-4 font-semibold text-gray-700">Customer Price</th>
                   {isChangeOrder && <th className="text-right py-3 px-4 font-semibold text-gray-700 w-20"></th>}
                 </tr>
@@ -462,11 +601,8 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                   <tr key={milestone.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
                     <td className="py-3 px-4">
                       <div className="font-medium text-gray-900">{milestone.name}</div>
-                      <div className="text-xs text-gray-500 sm:hidden">
-                        Cost: {formatCurrency(milestone.costAmount)}
-                      </div>
                     </td>
-                    <td className="py-3 px-4 text-right text-gray-500 hidden sm:table-cell">
+                    <td className="py-3 px-4 text-right text-gray-500">
                       {formatCurrency(milestone.costAmount)}
                     </td>
                     <td className="py-3 px-4 text-right">
@@ -479,7 +615,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                             type="number"
                             value={milestone.customerPrice || ''}
                             onChange={(e) => updateCustomerPrice(milestone.id, e.target.value)}
-                            className="w-28 sm:w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                            className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                             step="0.01"
                             min="0"
                           />
@@ -507,11 +643,8 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                         rows={2}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent text-sm"
                       />
-                      <div className="text-xs text-gray-500 sm:hidden mt-1">
-                        Cost: {formatCurrency(row.costAmount)}
-                      </div>
                     </td>
-                    <td className="py-3 px-4 text-right text-gray-500 hidden sm:table-cell">
+                    <td className="py-3 px-4 text-right text-gray-500">
                       <div className="relative inline-flex items-center">
                         <span className="absolute left-3 text-gray-500">$</span>
                         <input
@@ -532,7 +665,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                           type="number"
                           value={row.customerPrice || ''}
                           onChange={(e) => updateCustomRow(row.id, 'customerPrice', e.target.value)}
-                          className="w-28 sm:w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                          className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                           step="0.01"
                           min="0"
                           placeholder="0.00"
@@ -570,7 +703,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
               <tfoot>
                 <tr className="border-t-2 border-gray-300 bg-gray-100">
                   <td className="py-4 px-4 font-bold text-gray-900">TOTAL</td>
-                  <td className="py-4 px-4 text-right font-semibold text-gray-500 hidden sm:table-cell">
+                  <td className="py-4 px-4 text-right font-semibold text-gray-500">
                     {formatCurrency(totalCost)}
                   </td>
                   <td className="py-4 px-4 text-right font-bold text-gray-900 text-lg">
@@ -583,24 +716,24 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           </div>
 
           {/* Profit Summary */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-800 mb-3">Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="mt-4 sm:mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="font-semibold text-gray-800 mb-3 text-sm sm:text-base">Summary</h3>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               <div>
-                <p className="text-xs text-gray-500 uppercase">Total Cost</p>
-                <p className="text-lg font-semibold text-gray-700">{formatCurrency(totalCost)}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Total Cost</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-700">{formatCurrency(totalCost)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase">Customer Total</p>
-                <p className="text-lg font-semibold text-gray-900">{formatCurrency(totalCustomerPrice)}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Customer Total</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-900">{formatCurrency(totalCustomerPrice)}</p>
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <p className="text-xs text-gray-500 uppercase">Profit</p>
-                <p className={`text-lg font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div>
+                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Profit</p>
+                <p className={`text-base sm:text-lg font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(profit)}
-                  <span className="text-sm font-normal text-gray-500 ml-2">
-                    ({totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : 0}%)
-                  </span>
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-500">
+                  {totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : 0}% margin
                 </p>
               </div>
             </div>
@@ -608,65 +741,68 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveOnly}
-            disabled={generating || saving}
-            className="w-full sm:w-auto px-6 py-2 bg-pool-blue hover:bg-pool-dark text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {saving && !generating ? (
-              <>
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Save
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleGeneratePdf}
-            disabled={generating || saving}
-            className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving milestones...
-              </>
-            ) : generating ? (
-              <>
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Save & Generate PDF
-              </>
-            )}
-          </button>
+        <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+            <button
+              onClick={onClose}
+              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-800 font-medium rounded-lg sm:rounded-md transition-colors text-base sm:text-sm order-3 sm:order-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveOnly}
+              disabled={generating || saving}
+              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-pool-blue hover:bg-pool-dark active:bg-pool-dark text-white font-medium rounded-lg sm:rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-sm order-2"
+            >
+              {saving && !generating ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  Save
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleGeneratePdf}
+              disabled={generating || saving}
+              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-medium rounded-lg sm:rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-sm order-1 sm:order-3"
+            >
+              {saving ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : generating ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="sm:hidden">Generate PDF</span>
+                  <span className="hidden sm:inline">Save & Generate PDF</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
