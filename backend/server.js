@@ -3003,11 +3003,12 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       });
     }
 
-    // Get saved milestones for this project (to use as starting customer prices)
+    // Get saved milestones for this project filtered by document type
     const { data: savedMilestones } = await supabase
       .from('milestones')
       .select('*')
       .eq('project_id', id)
+      .eq('document_type', document_type)
       .order('sort_order', { ascending: true });
 
     res.json({
@@ -3035,6 +3036,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         grandTotal: parseFloat(project.est_value || 0),
       },
       savedMilestones: savedMilestones || [], // Previously saved customer prices for this project
+      savedCustomerPrice: project.customer_price ? parseFloat(project.customer_price) : null, // Total customer price from project
     });
   } catch (error) {
     console.error('Generate document error:', error);
@@ -3044,7 +3046,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
 
 // ==================== MILESTONES ENDPOINTS ====================
 
-// Get milestones for a project (optionally filtered by document number)
+// Get milestones for a project (optionally filtered by document type)
 app.get('/api/projects/:id/milestones', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -3065,6 +3067,7 @@ app.get('/api/projects/:id/milestones', async (req, res) => {
     }
 
     const { id } = req.params;
+    const { document_type } = req.query; // Optional filter by document type
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -3078,12 +3081,18 @@ app.get('/api/projects/:id/milestones', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get milestones for the project
-    const { data: milestones, error } = await supabase
+    // Build query for milestones
+    let query = supabase
       .from('milestones')
       .select('*')
-      .eq('project_id', id)
-      .order('sort_order', { ascending: true });
+      .eq('project_id', id);
+
+    // Filter by document type if provided
+    if (document_type) {
+      query = query.eq('document_type', document_type);
+    }
+
+    const { data: milestones, error } = await query.order('sort_order', { ascending: true });
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -3117,10 +3126,19 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { milestones } = req.body;
+    const { milestones, document_type, customer_price } = req.body;
 
     if (!milestones || !Array.isArray(milestones)) {
       return res.status(400).json({ error: 'milestones array is required' });
+    }
+
+    // Default to 'contract' if no document_type provided
+    const docType = document_type || 'contract';
+
+    // Validate document_type
+    const validDocTypes = ['proposal', 'contract', 'change_order'];
+    if (!validDocTypes.includes(docType)) {
+      return res.status(400).json({ error: 'Invalid document_type. Must be proposal, contract, or change_order' });
     }
 
     // Verify project belongs to user's company
@@ -3135,24 +3153,42 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Delete existing milestones for this project
+    // If customer_price is provided, update the project's customer_price
+    if (customer_price !== undefined && customer_price !== null) {
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ 
+          customer_price: parseFloat(customer_price) || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('company_id', companyID);
+
+      if (updateError) {
+        console.error('Error updating project customer_price:', updateError);
+      }
+    }
+
+    // Delete existing milestones for this project AND document type only
     await supabase
       .from('milestones')
       .delete()
       .eq('project_id', id)
-      .eq('company_id', companyID);
+      .eq('company_id', companyID)
+      .eq('document_type', docType);
 
-    // Insert new milestones
+    // Insert new milestones with document_type
     const milestonesToInsert = milestones.map((m, index) => ({
       company_id: companyID,
       project_id: id,
       name: m.name,
       description: m.description || null,
-      milestone_type: m.milestone_type || 'subcontractor',
+      milestone_type: m.milestone_type || 'custom',
       cost: parseFloat(m.cost) || 0,
       customer_price: parseFloat(m.customer_price) || 0,
       subcontractor_fee_id: m.subcontractor_fee_id || null,
       sort_order: index,
+      document_type: docType,
     }));
 
     const { data: savedMilestones, error: insertError } = await supabase

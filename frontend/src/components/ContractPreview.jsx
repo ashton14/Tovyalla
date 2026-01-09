@@ -14,218 +14,148 @@ const formatCurrency = (amount) => {
 
 function ContractPreview({ contractData, onClose, onGenerate }) {
   const { supabase } = useAuth()
+  const [totalCustomerPrice, setTotalCustomerPrice] = useState('')
   const [milestones, setMilestones] = useState([])
-  const [customRows, setCustomRows] = useState([]) // For change orders
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [nextCustomRowId, setNextCustomRowId] = useState(1)
+  const [nextMilestoneId, setNextMilestoneId] = useState(1)
 
-  // Helper to find saved customer price by milestone type and optional subcontractor fee id
-  const findSavedPrice = (savedMilestones, milestoneType, subcontractorFeeId = null) => {
-    if (!savedMilestones || savedMilestones.length === 0) return null
-    
-    const match = savedMilestones.find(m => {
-      if (m.milestone_type !== milestoneType) return false
-      // For subcontractor milestones, also match by subcontractor_fee_id
-      if (milestoneType === 'subcontractor' && subcontractorFeeId) {
-        return m.subcontractor_fee_id === subcontractorFeeId
-      }
-      return true
-    })
-    
-    return match ? parseFloat(match.customer_price) || null : null
+  // Calculate total cost from expenses
+  const calculateTotalCost = () => {
+    if (!contractData?.expenses) return 0
+    const { expenses } = contractData
+    let total = 0
+
+    // Subcontractor fees
+    if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
+      expenses.subcontractorFees.forEach((fee) => {
+        total += parseFloat(fee.expected_value || fee.flat_fee || 0)
+      })
+    }
+
+    // Equipment
+    if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
+      expenses.equipment.forEach((eq) => {
+        total += parseFloat(eq.expected_price || eq.actual_price || 0)
+      })
+    }
+
+    // Materials
+    if (expenses.materials && expenses.materials.length > 0) {
+      expenses.materials.forEach((mat) => {
+        total += parseFloat(mat.expected_price || mat.actual_price || 0)
+      })
+    }
+
+    // Additional expenses
+    if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
+      expenses.additionalExpenses.forEach((exp) => {
+        total += parseFloat(exp.expected_value || exp.amount || 0)
+      })
+    }
+
+    return total
   }
 
-  // Initialize milestones from expenses, using saved customer prices if available
+  const totalCost = calculateTotalCost()
+
+  // Initialize from saved customer price and milestones if available
   useEffect(() => {
     if (!contractData) return
 
-    const { expenses, savedMilestones, documentType } = contractData
-    const docType = documentType || 'contract'
+    const { savedMilestones, savedCustomerPrice } = contractData
 
-    // For change orders, only show initial fee and custom rows
-    if (docType === 'change_order') {
-      const initialPrice = findSavedPrice(savedMilestones, 'initial_fee')
-      const generatedMilestones = [{
-        id: `new-initial-fee`,
-        name: 'Initial Fee',
-        costAmount: 0,
-        customerPrice: initialPrice ?? 0,
-        milestoneType: 'initial_fee',
-        sortOrder: 0,
-      }]
-      setMilestones(generatedMilestones)
-      
-      // Initialize custom rows if any exist in saved milestones (change_order type)
-      const savedCustomRows = savedMilestones?.filter(m => m.milestone_type === 'change_order_item') || []
-      if (savedCustomRows.length > 0) {
-        const rows = savedCustomRows.map((m, idx) => ({
-          id: `custom-${idx + 1}`,
+    // Use saved customer price from project if available, otherwise calculate from milestones
+    if (savedCustomerPrice) {
+      setTotalCustomerPrice(savedCustomerPrice.toString())
+    } else if (savedMilestones && savedMilestones.length > 0) {
+      const savedTotal = savedMilestones.reduce((sum, m) => sum + parseFloat(m.customer_price || 0), 0)
+      setTotalCustomerPrice(savedTotal.toString())
+    }
+
+    // Load milestones
+    if (savedMilestones && savedMilestones.length > 0) {
+      // Use saved customer price or calculate from milestones for percentage calculation
+      const totalForPercentage = savedCustomerPrice || savedMilestones.reduce((sum, m) => sum + parseFloat(m.customer_price || 0), 0)
+
+      // Convert saved milestones to our format with percentages
+      const loadedMilestones = savedMilestones.map((m, idx) => {
+        const price = parseFloat(m.customer_price || 0)
+        const percentage = totalForPercentage > 0 ? ((price / totalForPercentage) * 100).toFixed(2) : 0
+        return {
+          id: `milestone-${idx + 1}`,
           name: m.name || '',
-          description: m.description || '',
-          costAmount: parseFloat(m.cost || 0),
-          customerPrice: parseFloat(m.customer_price || 0),
-        }))
-        setCustomRows(rows)
-        setNextCustomRowId(savedCustomRows.length + 1)
-      } else {
-        setCustomRows([])
-        setNextCustomRowId(1)
-      }
-      return
+          percentage: percentage.toString(),
+          milestoneType: m.milestone_type || 'custom',
+          subcontractorFeeId: m.subcontractor_fee_id || null,
+        }
+      })
+      setMilestones(loadedMilestones)
+      setNextMilestoneId(loadedMilestones.length + 1)
+    } else {
+      // Set default milestones for new documents
+      const docType = contractData.documentType || 'contract'
+      const defaultMilestones = [
+        { id: 'milestone-1', name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee', percentage: '20', milestoneType: 'initial_fee' },
+        { id: 'milestone-2', name: 'Final Payment', percentage: '80', milestoneType: 'final_inspection' },
+      ]
+      setMilestones(defaultMilestones)
+      setNextMilestoneId(3)
     }
-
-    // For both proposals and contracts, include all milestones in preview
-    // (Proposals will filter them when building PDF payment schedule)
-
-    // 1. Initial Contract/Sign Fee (use different names for proposals vs contracts)
-    const generatedMilestones = []
-    let sortOrder = 0
-    const initialPrice = findSavedPrice(savedMilestones, 'initial_fee')
-    generatedMilestones.push({
-      id: `new-initial-fee`,
-      name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee',
-      costAmount: 0,
-      customerPrice: initialPrice ?? 1000,
-      milestoneType: 'initial_fee',
-      sortOrder: sortOrder++,
-    })
-
-    // 2. Subcontractor Jobs
-    if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
-      expenses.subcontractorFees.forEach((fee) => {
-        const costAmount = parseFloat(fee.expected_value || fee.flat_fee || 0)
-        const prevPrice = findSavedPrice(savedMilestones, 'subcontractor', fee.id)
-        generatedMilestones.push({
-          id: `new-subcontractor-${fee.id}`,
-          name: fee.job_description || 'Work',
-          costAmount,
-          customerPrice: prevPrice ?? costAmount, // Use previous price or default to cost
-          milestoneType: 'subcontractor',
-          subcontractorFeeId: fee.id,
-          sortOrder: sortOrder++,
-        })
-      })
-    }
-
-    // 3. Equipment Order (always include if there are equipment items)
-    if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
-      let equipmentCost = 0
-      expenses.equipment.forEach((eq) => {
-        // Match expenses endpoint: prices are totals, not per-unit (no quantity multiplication)
-        equipmentCost += parseFloat(eq.expected_price || eq.actual_price || 0)
-      })
-      const prevPrice = findSavedPrice(savedMilestones, 'equipment')
-      generatedMilestones.push({
-        id: `new-equipment`,
-        name: 'Equipment Order',
-        costAmount: equipmentCost,
-        customerPrice: prevPrice ?? equipmentCost,
-        milestoneType: 'equipment',
-        sortOrder: sortOrder++,
-      })
-    }
-
-    // 4. Material Order (always include if there are material items)
-    let materialsCost = 0
-    if (expenses.materials && expenses.materials.length > 0) {
-      expenses.materials.forEach((mat) => {
-        materialsCost += parseFloat(mat.expected_price || mat.actual_price || 0)
-      })
-      const prevPrice = findSavedPrice(savedMilestones, 'materials')
-      generatedMilestones.push({
-        id: `new-materials`,
-        name: 'Material Order',
-        costAmount: materialsCost,
-        customerPrice: prevPrice ?? materialsCost,
-        milestoneType: 'materials',
-        sortOrder: sortOrder++,
-      })
-    }
-
-    // 5. Additional Fees
-    let additionalCost = 0
-    if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
-      expenses.additionalExpenses.forEach((exp) => {
-        additionalCost += parseFloat(exp.expected_value || exp.amount || 0)
-      })
-    }
-    if (additionalCost > 0) {
-      const prevPrice = findSavedPrice(savedMilestones, 'additional')
-      generatedMilestones.push({
-        id: `new-additional`,
-        name: 'Additional Fees',
-        costAmount: additionalCost,
-        customerPrice: prevPrice ?? additionalCost,
-        milestoneType: 'additional',
-        sortOrder: sortOrder++,
-      })
-    }
-
-    // 6. Final Inspection Fee
-    const finalPrice = findSavedPrice(savedMilestones, 'final_inspection')
-    generatedMilestones.push({
-      id: `new-final-inspection`,
-      name: 'Final Inspection',
-      costAmount: 0,
-      customerPrice: finalPrice ?? 1000,
-      milestoneType: 'final_inspection',
-      sortOrder: sortOrder++,
-    })
-
-    setMilestones(generatedMilestones)
   }, [contractData])
 
-  // Update a milestone's customer price
-  const updateCustomerPrice = (id, value) => {
-    setMilestones(prev => prev.map(m => 
-      m.id === id ? { ...m, customerPrice: parseFloat(value) || 0 } : m
-    ))
-  }
-
-  // Handle custom rows for change orders
-  const addCustomRow = () => {
-    const newRow = {
-      id: `custom-${nextCustomRowId}`,
+  // Add a new milestone
+  const addMilestone = () => {
+    const newMilestone = {
+      id: `milestone-${nextMilestoneId}`,
       name: '',
-      description: '',
-      costAmount: 0,
-      customerPrice: 0,
+      percentage: '',
+      milestoneType: 'custom',
     }
-    setCustomRows(prev => [...prev, newRow])
-    setNextCustomRowId(prev => prev + 1)
+    setMilestones(prev => [...prev, newMilestone])
+    setNextMilestoneId(prev => prev + 1)
   }
 
-  const removeCustomRow = (id) => {
-    setCustomRows(prev => prev.filter(row => row.id !== id))
+  // Remove a milestone
+  const removeMilestone = (id) => {
+    setMilestones(prev => prev.filter(m => m.id !== id))
   }
 
-  const updateCustomRow = (id, field, value) => {
-    setCustomRows(prev => prev.map(row => 
-      row.id === id ? { 
-        ...row, 
-        [field]: (field === 'name' || field === 'description') ? value : parseFloat(value) || 0 
-      } : row
+  // Update a milestone
+  const updateMilestone = (id, field, value) => {
+    setMilestones(prev => prev.map(m => 
+      m.id === id ? { ...m, [field]: value } : m
     ))
+  }
+
+  // Update milestone percentage (and auto-calculate amount display)
+  const updateMilestonePercentage = (id, percentage) => {
+    setMilestones(prev => prev.map(m => 
+      m.id === id ? { ...m, percentage } : m
+    ))
+  }
+
+  // Update milestone by amount (auto-calculate percentage)
+  const updateMilestoneByAmount = (id, amount) => {
+    const total = parseFloat(totalCustomerPrice) || 0
+    const amountValue = parseFloat(amount) || 0
+    const percentage = total > 0 ? ((amountValue / total) * 100).toFixed(2) : '0'
+    setMilestones(prev => prev.map(m => 
+      m.id === id ? { ...m, percentage, _inputAmount: amount } : m
+    ))
+  }
+
+  // Calculate the dollar amount from percentage
+  const calculateAmount = (percentage) => {
+    const total = parseFloat(totalCustomerPrice) || 0
+    const pct = parseFloat(percentage) || 0
+    return (total * pct) / 100
   }
 
   // Calculate totals
-  const docType = contractData?.documentType || 'contract'
-  const isChangeOrder = docType === 'change_order'
-  
-  let totalCost, totalCustomerPrice, profit
-  if (isChangeOrder) {
-    const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
-    const initialFeePrice = initialFee?.customerPrice || 0
-    const customRowsTotal = customRows.reduce((sum, row) => sum + (row.customerPrice || 0), 0)
-    totalCustomerPrice = initialFeePrice + customRowsTotal
-    totalCost = (initialFee?.costAmount || 0) + customRows.reduce((sum, row) => sum + (row.costAmount || 0), 0)
-    profit = totalCustomerPrice - totalCost
-  } else {
-    totalCost = milestones.reduce((sum, m) => sum + m.costAmount, 0)
-    totalCustomerPrice = milestones.reduce((sum, m) => sum + m.customerPrice, 0)
-    profit = totalCustomerPrice - totalCost
-  }
+  const customerTotal = parseFloat(totalCustomerPrice) || 0
+  const totalPercentage = milestones.reduce((sum, m) => sum + (parseFloat(m.percentage) || 0), 0)
+  const profit = customerTotal - totalCost
 
   // Get auth token
   const getAuthToken = async () => {
@@ -242,46 +172,23 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
         throw new Error('Not authenticated')
       }
 
-      let milestonesToSave = []
-      
-      if (isChangeOrder) {
-        // For change orders, save initial fee and custom rows
-        const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
-        if (initialFee) {
-          milestonesToSave.push({
-            name: initialFee.name,
-            milestone_type: initialFee.milestoneType,
-            cost: initialFee.costAmount,
-            customer_price: initialFee.customerPrice,
-            subcontractor_fee_id: null,
-          })
-        }
-        
-        // Save custom rows as change_order_item type
-        customRows.forEach((row) => {
-          milestonesToSave.push({
-            name: row.name || 'Change Order Item',
-            description: row.description || '',
-            milestone_type: 'change_order_item',
-            cost: row.costAmount,
-            customer_price: row.customerPrice,
-            subcontractor_fee_id: null,
-          })
-        })
-      } else {
-        // For contracts/proposals, save all milestones
-        milestonesToSave = milestones.map((m, index) => ({
-          name: m.name,
-          milestone_type: m.milestoneType,
-          cost: m.costAmount,
-          customer_price: m.customerPrice,
-          subcontractor_fee_id: m.subcontractorFeeId || null,
-        }))
-      }
+      const docType = contractData.documentType || 'contract'
+
+      const milestonesToSave = milestones.map((m, index) => ({
+        name: m.name || `Milestone ${index + 1}`,
+        milestone_type: m.milestoneType || 'custom',
+        cost: 0, // Cost is tracked at expense level, not milestone level in new system
+        customer_price: calculateAmount(m.percentage),
+        subcontractor_fee_id: m.subcontractorFeeId || null,
+      }))
 
       const response = await axios.put(
         `/api/projects/${contractData.project.id}/milestones`,
-        { milestones: milestonesToSave },
+        { 
+          milestones: milestonesToSave,
+          document_type: docType,
+          customer_price: parseFloat(totalCustomerPrice) || 0, // Save total customer price to project
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -298,6 +205,11 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   // Save milestones only (without generating PDF)
   const handleSaveOnly = async () => {
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      alert(`Milestone percentages must add up to 100%. Currently at ${totalPercentage.toFixed(2)}%`)
+      return
+    }
+    
     setSaving(true)
     try {
       await saveMilestones()
@@ -311,6 +223,11 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   // Generate PDF with customer prices
   const handleGeneratePdf = async () => {
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      alert(`Milestone percentages must add up to 100%. Currently at ${totalPercentage.toFixed(2)}%`)
+      return
+    }
+
     setGenerating(true)
     setSaving(true)
     try {
@@ -318,70 +235,36 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
       await saveMilestones()
       setSaving(false)
 
-      // Build the customer price schedule
-      // For proposals, only include initial sign fee + balance message in PDF
-      // For contracts, include all milestones
+      // Build the customer payment schedule
       const docType = contractData.documentType || 'contract'
-      let customerPaymentSchedule
-      
-      if (docType === 'proposal') {
-        // For proposals, only include initial sign fee (and balance message)
-        const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
-        customerPaymentSchedule = []
-        if (initialFee) {
-          customerPaymentSchedule.push({
-            description: initialFee.name,
-            amount: initialFee.customerPrice,
-          })
-        }
-        customerPaymentSchedule.push({
-          description: 'Balance of schedule will be provided with contract',
-          amount: 0,
-        })
-      } else if (docType === 'change_order') {
-        // For change orders, include initial fee, custom rows, and balance message
-        const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
-        customerPaymentSchedule = []
-        if (initialFee) {
-          customerPaymentSchedule.push({
-            description: initialFee.name,
-            amount: initialFee.customerPrice,
-          })
-        }
-        // Add custom rows
-        customRows.forEach((row) => {
-          if (row.name && row.customerPrice) {
-            customerPaymentSchedule.push({
-              description: row.name,
-              amount: row.customerPrice,
-            })
-          }
-        })
-        customerPaymentSchedule.push({
-          description: 'Balance of schedule will be provided with contract',
-          amount: 0,
-        })
-      } else {
-        // For contracts, include all milestones
-        customerPaymentSchedule = milestones.map(m => ({
+      let customerPaymentSchedule = milestones
+        .filter(m => m.name && parseFloat(m.percentage) > 0)
+        .map(m => ({
           description: m.name,
-          amount: m.customerPrice,
+          amount: calculateAmount(m.percentage),
         }))
+
+      // For proposals, add balance message
+      if (docType === 'proposal') {
+        const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
+        customerPaymentSchedule = []
+        if (initialFee) {
+          customerPaymentSchedule.push({
+            description: initialFee.name,
+            amount: calculateAmount(initialFee.percentage),
+          })
+        }
+        customerPaymentSchedule.push({
+          description: 'Balance of schedule will be provided with contract',
+          amount: 0,
+        })
       }
 
       // Create modified contract data with customer prices
-      // Grand total calculation
-      const grandTotal = docType === 'change_order' 
-        ? (milestones.find(m => m.milestoneType === 'initial_fee')?.customerPrice || 0) + 
-          customRows.reduce((sum, row) => sum + (row.customerPrice || 0), 0)
-        : totalCustomerPrice
-      
-      // For change orders, pass custom rows to PDF generator
       const modifiedContractData = {
         ...contractData,
         customerPaymentSchedule,
-        customerGrandTotal: grandTotal,
-        ...(docType === 'change_order' && { changeOrderItems: customRows }),
+        customerGrandTotal: customerTotal,
       }
 
       await openContractPdf(modifiedContractData)
@@ -402,97 +285,62 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     return null
   }
 
+  const docType = contractData.documentType || 'contract'
+
   // Mobile card component for milestones
   const MilestoneCard = ({ milestone, index }) => (
     <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
       <div className="flex justify-between items-start mb-3">
-        <h4 className="font-medium text-gray-900 text-base flex-1 pr-2">{milestone.name}</h4>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-gray-500">
-          <span className="text-xs uppercase tracking-wide">Cost:</span>
-          <span className="ml-1 font-medium">{formatCurrency(milestone.costAmount)}</span>
-        </div>
-        {milestone.milestoneType === 'balance_message' ? (
-          <span className="text-gray-500 italic text-sm">N/A</span>
-        ) : (
-          <div className="relative flex items-center">
-            <span className="absolute left-3 text-gray-500 text-sm">$</span>
-            <input
-              type="number"
-              value={milestone.customerPrice || ''}
-              onChange={(e) => updateCustomerPrice(milestone.id, e.target.value)}
-              className="w-32 pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-            />
-          </div>
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone {index + 1}</span>
+        {milestones.length > 1 && (
+          <button
+            onClick={() => removeMilestone(milestone.id)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
+            title="Remove milestone"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         )}
-      </div>
-    </div>
-  )
-
-  // Mobile card component for custom rows (change orders)
-  const CustomRowCard = ({ row, index }) => (
-    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
-      <div className="flex justify-between items-start mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Change Order Item</span>
-        <button
-          onClick={() => removeCustomRow(row.id)}
-          className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
-          title="Remove row"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
       </div>
       <div className="space-y-3">
         <input
           type="text"
-          value={row.name}
-          onChange={(e) => updateCustomRow(row.id, 'name', e.target.value)}
-          placeholder="Enter item name"
+          value={milestone.name}
+          onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+          placeholder="Milestone name"
           className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-        />
-        <textarea
-          value={row.description || ''}
-          onChange={(e) => updateCustomRow(row.id, 'description', e.target.value)}
-          placeholder="Enter description"
-          rows={2}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
         />
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Cost</label>
+            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Percentage</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
               <input
                 type="number"
-                value={row.costAmount || ''}
-                onChange={(e) => updateCustomRow(row.id, 'costAmount', e.target.value)}
-                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                value={milestone.percentage}
+                onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
+                placeholder="0"
+                className="w-full pr-8 pl-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                 step="0.01"
                 min="0"
-                placeholder="0.00"
-                inputMode="decimal"
+                max="100"
               />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Customer Price</label>
+            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Amount</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
               <input
                 type="number"
-                value={row.customerPrice || ''}
-                onChange={(e) => updateCustomRow(row.id, 'customerPrice', e.target.value)}
-                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-right text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                value={calculateAmount(milestone.percentage).toFixed(2)}
+                onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
+                placeholder="0.00"
+                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                 step="0.01"
                 min="0"
-                placeholder="0.00"
-                inputMode="decimal"
               />
             </div>
           </div>
@@ -509,8 +357,8 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg sm:text-2xl font-bold text-gray-800 leading-tight">
-                {(contractData.documentType || 'contract') === 'proposal' ? 'Proposal' :
-                 (contractData.documentType || 'contract') === 'change_order' ? 'Change Order' :
+                {docType === 'proposal' ? 'Proposal' :
+                 docType === 'change_order' ? 'Change Order' :
                  'Contract'} Preview
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
@@ -531,50 +379,73 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
-          {/* Info Banner */}
-          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
-              <strong>Set Customer Prices:</strong> <span className="hidden sm:inline">The "Cost" column shows your internal costs. </span>
-              Enter prices you want to charge<span className="hidden sm:inline"> the customer</span>. 
-              Only customer prices appear on the PDF.
+          {/* Total Customer Price Input */}
+          <div className="mb-6 p-4 sm:p-6 bg-gradient-to-r from-pool-blue to-pool-dark rounded-lg text-white">
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Total Customer Price
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 text-xl">$</span>
+              <input
+                type="number"
+                value={totalCustomerPrice}
+                onChange={(e) => setTotalCustomerPrice(e.target.value)}
+                placeholder="Enter total price"
+                className="w-full pl-10 pr-4 py-4 bg-white/20 border border-white/30 rounded-lg text-2xl font-bold text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent"
+                step="0.01"
+                min="0"
+              />
+            </div>
+            <p className="text-xs text-white/70 mt-2">
+              Your total cost: {formatCurrency(totalCost)} • Profit: {formatCurrency(customerTotal - totalCost)}
             </p>
           </div>
 
+          {/* Info Banner */}
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+              <strong>Payment Milestones:</strong> Add milestones and set what percentage of the total price is due at each stage.
+              Percentages must add up to 100%.
+            </p>
+          </div>
+
+          {/* Percentage Warning */}
+          {totalPercentage !== 100 && milestones.length > 0 && (
+            <div className={`mb-4 p-3 rounded-lg border ${Math.abs(totalPercentage - 100) < 0.01 ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              <p className="text-sm font-medium">
+                Total: {totalPercentage.toFixed(2)}% 
+                {Math.abs(totalPercentage - 100) > 0.01 && (
+                  <span> — {totalPercentage < 100 ? `Add ${(100 - totalPercentage).toFixed(2)}% more` : `Remove ${(totalPercentage - 100).toFixed(2)}%`}</span>
+                )}
+              </p>
+            </div>
+          )}
+
           {/* Mobile Card Layout */}
           <div className="sm:hidden space-y-3">
-            {(isChangeOrder 
-              ? milestones.filter(m => m.milestoneType === 'initial_fee')
-              : milestones
-            ).map((milestone, index) => (
+            {milestones.map((milestone, index) => (
               <MilestoneCard key={milestone.id} milestone={milestone} index={index} />
             ))}
             
-            {/* Custom Rows for Change Orders - Mobile */}
-            {isChangeOrder && customRows.map((row, index) => (
-              <CustomRowCard key={row.id} row={row} index={index} />
-            ))}
-            
-            {/* Add Row Button for Change Orders - Mobile */}
-            {isChangeOrder && (
-              <button
-                onClick={addCustomRow}
-                className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Milestone
-              </button>
-            )}
+            {/* Add Milestone Button - Mobile */}
+            <button
+              onClick={addMilestone}
+              className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Milestone
+            </button>
 
             {/* Mobile Total Card */}
             <div className="p-4 bg-gray-100 rounded-lg border-2 border-gray-300 mt-4">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-gray-900">TOTAL</span>
-                <span className="font-bold text-gray-900 text-xl">{formatCurrency(totalCustomerPrice)}</span>
+                <span className="font-bold text-gray-900 text-xl">{formatCurrency(customerTotal)}</span>
               </div>
               <div className="text-xs text-gray-500 mt-1">
-                Cost: {formatCurrency(totalCost)}
+                {totalPercentage.toFixed(2)}% allocated
               </div>
             </div>
           </div>
@@ -584,78 +455,37 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    {isChangeOrder ? 'Milestone / Description' : 'Milestone'}
-                  </th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-500">Cost</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Customer Price</th>
-                  {isChangeOrder && <th className="text-right py-3 px-4 font-semibold text-gray-700 w-20"></th>}
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Milestone Name</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700 w-32">Percentage</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700 w-40">Amount</th>
+                  <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody>
-                {/* All Milestones - filter based on document type */}
-                {(isChangeOrder 
-                  ? milestones.filter(m => m.milestoneType === 'initial_fee')
-                  : milestones
-                ).map((milestone, index) => (
+                {milestones.map((milestone, index) => (
                   <tr key={milestone.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-gray-900">{milestone.name}</div>
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-500">
-                      {formatCurrency(milestone.costAmount)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {milestone.milestoneType === 'balance_message' ? (
-                        <span className="text-gray-500 italic">N/A</span>
-                      ) : (
-                        <div className="relative inline-flex items-center">
-                          <span className="absolute left-3 text-gray-500">$</span>
-                          <input
-                            type="number"
-                            value={milestone.customerPrice || ''}
-                            onChange={(e) => updateCustomerPrice(milestone.id, e.target.value)}
-                            className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-                            step="0.01"
-                            min="0"
-                          />
-                        </div>
-                      )}
-                    </td>
-                    {isChangeOrder && <td></td>}
-                  </tr>
-                ))}
-                {/* Custom Rows for Change Orders */}
-                {isChangeOrder && customRows.map((row, index) => (
-                  <tr key={row.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
                     <td className="py-3 px-4">
                       <input
                         type="text"
-                        value={row.name}
-                        onChange={(e) => updateCustomRow(row.id, 'name', e.target.value)}
-                        placeholder="Enter item name"
-                        className="w-full px-3 py-2 mb-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-                      />
-                      <textarea
-                        value={row.description || ''}
-                        onChange={(e) => updateCustomRow(row.id, 'description', e.target.value)}
-                        placeholder="Enter description"
-                        rows={2}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent text-sm"
+                        value={milestone.name}
+                        onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+                        placeholder="Enter milestone name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                       />
                     </td>
-                    <td className="py-3 px-4 text-right text-gray-500">
+                    <td className="py-3 px-4 text-right">
                       <div className="relative inline-flex items-center">
-                        <span className="absolute left-3 text-gray-500">$</span>
                         <input
                           type="number"
-                          value={row.costAmount || ''}
-                          onChange={(e) => updateCustomRow(row.id, 'costAmount', e.target.value)}
-                          className="w-28 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                          value={milestone.percentage}
+                          onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
+                          placeholder="0"
+                          className="w-24 pr-7 pl-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                           step="0.01"
                           min="0"
-                          placeholder="0.00"
+                          max="100"
                         />
+                        <span className="absolute right-3 text-gray-500">%</span>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
@@ -663,53 +493,55 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                         <span className="absolute left-3 text-gray-500">$</span>
                         <input
                           type="number"
-                          value={row.customerPrice || ''}
-                          onChange={(e) => updateCustomRow(row.id, 'customerPrice', e.target.value)}
+                          value={calculateAmount(milestone.percentage).toFixed(2)}
+                          onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
+                          placeholder="0.00"
                           className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
                           step="0.01"
                           min="0"
-                          placeholder="0.00"
                         />
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => removeCustomRow(row.id)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        title="Remove row"
-                      >
-                        Remove
-                      </button>
+                      {milestones.length > 1 && (
+                        <button
+                          onClick={() => removeMilestone(milestone.id)}
+                          className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          title="Remove milestone"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
-                {/* Add Row Button for Change Orders */}
-                {isChangeOrder && (
-                  <tr>
-                    <td colSpan={4} className="py-3 px-4">
-                      <button
-                        onClick={addCustomRow}
-                        className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Milestone
-                      </button>
-                    </td>
-                  </tr>
-                )}
+                {/* Add Milestone Row */}
+                <tr>
+                  <td colSpan={4} className="py-3 px-4">
+                    <button
+                      onClick={addMilestone}
+                      className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Milestone
+                    </button>
+                  </td>
+                </tr>
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gray-300 bg-gray-100">
                   <td className="py-4 px-4 font-bold text-gray-900">TOTAL</td>
-                  <td className="py-4 px-4 text-right font-semibold text-gray-500">
-                    {formatCurrency(totalCost)}
+                  <td className="py-4 px-4 text-right font-semibold">
+                    <span className={totalPercentage === 100 ? 'text-green-600' : 'text-amber-600'}>
+                      {totalPercentage.toFixed(2)}%
+                    </span>
                   </td>
                   <td className="py-4 px-4 text-right font-bold text-gray-900 text-lg">
-                    {formatCurrency(totalCustomerPrice)}
+                    {formatCurrency(customerTotal)}
                   </td>
-                  {isChangeOrder && <td></td>}
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -725,7 +557,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
               </div>
               <div>
                 <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Customer Total</p>
-                <p className="text-base sm:text-lg font-semibold text-gray-900">{formatCurrency(totalCustomerPrice)}</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-900">{formatCurrency(customerTotal)}</p>
               </div>
               <div>
                 <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Profit</p>
@@ -733,7 +565,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                   {formatCurrency(profit)}
                 </p>
                 <p className="text-[10px] sm:text-xs text-gray-500">
-                  {totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : 0}% margin
+                  {totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : (customerTotal > 0 ? '100' : '0')}% margin
                 </p>
               </div>
             </div>
@@ -773,7 +605,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
             </button>
             <button
               onClick={handleGeneratePdf}
-              disabled={generating || saving}
+              disabled={generating || saving || !totalCustomerPrice}
               className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-medium rounded-lg sm:rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-sm order-1 sm:order-3"
             >
               {saving ? (
@@ -810,3 +642,4 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 }
 
 export default ContractPreview
+
