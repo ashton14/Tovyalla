@@ -208,24 +208,17 @@ export const generateContractPdf = async (contractData) => {
       }))
     : []
   
-  // Build scope of work items
-  // For change orders, use custom change order items
-  // For contracts/proposals, use subcontractor fees
+  // Build scope of work items from custom scope in preview only
   let scopeOfWork = []
-  if (docType === 'change_order' && contractData.changeOrderItems && contractData.changeOrderItems.length > 0) {
-    // For change orders, use custom items with name + description
-    scopeOfWork = contractData.changeOrderItems
-      .filter(item => item.name) // Only include items with a name
+  
+  if (contractData.customScopeOfWork && contractData.customScopeOfWork.length > 0) {
+    // Use custom scope of work items from document preview
+    scopeOfWork = contractData.customScopeOfWork
+      .filter(item => item.item) // Only include items with a title
       .map((item) => ({
-        item: item.name,
+        item: item.item,
         description: item.description || '',
       }))
-  } else if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
-    // For contracts/proposals, use subcontractor fees
-    scopeOfWork = expenses.subcontractorFees.map((fee) => ({
-      job: fee.job_description || 'Work',
-      subcontractor: fee.subcontractors?.name || 'TBD',
-    }))
   }
 
   // Build contact info string (phone, website on same line if both exist)
@@ -338,50 +331,35 @@ export const generateContractPdf = async (contractData) => {
       { text: 'The Contractor agrees to perform the following work:', style: 'paragraph' },
       { text: '\n' },
       
-      // Scope of work items (no amounts - prices are shown in payment schedule)
-      scopeOfWork.length > 0 ? (
-        docType === 'change_order' ? {
-          // For change orders, show item name and description
-          table: {
-            headerRows: 1,
-            widths: ['100%'],
-            body: [
-              [
-                { text: 'Item', style: 'tableHeader' },
+      // Scope of work items (from preview only)
+      scopeOfWork.length > 0 ? {
+        // Custom scope of work: show item title and description with more spacing
+        stack: scopeOfWork.map((item, index) => ({
+          stack: [
+            { 
+              text: item.item || '', 
+              fontSize: 12, 
+              bold: true, 
+              color: '#111827',
+              margin: [0, index === 0 ? 0 : 15, 0, 6],
+            },
+            item.description ? { 
+              text: item.description, 
+              fontSize: 10, 
+              color: '#374151',
+              lineHeight: 1.4,
+              margin: [15, 0, 0, 8],
+            } : {},
+            // Separator line between items (except last)
+            index < scopeOfWork.length - 1 ? {
+              canvas: [
+                { type: 'line', x1: 0, y1: 5, x2: 520, y2: 5, lineWidth: 0.5, lineColor: '#e5e7eb' }
               ],
-              ...scopeOfWork.map(item => [
-                { 
-                  text: [
-                    { text: item.item || '', style: 'tableValue', bold: true },
-                    item.description ? { text: `\n${item.description}`, style: 'tableValue' } : '',
-                  ],
-                  style: 'tableValue',
-                },
-              ]),
-            ],
-          },
-          layout: 'lightHorizontalLines',
-          margin: [0, 0, 0, 10],
-        } : {
-          // For contracts/proposals, show work description and subcontractor
-          table: {
-            headerRows: 1,
-            widths: ['60%', '40%'],
-            body: [
-              [
-                { text: 'Work Description', style: 'tableHeader' },
-                { text: 'Subcontractor', style: 'tableHeader' },
-              ],
-              ...scopeOfWork.map(item => [
-                { text: item.job, style: 'tableValue' },
-                { text: item.subcontractor, style: 'tableValue' },
-              ]),
-            ],
-          },
-          layout: 'lightHorizontalLines',
-          margin: [0, 0, 0, 10],
-        }
-      ) : { text: 'Scope of work to be determined.', style: 'note' },
+            } : {},
+          ],
+        })),
+        margin: [0, 5, 0, 15],
+      } : { text: 'Scope of work to be determined.', style: 'note' },
       
       { text: '\n' },
       
@@ -412,7 +390,7 @@ export const generateContractPdf = async (contractData) => {
       ] : [],
       
       // ================== PAYMENT SCHEDULE ==================
-      { text: 'MILESTONE PAYMENT SCHEDULE', style: 'sectionHeader', pageBreak: 'before' },
+      { text: 'MILESTONE PAYMENT SCHEDULE', style: 'sectionHeader' },
       {
         table: {
           headerRows: 1,

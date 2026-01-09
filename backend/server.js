@@ -3011,6 +3011,14 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       .eq('document_type', document_type)
       .order('sort_order', { ascending: true });
 
+    // Get saved scope of work items for this project filtered by document type
+    const { data: savedScopeOfWork } = await supabase
+      .from('scope_of_work')
+      .select('*')
+      .eq('project_id', id)
+      .eq('document_type', document_type)
+      .order('sort_order', { ascending: true });
+
     res.json({
       documentNumber: formattedNumber,
       documentDate,
@@ -3036,6 +3044,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         grandTotal: parseFloat(project.est_value || 0),
       },
       savedMilestones: savedMilestones || [], // Previously saved customer prices for this project
+      savedScopeOfWork: savedScopeOfWork || [], // Previously saved scope of work items for this project
       savedCustomerPrice: project.customer_price ? parseFloat(project.customer_price) : null, // Total customer price from project
     });
   } catch (error) {
@@ -3210,6 +3219,156 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
     });
   } catch (error) {
     console.error('Save milestones error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ==================== SCOPE OF WORK ENDPOINTS ====================
+
+// Get scope of work items for a project (optionally filtered by document type)
+app.get('/api/projects/:id/scope-of-work', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { document_type } = req.query; // Optional filter by document type
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Build query for scope of work items
+    let query = supabase
+      .from('scope_of_work')
+      .select('*')
+      .eq('project_id', id);
+
+    // Filter by document type if provided
+    if (document_type) {
+      query = query.eq('document_type', document_type);
+    }
+
+    const { data: scopeOfWork, error } = await query.order('sort_order', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ scopeOfWork: scopeOfWork || [] });
+  } catch (error) {
+    console.error('Get scope of work error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Save/update scope of work items for a project (batch operation)
+app.put('/api/projects/:id/scope-of-work', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+    const { scopeOfWork, document_type } = req.body;
+
+    if (!scopeOfWork || !Array.isArray(scopeOfWork)) {
+      return res.status(400).json({ error: 'scopeOfWork array is required' });
+    }
+
+    // Default to 'contract' if no document_type provided
+    const docType = document_type || 'contract';
+
+    // Validate document_type
+    const validDocTypes = ['proposal', 'contract', 'change_order'];
+    if (!validDocTypes.includes(docType)) {
+      return res.status(400).json({ error: 'Invalid document_type. Must be proposal, contract, or change_order' });
+    }
+
+    // Verify project belongs to user's company
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Delete existing scope of work items for this project AND document type only
+    await supabase
+      .from('scope_of_work')
+      .delete()
+      .eq('project_id', id)
+      .eq('company_id', companyID)
+      .eq('document_type', docType);
+
+    // Insert new scope of work items with document_type
+    const itemsToInsert = scopeOfWork
+      .filter(item => item.title && item.title.trim()) // Only insert items with a title
+      .map((item, index) => ({
+        company_id: companyID,
+        project_id: id,
+        title: item.title,
+        description: item.description || null,
+        sort_order: index,
+        document_type: docType,
+      }));
+
+    if (itemsToInsert.length === 0) {
+      return res.json({ scopeOfWork: [] });
+    }
+
+    const { data: savedItems, error: insertError } = await supabase
+      .from('scope_of_work')
+      .insert(itemsToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting scope of work:', insertError);
+      return res.status(500).json({ error: insertError.message });
+    }
+
+    res.json({ scopeOfWork: savedItems });
+  } catch (error) {
+    console.error('Save scope of work error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

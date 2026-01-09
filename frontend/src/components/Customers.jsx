@@ -157,11 +157,17 @@ function Customers() {
 
   // Filter customers
   const filteredCustomers = customers.filter((customer) => {
+    const search = searchTerm.toLowerCase()
     const matchesSearch =
       searchTerm === '' ||
-      `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone?.includes(searchTerm)
+      `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(search) ||
+      customer.email?.toLowerCase().includes(search) ||
+      customer.phone?.includes(searchTerm) ||
+      customer.address_line1?.toLowerCase().includes(search) ||
+      customer.address_line2?.toLowerCase().includes(search) ||
+      customer.city?.toLowerCase().includes(search) ||
+      customer.state?.toLowerCase().includes(search) ||
+      customer.zip_code?.includes(searchTerm)
     
     const matchesStatus = filterStatus === 'all' || customer.pipeline_status === filterStatus
     
@@ -428,7 +434,7 @@ function Customers() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, email, or phone..."
+              placeholder="Search by name, email, phone, or location..."
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
             />
           </div>

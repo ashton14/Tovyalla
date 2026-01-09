@@ -14,43 +14,46 @@ const formatCurrency = (amount) => {
 
 function ContractPreview({ contractData, onClose, onGenerate }) {
   const { supabase } = useAuth()
+  const [activeTab, setActiveTab] = useState('scope') // 'scope' or 'milestones'
   const [totalCustomerPrice, setTotalCustomerPrice] = useState('')
   const [milestones, setMilestones] = useState([])
+  const [scopeOfWork, setScopeOfWork] = useState([])
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [nextMilestoneId, setNextMilestoneId] = useState(1)
+  const [nextScopeId, setNextScopeId] = useState(1)
 
-  // Calculate total cost from expenses
+  // Calculate total cost from expenses (use actual prices, fall back to expected if no actual)
   const calculateTotalCost = () => {
     if (!contractData?.expenses) return 0
     const { expenses } = contractData
     let total = 0
 
-    // Subcontractor fees
+    // Subcontractor fees (use flat_fee/actual first, then expected_value)
     if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
       expenses.subcontractorFees.forEach((fee) => {
-        total += parseFloat(fee.expected_value || fee.flat_fee || 0)
+        total += parseFloat(fee.flat_fee || fee.expected_value || 0)
       })
     }
 
-    // Equipment
+    // Equipment (use actual_price first, then expected_price)
     if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
       expenses.equipment.forEach((eq) => {
-        total += parseFloat(eq.expected_price || eq.actual_price || 0)
+        total += parseFloat(eq.actual_price || eq.expected_price || 0)
       })
     }
 
-    // Materials
+    // Materials (use actual_price first, then expected_price)
     if (expenses.materials && expenses.materials.length > 0) {
       expenses.materials.forEach((mat) => {
-        total += parseFloat(mat.expected_price || mat.actual_price || 0)
+        total += parseFloat(mat.actual_price || mat.expected_price || 0)
       })
     }
 
-    // Additional expenses
+    // Additional expenses (use amount/actual first, then expected_value)
     if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
       expenses.additionalExpenses.forEach((exp) => {
-        total += parseFloat(exp.expected_value || exp.amount || 0)
+        total += parseFloat(exp.amount || exp.expected_value || 0)
       })
     }
 
@@ -59,11 +62,11 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   const totalCost = calculateTotalCost()
 
-  // Initialize from saved customer price and milestones if available
+  // Initialize from saved data if available
   useEffect(() => {
     if (!contractData) return
 
-    const { savedMilestones, savedCustomerPrice } = contractData
+    const { savedMilestones, savedCustomerPrice, savedScopeOfWork } = contractData
 
     // Use saved customer price from project if available, otherwise calculate from milestones
     if (savedCustomerPrice) {
@@ -102,7 +105,24 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
       setMilestones(defaultMilestones)
       setNextMilestoneId(3)
     }
+
+    // Load scope of work items
+    if (savedScopeOfWork && savedScopeOfWork.length > 0) {
+      const loadedScope = savedScopeOfWork.map((item, idx) => ({
+        id: `scope-${idx + 1}`,
+        title: item.title || '',
+        description: item.description || '',
+      }))
+      setScopeOfWork(loadedScope)
+      setNextScopeId(loadedScope.length + 1)
+    } else {
+      // Set default empty scope of work item
+      setScopeOfWork([{ id: 'scope-1', title: '', description: '' }])
+      setNextScopeId(2)
+    }
   }, [contractData])
+
+  // ==================== MILESTONE FUNCTIONS ====================
 
   // Add a new milestone
   const addMilestone = () => {
@@ -152,6 +172,31 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     return (total * pct) / 100
   }
 
+  // ==================== SCOPE OF WORK FUNCTIONS ====================
+
+  // Add a new scope of work item
+  const addScopeItem = () => {
+    const newItem = {
+      id: `scope-${nextScopeId}`,
+      title: '',
+      description: '',
+    }
+    setScopeOfWork(prev => [...prev, newItem])
+    setNextScopeId(prev => prev + 1)
+  }
+
+  // Remove a scope of work item
+  const removeScopeItem = (id) => {
+    setScopeOfWork(prev => prev.filter(item => item.id !== id))
+  }
+
+  // Update a scope of work item
+  const updateScopeItem = (id, field, value) => {
+    setScopeOfWork(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ))
+  }
+
   // Calculate totals
   const customerTotal = parseFloat(totalCustomerPrice) || 0
   const totalPercentage = milestones.reduce((sum, m) => sum + (parseFloat(m.percentage) || 0), 0)
@@ -166,44 +211,71 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   // Save milestones to the database
   const saveMilestones = async () => {
-    try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
-
-      const docType = contractData.documentType || 'contract'
-
-      const milestonesToSave = milestones.map((m, index) => ({
-        name: m.name || `Milestone ${index + 1}`,
-        milestone_type: m.milestoneType || 'custom',
-        cost: 0, // Cost is tracked at expense level, not milestone level in new system
-        customer_price: calculateAmount(m.percentage),
-        subcontractor_fee_id: m.subcontractorFeeId || null,
-      }))
-
-      const response = await axios.put(
-        `/api/projects/${contractData.project.id}/milestones`,
-        { 
-          milestones: milestonesToSave,
-          document_type: docType,
-          customer_price: parseFloat(totalCustomerPrice) || 0, // Save total customer price to project
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-
-      return response.data
-    } catch (error) {
-      console.error('Error saving milestones:', error)
-      throw error
+    const token = await getAuthToken()
+    if (!token) {
+      throw new Error('Not authenticated')
     }
+
+    const docType = contractData.documentType || 'contract'
+
+    const milestonesToSave = milestones.map((m, index) => ({
+      name: m.name || `Milestone ${index + 1}`,
+      milestone_type: m.milestoneType || 'custom',
+      cost: 0, // Cost is tracked at expense level, not milestone level in new system
+      customer_price: calculateAmount(m.percentage),
+      subcontractor_fee_id: m.subcontractorFeeId || null,
+    }))
+
+    const response = await axios.put(
+      `/api/projects/${contractData.project.id}/milestones`,
+      { 
+        milestones: milestonesToSave,
+        document_type: docType,
+        customer_price: parseFloat(totalCustomerPrice) || 0, // Save total customer price to project
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    return response.data
   }
 
-  // Save milestones only (without generating PDF)
+  // Save scope of work to the database
+  const saveScopeOfWork = async () => {
+    const token = await getAuthToken()
+    if (!token) {
+      throw new Error('Not authenticated')
+    }
+
+    const docType = contractData.documentType || 'contract'
+
+    const scopeToSave = scopeOfWork
+      .filter(item => item.title.trim()) // Only save items with a title
+      .map(item => ({
+        title: item.title,
+        description: item.description || '',
+      }))
+
+    const response = await axios.put(
+      `/api/projects/${contractData.project.id}/scope-of-work`,
+      { 
+        scopeOfWork: scopeToSave,
+        document_type: docType,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    return response.data
+  }
+
+  // Save all data (milestones and scope of work)
   const handleSaveOnly = async () => {
     if (Math.abs(totalPercentage - 100) > 0.01) {
       alert(`Milestone percentages must add up to 100%. Currently at ${totalPercentage.toFixed(2)}%`)
@@ -212,7 +284,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     
     setSaving(true)
     try {
-      await saveMilestones()
+      await Promise.all([saveMilestones(), saveScopeOfWork()])
     } catch (error) {
       console.error('Error saving:', error)
       alert('Failed to save: ' + error.message)
@@ -231,40 +303,34 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     setGenerating(true)
     setSaving(true)
     try {
-      // Save milestones to database first
-      await saveMilestones()
+      // Save milestones and scope of work to database first
+      await Promise.all([saveMilestones(), saveScopeOfWork()])
       setSaving(false)
 
-      // Build the customer payment schedule
-      const docType = contractData.documentType || 'contract'
-      let customerPaymentSchedule = milestones
+      // Build the customer payment schedule from milestones in the preview
+      const customerPaymentSchedule = milestones
         .filter(m => m.name && parseFloat(m.percentage) > 0)
         .map(m => ({
           description: m.name,
           amount: calculateAmount(m.percentage),
         }))
 
-      // For proposals, add balance message
-      if (docType === 'proposal') {
-        const initialFee = milestones.find(m => m.milestoneType === 'initial_fee')
-        customerPaymentSchedule = []
-        if (initialFee) {
-          customerPaymentSchedule.push({
-            description: initialFee.name,
-            amount: calculateAmount(initialFee.percentage),
-          })
-        }
-        customerPaymentSchedule.push({
-          description: 'Balance of schedule will be provided with contract',
-          amount: 0,
-        })
-      }
+      // Build scope of work items for the PDF
+      const scopeOfWorkItems = scopeOfWork
+        .filter(item => item.title.trim())
+        .map(item => ({
+          item: item.title,
+          description: item.description || '',
+        }))
 
-      // Create modified contract data with customer prices
+      // Create modified contract data with customer prices and scope of work
       const modifiedContractData = {
         ...contractData,
         customerPaymentSchedule,
         customerGrandTotal: customerTotal,
+        // Override change order items / scope of work with our custom entries
+        changeOrderItems: scopeOfWorkItems,
+        customScopeOfWork: scopeOfWorkItems,
       }
 
       await openContractPdf(modifiedContractData)
@@ -349,6 +415,42 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
     </div>
   )
 
+  // Mobile card component for scope of work
+  const ScopeCard = ({ item, index }) => (
+    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+      <div className="flex justify-between items-start mb-3">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Work Item {index + 1}</span>
+        {scopeOfWork.length > 1 && (
+          <button
+            onClick={() => removeScopeItem(item.id)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
+            title="Remove item"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
+      </div>
+      <div className="space-y-3">
+        <input
+          type="text"
+          value={item.title}
+          onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+          placeholder="Work title (e.g., Pool Excavation)"
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+        />
+        <textarea
+          value={item.description}
+          onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
+          placeholder="Description of work to be performed..."
+          rows={3}
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
+        />
+      </div>
+    </div>
+  )
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
       <div className="bg-white sm:rounded-lg shadow-xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -401,151 +503,288 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
             </p>
           </div>
 
-          {/* Info Banner */}
-          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
-              <strong>Payment Milestones:</strong> Add milestones and set what percentage of the total price is due at each stage.
-              Percentages must add up to 100%.
-            </p>
+          {/* Tab Navigation */}
+          <div className="mb-4 border-b border-gray-200">
+            <nav className="flex -mb-px" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('scope')}
+                className={`flex-1 sm:flex-none py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'scope'
+                    ? 'border-pool-blue text-pool-blue'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  Scope of Work
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('milestones')}
+                className={`flex-1 sm:flex-none py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'milestones'
+                    ? 'border-pool-blue text-pool-blue'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Milestones
+                  {totalPercentage !== 100 && milestones.length > 0 && (
+                    <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${Math.abs(totalPercentage - 100) < 0.01 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {totalPercentage.toFixed(0)}%
+                    </span>
+                  )}
+                </span>
+              </button>
+            </nav>
           </div>
 
-          {/* Percentage Warning */}
-          {totalPercentage !== 100 && milestones.length > 0 && (
-            <div className={`mb-4 p-3 rounded-lg border ${Math.abs(totalPercentage - 100) < 0.01 ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-              <p className="text-sm font-medium">
-                Total: {totalPercentage.toFixed(2)}% 
-                {Math.abs(totalPercentage - 100) > 0.01 && (
-                  <span> — {totalPercentage < 100 ? `Add ${(100 - totalPercentage).toFixed(2)}% more` : `Remove ${(totalPercentage - 100).toFixed(2)}%`}</span>
-                )}
-              </p>
-            </div>
+          {/* Scope of Work Tab */}
+          {activeTab === 'scope' && (
+            <>
+              {/* Info Banner */}
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+                  <strong>Scope of Work:</strong> Define the work items that will be performed. Each item should have a title and optional description.
+                </p>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="sm:hidden space-y-3">
+                {scopeOfWork.map((item, index) => (
+                  <ScopeCard key={item.id} item={item} index={index} />
+                ))}
+                
+                {/* Add Scope Item Button - Mobile */}
+                <button
+                  onClick={addScopeItem}
+                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Work Item
+                </button>
+              </div>
+
+              {/* Desktop Table Layout */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 w-1/3">Work Title</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Description</th>
+                      <th className="w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scopeOfWork.map((item, index) => (
+                      <tr key={item.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                        <td className="py-3 px-4 align-top">
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+                            placeholder="Enter work title"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                          />
+                        </td>
+                        <td className="py-3 px-4 align-top">
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
+                            placeholder="Description of work..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
+                          />
+                        </td>
+                        <td className="py-3 px-4 text-right align-top">
+                          {scopeOfWork.length > 1 && (
+                            <button
+                              onClick={() => removeScopeItem(item.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              title="Remove item"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Add Scope Item Row */}
+                    <tr>
+                      <td colSpan={3} className="py-3 px-4">
+                        <button
+                          onClick={addScopeItem}
+                          className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Work Item
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
-          {/* Mobile Card Layout */}
-          <div className="sm:hidden space-y-3">
-            {milestones.map((milestone, index) => (
-              <MilestoneCard key={milestone.id} milestone={milestone} index={index} />
-            ))}
-            
-            {/* Add Milestone Button - Mobile */}
-            <button
-              onClick={addMilestone}
-              className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Milestone
-            </button>
-
-            {/* Mobile Total Card */}
-            <div className="p-4 bg-gray-100 rounded-lg border-2 border-gray-300 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-gray-900">TOTAL</span>
-                <span className="font-bold text-gray-900 text-xl">{formatCurrency(customerTotal)}</span>
+          {/* Milestones Tab */}
+          {activeTab === 'milestones' && (
+            <>
+              {/* Info Banner */}
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+                  <strong>Payment Milestones:</strong> Add milestones and set what percentage of the total price is due at each stage.
+                </p>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {totalPercentage.toFixed(2)}% allocated
-              </div>
-            </div>
-          </div>
 
-          {/* Desktop Table Layout */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Milestone Name</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700 w-32">Percentage</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700 w-40">Amount</th>
-                  <th className="w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
+              {/* Percentage Warning */}
+              {totalPercentage !== 100 && milestones.length > 0 && (
+                <div className={`mb-4 p-3 rounded-lg border ${Math.abs(totalPercentage - 100) < 0.01 ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                  <p className="text-sm font-medium">
+                    Total: {totalPercentage.toFixed(2)}% 
+                    {Math.abs(totalPercentage - 100) > 0.01 && (
+                      <span> — {totalPercentage < 100 ? `Add ${(100 - totalPercentage).toFixed(2)}% more` : `Remove ${(totalPercentage - 100).toFixed(2)}%`}</span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {/* Mobile Card Layout */}
+              <div className="sm:hidden space-y-3">
                 {milestones.map((milestone, index) => (
-                  <tr key={milestone.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
-                    <td className="py-3 px-4">
-                      <input
-                        type="text"
-                        value={milestone.name}
-                        onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
-                        placeholder="Enter milestone name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="relative inline-flex items-center">
-                        <input
-                          type="number"
-                          value={milestone.percentage}
-                          onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
-                          placeholder="0"
-                          className="w-24 pr-7 pl-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                        />
-                        <span className="absolute right-3 text-gray-500">%</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="relative inline-flex items-center">
-                        <span className="absolute left-3 text-gray-500">$</span>
-                        <input
-                          type="number"
-                          value={calculateAmount(milestone.percentage).toFixed(2)}
-                          onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
-                          placeholder="0.00"
-                          className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
-                          step="0.01"
-                          min="0"
-                        />
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {milestones.length > 1 && (
-                        <button
-                          onClick={() => removeMilestone(milestone.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                          title="Remove milestone"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                  <MilestoneCard key={milestone.id} milestone={milestone} index={index} />
                 ))}
-                {/* Add Milestone Row */}
-                <tr>
-                  <td colSpan={4} className="py-3 px-4">
-                    <button
-                      onClick={addMilestone}
-                      className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Milestone
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-gray-300 bg-gray-100">
-                  <td className="py-4 px-4 font-bold text-gray-900">TOTAL</td>
-                  <td className="py-4 px-4 text-right font-semibold">
-                    <span className={totalPercentage === 100 ? 'text-green-600' : 'text-amber-600'}>
-                      {totalPercentage.toFixed(2)}%
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-right font-bold text-gray-900 text-lg">
-                    {formatCurrency(customerTotal)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                
+                {/* Add Milestone Button - Mobile */}
+                <button
+                  onClick={addMilestone}
+                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Milestone
+                </button>
+
+                {/* Mobile Total Card */}
+                <div className="p-4 bg-gray-100 rounded-lg border-2 border-gray-300 mt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-900">TOTAL</span>
+                    <span className="font-bold text-gray-900 text-xl">{formatCurrency(customerTotal)}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {totalPercentage.toFixed(2)}% allocated
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Table Layout */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Milestone Name</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 w-32">Percentage</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 w-40">Amount</th>
+                      <th className="w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {milestones.map((milestone, index) => (
+                      <tr key={milestone.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                        <td className="py-3 px-4">
+                          <input
+                            type="text"
+                            value={milestone.name}
+                            onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+                            placeholder="Enter milestone name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                          />
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="relative inline-flex items-center">
+                            <input
+                              type="number"
+                              value={milestone.percentage}
+                              onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
+                              placeholder="0"
+                              className="w-24 pr-7 pl-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                            />
+                            <span className="absolute right-3 text-gray-500">%</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="relative inline-flex items-center">
+                            <span className="absolute left-3 text-gray-500">$</span>
+                            <input
+                              type="number"
+                              value={calculateAmount(milestone.percentage).toFixed(2)}
+                              onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
+                              placeholder="0.00"
+                              className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                              step="0.01"
+                              min="0"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {milestones.length > 1 && (
+                            <button
+                              onClick={() => removeMilestone(milestone.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              title="Remove milestone"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Add Milestone Row */}
+                    <tr>
+                      <td colSpan={4} className="py-3 px-4">
+                        <button
+                          onClick={addMilestone}
+                          className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Milestone
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-300 bg-gray-100">
+                      <td className="py-4 px-4 font-bold text-gray-900">TOTAL</td>
+                      <td className="py-4 px-4 text-right font-semibold">
+                        <span className={totalPercentage === 100 ? 'text-green-600' : 'text-amber-600'}>
+                          {totalPercentage.toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-gray-900 text-lg">
+                        {formatCurrency(customerTotal)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          )}
 
           {/* Profit Summary */}
           <div className="mt-4 sm:mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -642,4 +881,3 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 }
 
 export default ContractPreview
-
