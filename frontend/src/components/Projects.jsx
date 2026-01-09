@@ -6,6 +6,7 @@ import DocumentsModal from './DocumentsModal'
 import {
   useProjects,
   useCustomers,
+  useEmployees,
   useCreateProject,
   useUpdateProject,
   useDeleteProject,
@@ -37,6 +38,7 @@ function Projects() {
   // Use cached queries
   const { data: projects = [], isLoading: loading, refetch } = useProjects()
   const { data: customers = [] } = useCustomers()
+  const { data: employees = [] } = useEmployees()
   
   // Mutations
   const createProject = useCreateProject()
@@ -62,6 +64,7 @@ function Projects() {
 
   // Form state
   const [formData, setFormData] = useState({
+    project_name: '',
     customer_id: '',
     address: '',
     project_type: 'residential',
@@ -129,6 +132,7 @@ function Projects() {
   const handleEdit = (project) => {
     setEditingProject(project)
     setFormData({
+      project_name: project.project_name || '',
       customer_id: project.customer_id || '',
       address: project.address || '',
       project_type: project.project_type || 'residential',
@@ -146,6 +150,7 @@ function Projects() {
   // Reset form
   const resetForm = () => {
     setFormData({
+      project_name: '',
       customer_id: '',
       address: '',
       project_type: 'residential',
@@ -163,6 +168,7 @@ function Projects() {
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       searchTerm === '' ||
+      project.project_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.project_manager?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (project.customers && `${project.customers.first_name} ${project.customers.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -335,6 +341,7 @@ function Projects() {
         }
 
         const projectData = {
+          project_name: row.project_name || row['project_name'] || row['project name'] || row.name || '',
           customer_id: customerId || null,
           address: row.address || '',
           project_type: row.project_type || '',
@@ -566,6 +573,7 @@ function Projects() {
                     </ul>
                     <p className="mt-2"><strong>Optional:</strong></p>
                     <ul className="list-disc list-inside ml-2">
+                      <li><code className="bg-blue-100 px-1 rounded">project_name</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">customer_name</code> or <code className="bg-blue-100 px-1 rounded">customer_id</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">address</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">sq_feet</code></li>
@@ -582,9 +590,9 @@ function Projects() {
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
                   <h4 className="font-semibold text-gray-900 mb-2">Example CSV Format:</h4>
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
-{`project_type,pool_or_spa,address,customer_name,status,est_value
-residential,pool,123 Main St,John Doe,sold,50000
-commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
+{`project_name,project_type,pool_or_spa,address,customer_name,status,est_value
+Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000
+Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                   </pre>
                 </div>
 
@@ -675,6 +683,17 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                  <input
+                    type="text"
+                    value={formData.project_name}
+                    onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
+                    placeholder="e.g., Smith Pool Build"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -697,12 +716,18 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Project Manager
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.project_manager}
                       onChange={(e) => setFormData({ ...formData, project_manager: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                    />
+                    >
+                      <option value="">Select a project manager...</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.name}>
+                          {employee.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -800,14 +825,14 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Accessories & Features
+                    Description of Work
                   </label>
                   <textarea
                     value={formData.accessories_features}
                     onChange={(e) => setFormData({ ...formData, accessories_features: e.target.value })}
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
-                    placeholder="List accessories and features..."
+                    placeholder="Describe the project..."
                   />
                 </div>
 
@@ -855,6 +880,9 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Project Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -889,7 +917,7 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="11" className="px-6 py-12 text-center text-gray-500">
                     {projects.length === 0
                       ? 'No projects yet. Click "Add Project" to get started.'
                       : 'No projects match your search criteria.'}
@@ -902,6 +930,11 @@ commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
                     <tr key={project.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
+                          {project.project_name || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
                           {getCustomerName(project)}
                         </div>
                       </td>

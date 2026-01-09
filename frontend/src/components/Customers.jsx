@@ -489,7 +489,7 @@ function Customers() {
                       <li><code className="bg-blue-100 px-1 rounded">state</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">zip_code</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">country</code> (defaults to "USA")</li>
-                      <li><code className="bg-blue-100 px-1 rounded">referred_by</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">referred_by</code> (Lead Source)</li>
                       <li><code className="bg-blue-100 px-1 rounded">pipeline_status</code> (defaults to "lead")</li>
                       <li><code className="bg-blue-100 px-1 rounded">notes</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">estimated_value</code></li>
@@ -703,12 +703,11 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
                     <input
                       type="text"
                       value={formData.referred_by}
                       onChange={(e) => setFormData({ ...formData, referred_by: e.target.value })}
-                      placeholder="Who referred this customer?"
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
                     />
                   </div>
@@ -801,7 +800,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Referred By
+                  Lead Source
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estimated Value

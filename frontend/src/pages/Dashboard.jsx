@@ -19,7 +19,7 @@ import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 import Goals from '../components/Goals'
-import { useEmployees, useProjects, useEvents, useStatistics, useMonthlyStatistics } from '../hooks/useApi'
+import { useEmployees, useProjects, useStatistics, useMonthlyStatistics } from '../hooks/useApi'
 
 const CHART_METRICS = [
   { value: 'value', label: 'Total Value', color: '#0ea5e9', format: 'currency' },
@@ -44,7 +44,6 @@ function Dashboard() {
   // Use cached queries
   const { data: employees = [] } = useEmployees()
   const { data: projects = [] } = useProjects()
-  const { data: events = [] } = useEvents()
   const { data: statistics = { totalEstValue: 0, totalProfit: 0, totalExpenses: 0, projectCount: 0 }, isLoading: loadingStats } = useStatistics(timePeriod)
   const { data: monthlyData, isLoading: loadingMonthly } = useMonthlyStatistics(chartYear)
 
@@ -73,24 +72,6 @@ function Dashboard() {
     sold: projects.filter((p) => p.status === 'sold').length,
     total: projects.filter((p) => ['proposal_request', 'proposal_sent', 'sold'].includes(p.status)).length,
   }
-
-  // Get today's events from cached data
-  const todayEvents = (() => {
-    const today = new Date()
-    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-
-    return events
-      .filter((event) => {
-        if (!event.date) return false
-        const eventDate = event.date.split('T')[0]
-        return eventDate === todayString
-      })
-      .sort((a, b) => {
-        if (!a.time) return 1
-        if (!b.time) return -1
-        return a.time.localeCompare(b.time)
-      })
-  })()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -520,42 +501,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Today's Tasks */}
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-800">Today's Tasks</h3>
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {todayEvents.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <p>No tasks scheduled for today</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-200">
-                      {todayEvents.map((event) => (
-                        <div key={event.id} className="p-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-gray-900">{event.name}</h4>
-                              {event.time && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  {(() => {
-                                    const [hours, minutes] = event.time.split(':')
-                                    const hour12 = parseInt(hours) % 12 || 12
-                                    const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM'
-                                    return `${hour12}:${minutes} ${ampm}`
-                                  })()}
-                                </p>
-                              )}
-                              {event.employee_name && (
-                                <p className="text-xs text-gray-400 mt-1">Assigned to: {event.employee_name}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           )}
 
