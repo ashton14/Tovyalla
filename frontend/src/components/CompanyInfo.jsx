@@ -276,9 +276,9 @@ function CompanyInfo() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
             Company Information
           </h3>
           {!editing && (
@@ -305,8 +305,8 @@ function CompanyInfo() {
 
         <div className="space-y-4">
           {/* Company Logo */}
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-6">
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">Company Logo</h4>
+          <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-6">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Company Logo</h4>
             <div className="flex items-center gap-6">
               {/* Logo Display */}
               <div className="flex-shrink-0">
@@ -332,7 +332,7 @@ function CompanyInfo() {
 
               {/* Upload Controls */}
               <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
                   Upload your company logo. Recommended size: 200x200 pixels or larger. Max file size: 5MB.
                 </p>
                 <div className="flex gap-3">
@@ -377,7 +377,7 @@ function CompanyInfo() {
                     </button>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Supported formats: JPEG, PNG, GIF, WebP, SVG
                 </p>
               </div>
@@ -385,21 +385,21 @@ function CompanyInfo() {
           </div>
 
           {/* Company ID (read-only) */}
-          <div className="bg-pool-light border border-pool-blue rounded-md p-4">
+          <div className="bg-pool-light dark:bg-pool-blue/20 border border-pool-blue rounded-md p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                   Company ID
                 </p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
                   {user.user_metadata.companyID}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                   Your Email
                 </p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
                   {user.email}
                 </p>
               </div>
@@ -408,132 +408,132 @@ function CompanyInfo() {
 
           {/* Editable Company Information */}
           <div className="mt-6">
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
               Company Details
             </h4>
             
             {editing ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Company Name
                   </label>
                   <input
                     type="text"
                     value={formData.company_name}
                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter company name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Address Line 1
                   </label>
                   <input
                     type="text"
                     value={formData.address_line1}
                     onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Street address"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Address Line 2
                   </label>
                   <input
                     type="text"
                     value={formData.address_line2}
                     onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Suite, unit, building, etc. (optional)"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       City
                     </label>
                     <input
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="City"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       State
                     </label>
                     <input
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="State"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       ZIP Code
                     </label>
                     <input
                       type="text"
                       value={formData.zip_code}
                       onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="ZIP Code"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Country
                   </label>
                   <input
                     type="text"
                     value={formData.country}
                     onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Country"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Phone Number
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="(555) 555-5555"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Website
                     </label>
                     <input
                       type="url"
                       value={formData.website}
                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="https://www.example.com"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     License Numbers
                   </label>
                   <div className="space-y-2">
@@ -577,14 +577,14 @@ function CompanyInfo() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Terms of Service / Legal Clauses
                   </label>
                   <textarea
                     value={formData.terms_of_service}
                     onChange={(e) => setFormData({ ...formData, terms_of_service: e.target.value })}
                     rows={8}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter your company's terms of service, legal clauses, warranty information, and other legal text that will appear on generated contracts and proposals..."
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -610,17 +610,17 @@ function CompanyInfo() {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 rounded-md p-4 space-y-3">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-4 space-y-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Company Name:</span>
-                  <p className="text-sm text-gray-900 mt-1">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Company Name:</span>
+                  <p className="text-sm text-gray-900 dark:text-white mt-1">
                     {company?.company_name || <span className="text-gray-400 italic">Not set</span>}
                   </p>
                 </div>
                 {(company?.address_line1 || company?.city || company?.state || company?.zip_code) && (
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Address:</span>
-                    <p className="text-sm text-gray-900 mt-1">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Address:</span>
+                    <p className="text-sm text-gray-900 dark:text-white mt-1">
                       {company?.address_line1 && <>{company.address_line1}<br /></>}
                       {company?.address_line2 && <>{company.address_line2}<br /></>}
                       {company?.city && company?.state && (
@@ -636,14 +636,14 @@ function CompanyInfo() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {company?.phone && (
                       <div>
-                        <span className="text-sm font-medium text-gray-600">Phone:</span>
-                        <p className="text-sm text-gray-900 mt-1">{company.phone}</p>
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Phone:</span>
+                        <p className="text-sm text-gray-900 dark:text-white mt-1">{company.phone}</p>
                       </div>
                     )}
                     {company?.website && (
                       <div>
-                        <span className="text-sm font-medium text-gray-600">Website:</span>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Website:</span>
+                        <p className="text-sm text-gray-900 dark:text-white mt-1">
                           <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-pool-blue hover:underline">
                             {company.website}
                           </a>
@@ -654,7 +654,7 @@ function CompanyInfo() {
                 )}
                 {company?.license_numbers && company.license_numbers.length > 0 && (
                   <div>
-                    <span className="text-sm font-medium text-gray-600">License Numbers:</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">License Numbers:</span>
                     <div className="mt-1 flex flex-wrap gap-2">
                       {company.license_numbers.map((license, index) => (
                         <span key={index} className="px-3 py-1 bg-pool-light text-pool-dark text-sm rounded-full border border-pool-blue">
@@ -666,14 +666,14 @@ function CompanyInfo() {
                 )}
                 {company?.terms_of_service && (
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Terms of Service / Legal Clauses:</span>
-                    <div className="mt-1 p-3 bg-gray-100 rounded-md max-h-40 overflow-y-auto">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.terms_of_service}</p>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Terms of Service / Legal Clauses:</span>
+                    <div className="mt-1 p-3 bg-gray-100 dark:bg-gray-600 rounded-md max-h-40 overflow-y-auto">
+                      <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{company.terms_of_service}</p>
                     </div>
                   </div>
                 )}
                 {!company?.company_name && !company?.address_line1 && !company?.phone && !company?.website && (
-                  <p className="text-sm text-gray-500 italic">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
                     No company information set. Click "Edit" to add company details.
                   </p>
                 )}
@@ -681,32 +681,6 @@ function CompanyInfo() {
             )}
           </div>
 
-          {/* Account Details (read-only) */}
-          <div className="mt-6">
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
-              Account Details
-            </h4>
-            <div className="bg-gray-50 rounded-md p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">User ID:</span>
-                <span className="text-sm font-mono text-gray-900">{user.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Account Created:</span>
-                <span className="text-sm text-gray-900">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Last Sign In:</span>
-                <span className="text-sm text-gray-900">
-                  {user.last_sign_in_at
-                    ? new Date(user.last_sign_in_at).toLocaleDateString()
-                    : 'N/A'}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

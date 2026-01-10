@@ -448,8 +448,8 @@ function Subcontractors() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Subcontractors</h2>
-          <p className="text-gray-600 mt-1">Manage your subcontractor database</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Subcontractors</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your subcontractor database</p>
         </div>
           <div className="flex gap-3">
           <button
@@ -484,15 +484,15 @@ function Subcontractors() {
       )}
 
       {/* Search Filter */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, contact name, email, or phone..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
       </div>
@@ -500,17 +500,17 @@ function Subcontractors() {
       {/* CSV Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowImportModal(false); setImportErrors([]); setImportProgress({ success: 0, failed: 0, total: 0 }); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Import Subcontractors from CSV</h3>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Import Subcontractors from CSV</h3>
                 <button
                   onClick={() => {
                     setShowImportModal(false)
                     setImportErrors([])
                     setImportProgress({ success: 0, failed: 0, total: 0 })
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -548,7 +548,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
 
                 {/* File Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Select CSV File
                   </label>
                   <input
@@ -556,7 +556,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                     accept=".csv"
                     onChange={handleCSVImport}
                     disabled={importing}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-pool-blue file:text-white hover:file:bg-pool-dark"
                   />
                 </div>
 
@@ -600,7 +600,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                       setImportErrors([])
                       setImportProgress({ success: 0, failed: 0, total: 0 })
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Close
                   </button>
@@ -614,10 +614,10 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
       {/* Subcontractor Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingSubcontractor(null); resetForm(); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   {editingSubcontractor ? 'Edit Subcontractor' : 'Add New Subcontractor'}
                 </h3>
                 <button
@@ -626,7 +626,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                     setEditingSubcontractor(null)
                     resetForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -634,7 +634,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Name *
                   </label>
                   <input
@@ -642,66 +642,66 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Primary Contact Name
                     </label>
                     <input
                       type="text"
                       value={formData.primary_contact_name}
                       onChange={(e) => setFormData({ ...formData, primary_contact_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Primary Contact Phone
                     </label>
                     <input
                       type="tel"
                       value={formData.primary_contact_phone}
                       onChange={(e) => setFormData({ ...formData, primary_contact_phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Primary Contact Email
                   </label>
                   <input
                     type="email"
                     value={formData.primary_contact_email}
                     onChange={(e) => setFormData({ ...formData, primary_contact_email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     COI Expiration
                   </label>
                   <input
                     type="date"
                     value={formData.coi_expiration}
                     onChange={(e) => setFormData({ ...formData, coi_expiration: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Additional notes about this subcontractor..."
                   />
                 </div>
@@ -714,7 +714,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                       setEditingSubcontractor(null)
                       resetForm()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
@@ -732,29 +732,29 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
       )}
 
       {/* Subcontractors Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Primary Contact
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   COI Expiration
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredSubcontractors.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {subcontractors.length === 0
                       ? 'No subcontractors yet. Click "Add Subcontractor" to get started.'
                       : 'No subcontractors match your search criteria.'}
@@ -764,17 +764,17 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                 paginatedSubcontractors.map((subcontractor) => {
                   const coiStatus = getCOIStatus(subcontractor.coi_expiration)
                   return (
-                    <tr key={subcontractor.id} className="hover:bg-gray-50">
+                    <tr key={subcontractor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{subcontractor.name || '-'}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{subcontractor.name || '-'}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{subcontractor.primary_contact_name || '-'}</div>
-                        <div className="text-sm text-gray-500">{subcontractor.primary_contact_phone || '-'}</div>
-                        <div className="text-sm text-gray-500">{subcontractor.primary_contact_email || '-'}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{subcontractor.primary_contact_name || '-'}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{subcontractor.primary_contact_phone || '-'}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{subcontractor.primary_contact_email || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {subcontractor.coi_expiration
                             ? formatDateLocal(subcontractor.coi_expiration)
                             : '-'}
@@ -825,15 +825,15 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
 
       {/* Pagination */}
       {filteredSubcontractors.length > itemsPerPage && (
-        <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center justify-between">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
             Showing {startIndex + 1} to {Math.min(endIndex, filteredSubcontractors.length)} of {filteredSubcontractors.length} subcontractors
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -851,7 +851,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                       className={`px-3 py-1 border rounded-md text-sm font-medium ${
                         currentPage === page
                           ? 'bg-pool-blue text-white border-pool-blue'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       {page}
@@ -866,7 +866,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>
@@ -876,13 +876,13 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Total Subcontractors</p>
-          <p className="text-2xl font-bold text-gray-900">{subcontractors.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total Subcontractors</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{subcontractors.length}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Expired COIs</p>
-          <p className="text-2xl font-bold text-red-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Expired COIs</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
             {subcontractors.filter((s) => {
               if (!s.coi_expiration) return false
               const today = getTodayString()
@@ -890,9 +890,9 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
             }).length}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Expiring Soon (30 days)</p>
-          <p className="text-2xl font-bold text-yellow-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Expiring Soon (30 days)</p>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {subcontractors.filter((s) => {
               if (!s.coi_expiration) return false
               const today = getTodayString()

@@ -537,15 +537,15 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-gray-800">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
               Documents - {entityName}
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
             >
               ✕
             </button>
@@ -564,9 +564,9 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
           )}
 
           {/* Upload Section */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-md">
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Upload Document
               </label>
               {/* Create Document Button - Only show for projects */}
@@ -586,7 +586,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   </button>
                   {/* Dropdown Menu */}
                   {showCreateMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-10">
                       <div className="py-1">
                         <button
                           onClick={() => {
@@ -594,7 +594,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                             handleGenerateProposal()
                           }}
                           disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {generatingContract ? (
                             <>
@@ -619,7 +619,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                             handleGenerateContract()
                           }}
                           disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {generatingContract ? (
                             <>
@@ -644,7 +644,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                             handleGenerateChangeOrder()
                           }}
                           disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {generatingContract ? (
                             <>
@@ -933,7 +933,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   setPreviewUrl(null)
                   setPreviewFileName('')
                 }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold"
               >
                 ✕
               </button>
@@ -982,7 +982,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   setPreviewUrl(null)
                   setPreviewFileName('')
                 }}
-                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-medium rounded-md transition-colors"
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-sm font-medium rounded-md transition-colors"
               >
                 Close
               </button>
@@ -1006,12 +1006,12 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       {/* Edit Document Modal */}
       {editingDocument && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={() => setEditingDocument(null)}>
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Edit Document</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Edit Document</h3>
               <button
                 onClick={() => setEditingDocument(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold"
               >
                 ✕
               </button>
@@ -1019,7 +1019,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
 
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Document Name
                 </label>
                 <input
@@ -1027,18 +1027,18 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   placeholder="Enter document name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Document Type
                 </label>
                 <select
                   value={editForm.document_type}
                   onChange={(e) => setEditForm({ ...editForm, document_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="contract">Contract</option>
                   <option value="proposal">Proposal</option>
@@ -1048,13 +1048,13 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Status
                 </label>
                 <select
                   value={editForm.status}
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="draft">Draft</option>
                   <option value="sent">Sent</option>
@@ -1065,17 +1065,17 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
               </div>
 
               {editingDocument.document_number && (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   Document #: {String(editingDocument.document_number).padStart(5, '0')}
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
               <button
                 onClick={() => setEditingDocument(null)}
                 disabled={saving}
-                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1122,10 +1122,10 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       {/* Notes Modal */}
       {showNotesModal && selectedDocumentForNotes && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowNotesModal(false); setSelectedDocumentForNotes(null); setDocumentNotes(''); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   Notes for {selectedDocumentForNotes.name || selectedDocumentForNotes.file_name}
                 </h3>
                 <button
@@ -1134,7 +1134,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     setSelectedDocumentForNotes(null)
                     setDocumentNotes('')
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -1142,7 +1142,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Notes
                   </label>
                   <textarea
@@ -1150,7 +1150,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     onChange={(e) => setDocumentNotes(e.target.value)}
                     placeholder="Add notes about this document..."
                     rows={8}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue resize-none"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                   />
                 </div>
 
@@ -1174,7 +1174,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                       setSelectedDocumentForNotes(null)
                       setDocumentNotes('')
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>

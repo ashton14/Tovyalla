@@ -19,6 +19,7 @@ import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 import Goals from '../components/Goals'
+import Settings from '../components/Settings'
 import { useEmployees, useProjects, useStatistics, useMonthlyStatistics } from '../hooks/useApi'
 
 const CHART_METRICS = [
@@ -83,7 +84,7 @@ function Dashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const section = urlParams.get('section')
-    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals'].includes(section)) {
+    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'settings'].includes(section)) {
       setActiveSection(section)
       // Clean up URL
       const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString().replace(/section=[^&]*&?/g, '').replace(/&$/, '') : '')
@@ -134,10 +135,10 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pool-blue mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     )
@@ -154,7 +155,7 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -165,18 +166,18 @@ function Dashboard() {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col
+        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col
         transform transition-transform duration-300 ease-in-out
         lg:relative lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-14 w-auto" />
           {/* Close button for mobile */}
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -191,7 +192,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'overview'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Dashboard</span>
@@ -201,7 +202,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'company'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Company Info</span>
@@ -211,7 +212,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'customers'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Customers</span>
@@ -221,7 +222,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'projects'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Projects</span>
@@ -231,7 +232,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'inventory'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Inventory</span>
@@ -241,7 +242,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'subcontractors'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Subcontractors</span>
@@ -251,7 +252,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'employees'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Employees</span>
@@ -261,7 +262,7 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'calendar'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Calendar</span>
@@ -271,25 +272,45 @@ function Dashboard() {
             className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
               activeSection === 'goals'
                 ? 'bg-pool-blue text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium">Goals</span>
           </button>
+
+          {/* Divider */}
+          <div className="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+
+          <button
+            onClick={() => handleNavClick('settings')}
+            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+              activeSection === 'settings'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <span className="font-medium flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </span>
+          </button>
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="mb-4">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Logged in as</p>
-            <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Logged in as</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.email}</p>
             {user.user_metadata?.companyID && (
-              <p className="text-xs text-gray-500 mt-1">{user.user_metadata.companyID}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{user.user_metadata.companyID}</p>
             )}
           </div>
           <button
             onClick={handleLogout}
-            className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
           >
             Logout
           </button>
@@ -299,10 +320,10 @@ function Dashboard() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto lg:ml-0">
         {/* Mobile Header */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center lg:hidden">
+        <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -315,7 +336,7 @@ function Dashboard() {
           {activeSection === 'overview' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
                   Welcome, {employeeName?.split(' ')[0] || user.email}!
                 </h2>
               </div>
@@ -323,11 +344,11 @@ function Dashboard() {
               {/* Project Statistics */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <h3 className="text-xl font-semibold text-gray-800">Project Statistics</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Project Statistics</h3>
                   <select
                     value={timePeriod}
                     onChange={(e) => setTimePeriod(e.target.value)}
-                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="day">Last Day</option>
                     <option value="week">Last Week</option>
@@ -345,38 +366,38 @@ function Dashboard() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Total Estimated Value */}
-                    <div className="bg-white rounded-lg shadow p-6 border-l-4 border-pool-blue">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-pool-blue">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <p className="text-sm text-gray-500 uppercase tracking-wide">Total Est. Value</p>
-                          <p className="text-3xl font-bold text-gray-900 mt-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Est. Value</p>
+                          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
                             ${statistics.totalEstValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         {statistics.projectCount} {statistics.projectCount === 1 ? 'project' : 'projects'}
                       </p>
                     </div>
 
                     {/* Total Profit */}
-                    <div className={`bg-white rounded-lg shadow p-6 border-l-4 ${statistics.totalProfit >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+                    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 ${statistics.totalProfit >= 0 ? 'border-green-500' : 'border-red-500'}`}>
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <p className="text-sm text-gray-500 uppercase tracking-wide">Total Profit</p>
-                          <p className={`text-3xl font-bold mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Profit</p>
+                          <p className={`text-3xl font-bold mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             ${statistics.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         Revenue: ${(statistics.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         Expenses: ${statistics.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       {(statistics.totalRevenue || 0) > 0 && (
-                        <p className={`text-xs font-medium mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-xs font-medium mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           Margin: {((statistics.totalProfit / (statistics.totalRevenue || 1)) * 100).toFixed(1)}%
                         </p>
                       )}
@@ -388,12 +409,12 @@ function Dashboard() {
               {/* Monthly Chart */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <h3 className="text-xl font-semibold text-gray-800">Monthly Overview</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Monthly Overview</h3>
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <select
                       value={chartYear}
                       onChange={(e) => setChartYear(parseInt(e.target.value))}
-                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       {yearOptions.map((year) => (
                         <option key={year} value={year}>
@@ -404,7 +425,7 @@ function Dashboard() {
                     <select
                       value={chartMetric}
                       onChange={(e) => setChartMetric(e.target.value)}
-                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       {CHART_METRICS.map((metric) => (
                         <option key={metric.value} value={metric.value}>
@@ -415,7 +436,7 @@ function Dashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                   {loadingMonthly ? (
                     <div className="flex items-center justify-center py-16">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pool-blue"></div>
@@ -449,23 +470,23 @@ function Dashboard() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center py-16 text-gray-500">
+                    <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
                       No data available for {chartYear}
                     </div>
                   )}
 
                   {/* Chart Legend / Summary */}
                   {monthlyData?.monthlyData && !loadingMonthly && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">
+                        <span className="text-gray-600 dark:text-gray-400">
                           <span
                             className="inline-block w-3 h-3 rounded mr-2"
                             style={{ backgroundColor: selectedMetric.color }}
                           ></span>
                           {selectedMetric.label} for {chartYear}
                         </span>
-                        <span className="font-semibold text-gray-800">
+                        <span className="font-semibold text-gray-800 dark:text-white">
                           {selectedMetric.format === 'currency' ? (
                             <>Total: ${monthlyData.monthlyData.reduce((sum, m) => sum + (m[chartMetric] || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                           ) : (
@@ -480,23 +501,23 @@ function Dashboard() {
 
               {/* Projects In Progress */}
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-800">Projects In Progress</h3>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Projects In Progress</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-400">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Proposal Request</p>
-                    <p className="text-3xl font-bold text-gray-900">{projectsInProgress.proposalRequest}</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-gray-400">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Request</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.proposalRequest}</p>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Proposal Sent</p>
-                    <p className="text-3xl font-bold text-gray-900">{projectsInProgress.proposalSent}</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Sent</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.proposalSent}</p>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Sold</p>
-                    <p className="text-3xl font-bold text-gray-900">{projectsInProgress.sold}</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Sold</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.sold}</p>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6 border-l-4 border-pool-blue">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Total</p>
-                    <p className="text-3xl font-bold text-gray-900">{projectsInProgress.total}</p>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-pool-blue">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.total}</p>
                   </div>
                 </div>
               </div>
@@ -512,6 +533,7 @@ function Dashboard() {
           {activeSection === 'employees' && <Employees />}
           {activeSection === 'calendar' && <Calendar />}
           {activeSection === 'goals' && <Goals />}
+          {activeSection === 'settings' && <Settings />}
         </div>
       </main>
     </div>

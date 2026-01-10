@@ -355,9 +355,9 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   // Mobile card component for milestones
   const MilestoneCard = ({ milestone, index }) => (
-    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
       <div className="flex justify-between items-start mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone {index + 1}</span>
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Milestone {index + 1}</span>
         {milestones.length > 1 && (
           <button
             onClick={() => removeMilestone(milestone.id)}
@@ -376,18 +376,18 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           value={milestone.name}
           onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
           placeholder="Milestone name"
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
         />
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Percentage</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Percentage</label>
             <div className="relative">
               <input
                 type="number"
                 value={milestone.percentage}
                 onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
                 placeholder="0"
-                className="w-full pr-8 pl-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                className="w-full pr-8 pl-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 step="0.01"
                 min="0"
                 max="100"
@@ -396,15 +396,15 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Amount</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
               <input
                 type="number"
                 value={calculateAmount(milestone.percentage).toFixed(2)}
                 onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
                 placeholder="0.00"
-                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 step="0.01"
                 min="0"
               />
@@ -417,9 +417,9 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   // Mobile card component for scope of work
   const ScopeCard = ({ item, index }) => (
-    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
       <div className="flex justify-between items-start mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Work Item {index + 1}</span>
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Work Item {index + 1}</span>
         {scopeOfWork.length > 1 && (
           <button
             onClick={() => removeScopeItem(item.id)}
@@ -458,7 +458,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
         <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-2xl font-bold text-gray-800 leading-tight">
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-white leading-tight">
                 {docType === 'proposal' ? 'Proposal' :
                  docType === 'change_order' ? 'Change Order' :
                  'Contract'} Preview
@@ -469,7 +469,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1 -mr-1 flex-shrink-0"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 -mr-1 flex-shrink-0"
               aria-label="Close"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -816,7 +816,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
             <button
               onClick={onClose}
-              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-800 font-medium rounded-lg sm:rounded-md transition-colors text-base sm:text-sm order-3 sm:order-1"
+              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 active:bg-gray-400 text-gray-800 dark:text-white font-medium rounded-lg sm:rounded-md transition-colors text-base sm:text-sm order-3 sm:order-1"
             >
               Cancel
             </button>

@@ -158,8 +158,8 @@ function Goals() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Goals</h2>
-          <p className="text-gray-600 mt-1">Track your business goals and progress</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Goals</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Track your business goals and progress</p>
         </div>
         <button
           onClick={() => {
@@ -188,10 +188,10 @@ function Goals() {
       {/* Goal Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingGoal(null); resetForm(); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   {editingGoal ? 'Edit Goal' : 'Create New Goal'}
                 </h3>
                 <button
@@ -200,7 +200,7 @@ function Goals() {
                     setEditingGoal(null)
                     resetForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -208,7 +208,7 @@ function Goals() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Goal Name *
                   </label>
                   <input
@@ -217,19 +217,19 @@ function Goals() {
                     onChange={(e) => setFormData({ ...formData, goal_name: e.target.value })}
                     required
                     placeholder="e.g., Q1 Profit Target"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Data Point *
                   </label>
                   <select
                     value={formData.data_point_type}
                     onChange={(e) => setFormData({ ...formData, data_point_type: e.target.value })}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="">Select a data point...</option>
                     {dataPoints.map((dp) => (
@@ -241,7 +241,7 @@ function Goals() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Target Value *
                   </label>
                   <input
@@ -251,34 +251,34 @@ function Goals() {
                     onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
                     required
                     placeholder="0"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Start Date (Optional)
                   </label>
                   <input
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Only count data from this date forward (leave empty for Total/all time)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Only count data from this date forward (leave empty for Total/all time)</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Target Date (Optional)
                   </label>
                   <input
                     type="date"
                     value={formData.target_date}
                     onChange={(e) => setFormData({ ...formData, target_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500 mt-1">When you want to achieve this goal</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">When you want to achieve this goal</p>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
@@ -289,7 +289,7 @@ function Goals() {
                       setEditingGoal(null)
                       resetForm()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
@@ -309,9 +309,9 @@ function Goals() {
 
       {/* Goals List */}
       {goals.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500 text-lg mb-4">No goals yet</p>
-          <p className="text-gray-400 mb-6">Create your first goal to start tracking progress</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+          <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">No goals yet</p>
+          <p className="text-gray-400 dark:text-gray-500 mb-6">Create your first goal to start tracking progress</p>
           <button
             onClick={() => {
               resetForm()
@@ -369,22 +369,22 @@ function Goals() {
             return (
               <div
                 key={goal.id}
-                className={`bg-white rounded-lg shadow-lg border-l-4 ${colors.border} p-6`}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg border-l-4 ${colors.border} p-6`}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{dataPointInfo.icon}</span>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">{goal.goal_name}</h3>
-                      <p className="text-sm text-gray-500">{dataPointInfo.label}</p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{goal.goal_name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{dataPointInfo.label}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         {goal.start_date 
                           ? `From: ${new Date(goal.start_date).toLocaleDateString()}`
                           : 'Period: Total (All Time)'
                         }
                       </p>
                       {goal.target_date && (
-                        <p className={`text-xs mt-1 ${goal.is_overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                        <p className={`text-xs mt-1 ${goal.is_overdue ? 'text-red-600 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
                           Target: {new Date(goal.target_date).toLocaleDateString()}
                           {goal.is_overdue && ' (Overdue)'}
                         </p>
@@ -439,7 +439,7 @@ function Goals() {
                   <p className={`text-3xl font-bold ${colors.text}`}>
                     {formatValue(goal.current_value || 0)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Target: {formatValue(goal.target_value)}
                   </p>
                   {isOverGoal ? (
@@ -447,7 +447,7 @@ function Goals() {
                       {formatValue(goal.current_value - goal.target_value)} over goal! 🎉
                     </p>
                   ) : (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       {formatValue(goal.target_value - goal.current_value)} remaining
                     </p>
                   )}
@@ -456,12 +456,12 @@ function Goals() {
                 {/* Progress Bar */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Progress</span>
+                    <span className="text-gray-600 dark:text-gray-400">Progress</span>
                     <span className={`font-semibold ${colors.text}`}>
                       {percentage.toFixed(1)}%
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
                     <div
                       className={`h-full ${colors.progress} transition-all duration-500 ease-out rounded-full ${
                         isOverGoal ? 'bg-gradient-to-r from-green-400 to-green-600' : ''
@@ -476,7 +476,7 @@ function Goals() {
                     </div>
                   </div>
                   {isOverGoal && (
-                    <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden -mt-4 opacity-30">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden -mt-4 opacity-30">
                       <div
                         className="h-full bg-green-500"
                         style={{ width: '100%' }}

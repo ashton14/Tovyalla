@@ -232,19 +232,19 @@ function Employees() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Employees</h2>
-        <p className="text-gray-600 mt-1">Manage your employee database and email whitelist</p>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Employees</h2>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your employee database and email whitelist</p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('employees')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'employees'
                 ? 'border-pool-blue text-pool-blue'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
             }`}
           >
             Employees
@@ -254,7 +254,7 @@ function Employees() {
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'whitelist'
                 ? 'border-pool-blue text-pool-blue'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
             }`}
           >
             Email Whitelist
@@ -268,8 +268,8 @@ function Employees() {
           {/* Employees Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-semibold text-gray-800">Employee Management</h3>
-              <p className="text-gray-600 mt-1">Add, edit, and manage your employees</p>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Employee Management</h3>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Add, edit, and manage your employees</p>
             </div>
             <button
               onClick={() => {
@@ -296,15 +296,15 @@ function Employees() {
       )}
 
       {/* Search Filter */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, email, phone, user type, or role..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
       </div>
@@ -312,10 +312,10 @@ function Employees() {
       {/* Employee Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingEmployee(null); resetForm(); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
                 </h3>
                 <button
@@ -324,7 +324,7 @@ function Employees() {
                     setEditingEmployee(null)
                     resetForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -333,7 +333,7 @@ function Employees() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Name *
                     </label>
                     <input
@@ -341,19 +341,19 @@ function Employees() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       User Type *
                     </label>
                     <select
                       value={formData.user_type}
                       onChange={(e) => setFormData({ ...formData, user_type: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       {USER_TYPES.map((type) => (
                         <option key={type.value} value={type.value}>
@@ -364,13 +364,13 @@ function Employees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       User Role
                     </label>
                     <select
                       value={formData.user_role}
                       onChange={(e) => setFormData({ ...formData, user_role: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Select a role</option>
                       {USER_ROLES.map((role) => (
@@ -382,7 +382,7 @@ function Employees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Email Address *
                     </label>
                     <input
@@ -390,25 +390,25 @@ function Employees() {
                       value={formData.email_address}
                       onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
 
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Registered Time Zone
                     </label>
                     <input
@@ -416,12 +416,12 @@ function Employees() {
                       value={formData.registered_time_zone}
                       onChange={(e) => setFormData({ ...formData, registered_time_zone: e.target.value })}
                       placeholder="e.g., PST, EST, UTC"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Calendar Color
                     </label>
                     <div className="flex items-center gap-3">
@@ -453,7 +453,7 @@ function Employees() {
                       onChange={(e) => setFormData({ ...formData, current: e.target.checked })}
                       className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
                     />
-                    <label htmlFor="current" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor="current" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                       Current
                     </label>
                   </div>
@@ -466,7 +466,7 @@ function Employees() {
                       onChange={(e) => setFormData({ ...formData, is_project_manager: e.target.checked })}
                       className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
                     />
-                    <label htmlFor="is_project_manager" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor="is_project_manager" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                       Project Manager
                     </label>
                   </div>
@@ -479,7 +479,7 @@ function Employees() {
                       onChange={(e) => setFormData({ ...formData, is_sales_person: e.target.checked })}
                       className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
                     />
-                    <label htmlFor="is_sales_person" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor="is_sales_person" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                       Sales Person
                     </label>
                   </div>
@@ -492,7 +492,7 @@ function Employees() {
                       onChange={(e) => setFormData({ ...formData, is_foreman: e.target.checked })}
                       className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
                     />
-                    <label htmlFor="is_foreman" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor="is_foreman" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                       Foreman
                     </label>
                   </div>
@@ -507,7 +507,7 @@ function Employees() {
                       setEditingEmployee(null)
                       resetForm()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
@@ -525,47 +525,47 @@ function Employees() {
       )}
 
       {/* Employees Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   User Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   User Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Email Address
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Phone
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Last Logon
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Current
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Roles
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Time Zone
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {employees.length === 0
                       ? 'No employees yet. Click "Add Employee" to get started.'
                       : 'No employees match your search criteria.'}
@@ -579,7 +579,7 @@ function Employees() {
                   if (employee.is_foreman) roles.push('Foreman')
 
                   return (
-                    <tr key={employee.id} className="hover:bg-gray-50">
+                    <tr key={employee.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div
@@ -589,27 +589,27 @@ function Employees() {
                             }}
                             title={`Calendar color: ${employee.color || '#0ea5e9'}`}
                           />
-                          <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{employee.name}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">
+                        <div className="text-sm text-gray-900 dark:text-white capitalize">
                           {USER_TYPES.find((t) => t.value === employee.user_type)?.label || employee.user_type}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {USER_ROLES.find((r) => r.value === employee.user_role)?.label || employee.user_role || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{employee.email_address}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{employee.email_address}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{employee.phone || '-'}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{employee.phone || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           {employee.last_logon
                             ? new Date(employee.last_logon).toLocaleString()
                             : 'Never'}
@@ -643,7 +643,7 @@ function Employees() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{employee.registered_time_zone || '-'}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{employee.registered_time_zone || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
@@ -683,15 +683,15 @@ function Employees() {
 
       {/* Pagination */}
       {activeTab === 'employees' && filteredEmployees.length > itemsPerPage && (
-        <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center justify-between">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
             Showing {startIndex + 1} to {Math.min(endIndex, filteredEmployees.length)} of {filteredEmployees.length} employees
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -709,7 +709,7 @@ function Employees() {
                       className={`px-3 py-1 border rounded-md text-sm font-medium ${
                         currentPage === page
                           ? 'bg-pool-blue text-white border-pool-blue'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       {page}
@@ -724,7 +724,7 @@ function Employees() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

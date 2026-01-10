@@ -614,7 +614,7 @@ function ProjectExpenses({ project, onClose }) {
   if (!expenses) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <p className="text-red-600">Failed to load expenses</p>
             <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-300 rounded-md">
@@ -631,17 +631,17 @@ function ProjectExpenses({ project, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Project Expenses</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Project Expenses</h2>
               <p className="text-gray-600">{project.address || 'Project'}</p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
             >
               ✕
             </button>
@@ -851,19 +851,19 @@ function ProjectExpenses({ project, onClose }) {
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Subcontractor Fees</h3>
             {expenses.subcontractorFees && expenses.subcontractorFees.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subcontractor</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual Fee</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Subcontractor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Job Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual Fee</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                     {expenses.subcontractorFees.map((entry) => (
                       <tr key={entry.id}>
                         <td className="px-4 py-3 text-sm text-gray-900">{entry.subcontractors?.name || '-'}</td>
@@ -916,20 +916,20 @@ function ProjectExpenses({ project, onClose }) {
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Materials Used</h3>
             {expenses.materials && expenses.materials.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Material</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                     {expenses.materials.map((entry) => {
                       const expectedPrice = parseFloat(entry.expected_price || 0)
                       const actualPrice = parseFloat(entry.actual_price || 0)
@@ -991,19 +991,19 @@ function ProjectExpenses({ project, onClose }) {
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Equipment</h3>
             {expenses.equipment && expenses.equipment.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Ordered</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                     {expenses.equipment.map((entry) => {
                       const expectedTotal = parseFloat(entry.expected_price || 0)
                       const actualTotal = parseFloat(entry.actual_price || 0)
@@ -1067,19 +1067,19 @@ function ProjectExpenses({ project, onClose }) {
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Additional Expenses</h3>
             {expenses.additionalExpenses && expenses.additionalExpenses.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Category</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                     {expenses.additionalExpenses.map((entry) => (
                       <tr key={entry.id}>
                         <td className="px-4 py-3 text-sm text-gray-900">
@@ -1131,10 +1131,10 @@ function ProjectExpenses({ project, onClose }) {
           {/* Subcontractor Form Modal */}
           {showSubcontractorForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowSubcontractorForm(false); setEditingSubcontractor(null); }}>
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingSubcontractor ? 'Edit' : 'Add'} Subcontractor Fee
                     </h3>
                     <button
@@ -1142,7 +1142,7 @@ function ProjectExpenses({ project, onClose }) {
                         setShowSubcontractorForm(false)
                         setEditingSubcontractor(null)
                       }}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       ✕
                     </button>
@@ -1150,12 +1150,12 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleSubcontractorSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Subcontractor *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcontractor *</label>
                       <select
                         value={subcontractorForm.subcontractor_id}
                         onChange={(e) => handleSubcontractorSelect(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="">Select subcontractor...</option>
                         {subcontractors.map((sub) => (
@@ -1168,22 +1168,22 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
                         <input
                           type="date"
                           value={subcontractorForm.date_added}
                           onChange={(e) => setSubcontractorForm({ ...subcontractorForm, date_added: e.target.value })}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
                         <select
                           value={subcontractorForm.status}
                           onChange={(e) => setSubcontractorForm({ ...subcontractorForm, status: e.target.value })}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                           <option value="incomplete">Incomplete</option>
                           <option value="in_progress">In Progress</option>
@@ -1193,12 +1193,12 @@ function ProjectExpenses({ project, onClose }) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Job Description *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Job Description *</label>
                       <input
                         type="text"
                         value={subcontractorForm.job_description}
                         onChange={(e) => setSubcontractorForm({ ...subcontractorForm, job_description: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="e.g., Excavation, Plumbing, Electrical, etc."
                         required
                       />
@@ -1206,36 +1206,36 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Value ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={subcontractorForm.expected_value}
                           onChange={(e) => setSubcontractorForm({ ...subcontractorForm, expected_value: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Fee ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Fee ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={subcontractorForm.flat_fee}
                           onChange={(e) => setSubcontractorForm({ ...subcontractorForm, flat_fee: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                       <textarea
                         value={subcontractorForm.notes}
                         onChange={(e) => setSubcontractorForm({ ...subcontractorForm, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
@@ -1246,7 +1246,7 @@ function ProjectExpenses({ project, onClose }) {
                           setShowSubcontractorForm(false)
                           setEditingSubcontractor(null)
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </button>
@@ -1266,10 +1266,10 @@ function ProjectExpenses({ project, onClose }) {
           {/* Material Form Modal */}
           {showMaterialForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowMaterialForm(false); setEditingMaterial(null); }}>
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingMaterial ? 'Edit' : 'Add'} Material
                     </h3>
                     <button
@@ -1277,7 +1277,7 @@ function ProjectExpenses({ project, onClose }) {
                         setShowMaterialForm(false)
                         setEditingMaterial(null)
                       }}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       ✕
                     </button>
@@ -1285,12 +1285,12 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleMaterialSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Material *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Material *</label>
                       <select
                         value={materialForm.inventory_id}
                         onChange={(e) => handleMaterialInventorySelect(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="">Select material...</option>
                         {inventory.filter(item => item.type === 'material').map((item) => (
@@ -1303,43 +1303,43 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Ordered</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Ordered</label>
                         <input
                           type="date"
                           value={materialForm.date_ordered}
                           onChange={(e) => setMaterialForm({ ...materialForm, date_ordered: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Received</label>
                         <input
                           type="date"
                           value={materialForm.date_received}
                           onChange={(e) => setMaterialForm({ ...materialForm, date_received: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
                       <input
                         type="number"
                         step="0.01"
                         value={materialForm.quantity}
                         onChange={(e) => handleMaterialQuantityChange(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
                       <select
                         value={materialForm.status}
                         onChange={(e) => setMaterialForm({ ...materialForm, status: e.target.value })}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="incomplete">Incomplete</option>
                         <option value="in_progress">In Progress</option>
@@ -1349,36 +1349,36 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Price ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={materialForm.expected_price}
                           onChange={(e) => setMaterialForm({ ...materialForm, expected_price: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Price ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={materialForm.actual_price}
                           onChange={(e) => setMaterialForm({ ...materialForm, actual_price: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                       <textarea
                         value={materialForm.notes}
                         onChange={(e) => setMaterialForm({ ...materialForm, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
@@ -1389,7 +1389,7 @@ function ProjectExpenses({ project, onClose }) {
                           setShowMaterialForm(false)
                           setEditingMaterial(null)
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </button>
@@ -1409,10 +1409,10 @@ function ProjectExpenses({ project, onClose }) {
           {/* Additional Expense Form Modal */}
           {showAdditionalForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowAdditionalForm(false); setEditingAdditional(null); }}>
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingAdditional ? 'Edit' : 'Add'} Additional Expense
                     </h3>
                     <button
@@ -1420,7 +1420,7 @@ function ProjectExpenses({ project, onClose }) {
                         setShowAdditionalForm(false)
                         setEditingAdditional(null)
                       }}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       ✕
                     </button>
@@ -1428,34 +1428,34 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleAdditionalSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
                       <input
                         type="text"
                         value={additionalForm.description}
                         onChange={(e) => setAdditionalForm({ ...additionalForm, description: e.target.value })}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
                         <input
                           type="date"
                           value={additionalForm.expense_date}
                           onChange={(e) => setAdditionalForm({ ...additionalForm, expense_date: e.target.value })}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
                         <select
                           value={additionalForm.status}
                           onChange={(e) => setAdditionalForm({ ...additionalForm, status: e.target.value })}
                           required
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                           <option value="incomplete">Incomplete</option>
                           <option value="in_progress">In Progress</option>
@@ -1466,47 +1466,47 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Value ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Value ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={additionalForm.expected_value}
                           onChange={(e) => setAdditionalForm({ ...additionalForm, expected_value: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Amount ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Amount ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={additionalForm.amount}
                           onChange={(e) => setAdditionalForm({ ...additionalForm, amount: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                       <input
                         type="text"
                         value={additionalForm.category}
                         onChange={(e) => setAdditionalForm({ ...additionalForm, category: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="e.g., Equipment, Permit, Travel"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                       <textarea
                         value={additionalForm.notes}
                         onChange={(e) => setAdditionalForm({ ...additionalForm, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
@@ -1517,7 +1517,7 @@ function ProjectExpenses({ project, onClose }) {
                           setShowAdditionalForm(false)
                           setEditingAdditional(null)
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </button>
@@ -1537,10 +1537,10 @@ function ProjectExpenses({ project, onClose }) {
           {/* Equipment Form Modal */}
           {showEquipmentForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowEquipmentForm(false); setEditingEquipment(null); }}>
-              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingEquipment ? 'Edit' : 'Add'} Equipment
                     </h3>
                     <button
@@ -1548,7 +1548,7 @@ function ProjectExpenses({ project, onClose }) {
                         setShowEquipmentForm(false)
                         setEditingEquipment(null)
                       }}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       ✕
                     </button>
@@ -1556,12 +1556,12 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleEquipmentSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipment *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment *</label>
                       <select
                         value={equipmentForm.inventory_id}
                         onChange={(e) => handleEquipmentInventorySelect(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="">Select equipment...</option>
                         {inventory.filter(item => item.type === 'equipment').map((item) => (
@@ -1574,43 +1574,43 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Ordered</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Ordered</label>
                         <input
                           type="date"
                           value={equipmentForm.date_ordered}
                           onChange={(e) => setEquipmentForm({ ...equipmentForm, date_ordered: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Received</label>
                         <input
                           type="date"
                           value={equipmentForm.date_received}
                           onChange={(e) => setEquipmentForm({ ...equipmentForm, date_received: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
                       <input
                         type="number"
                         step="1"
                         min="1"
                         value={equipmentForm.quantity}
                         onChange={(e) => handleEquipmentQuantityChange(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                       <select
                         value={equipmentForm.status}
                         onChange={(e) => setEquipmentForm({ ...equipmentForm, status: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="pending">Pending</option>
                         <option value="ordered">Ordered</option>
@@ -1622,36 +1622,36 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Price ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={equipmentForm.expected_price}
                           onChange={(e) => setEquipmentForm({ ...equipmentForm, expected_price: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Actual Price ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Price ($)</label>
                         <input
                           type="number"
                           step="0.01"
                           value={equipmentForm.actual_price}
                           onChange={(e) => setEquipmentForm({ ...equipmentForm, actual_price: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                       <textarea
                         value={equipmentForm.notes}
                         onChange={(e) => setEquipmentForm({ ...equipmentForm, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
 
@@ -1662,7 +1662,7 @@ function ProjectExpenses({ project, onClose }) {
                           setShowEquipmentForm(false)
                           setEditingEquipment(null)
                         }}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         Cancel
                       </button>

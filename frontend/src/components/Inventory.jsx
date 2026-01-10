@@ -378,19 +378,19 @@ function Inventory() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Inventory</h2>
-        <p className="text-gray-600 mt-1">Manage your materials and equipment inventory</p>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Inventory</h2>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your materials and equipment inventory</p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('materials')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'materials'
                 ? 'border-pool-blue text-pool-blue'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
             }`}
           >
             Materials
@@ -400,7 +400,7 @@ function Inventory() {
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'equipment'
                 ? 'border-pool-blue text-pool-blue'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
             }`}
           >
             Equipment
@@ -414,8 +414,8 @@ function Inventory() {
           {/* Materials Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-semibold text-gray-800">Materials Management</h3>
-              <p className="text-gray-600 mt-1">Add, edit, and manage your materials</p>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Materials Management</h3>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Add, edit, and manage your materials</p>
             </div>
             <div className="flex gap-3">
               <button
@@ -446,56 +446,56 @@ function Inventory() {
           )}
 
           {/* Search Filter */}
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, brand, model, or color..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
           </div>
 
 
           {/* Materials Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Stock
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Unit
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Brand
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Model
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Color
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Unit Price
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredMaterials.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {materials.filter(m => m.type === currentType).length === 0
                       ? `No ${currentType === 'material' ? 'materials' : 'equipment'} yet. Click "Add ${currentType === 'material' ? 'Material' : 'Equipment'}" to get started.`
                       : 'No items match your search criteria.'}
@@ -503,27 +503,27 @@ function Inventory() {
                 </tr>
               ) : (
                 paginatedMaterials.map((material) => (
-                  <tr key={material.id} className="hover:bg-gray-50">
+                  <tr key={material.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{material.name || '-'}</div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{material.name || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.stock ?? '-'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{material.stock ?? '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.unit || '-'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{material.unit || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.brand || '-'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{material.brand || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.model || '-'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{material.model || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{material.color || '-'}</div>
+                      <div className="text-sm text-gray-900 dark:text-white">{material.color || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-gray-900 dark:text-white">
                         {material.unit_price
                           ? `$${parseFloat(material.unit_price).toFixed(2)}`
                           : '-'}
@@ -567,15 +567,15 @@ function Inventory() {
 
           {/* Pagination */}
           {filteredMaterials.length > itemsPerPage && (
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredMaterials.length)} of {filteredMaterials.length} {currentType === 'material' ? 'materials' : 'equipment'}
               </div>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -593,7 +593,7 @@ function Inventory() {
                       className={`px-3 py-1 border rounded-md text-sm font-medium ${
                         currentPage === page
                           ? 'bg-pool-blue text-white border-pool-blue'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       {page}
@@ -608,7 +608,7 @@ function Inventory() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>
@@ -618,21 +618,21 @@ function Inventory() {
 
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredMaterials.length}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredMaterials.length}</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Total Stock Value</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Stock Value</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 ${filteredMaterials
                   .reduce((sum, m) => sum + (m.stock || 0) * (m.unit_price || 0), 0)
                   .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Low Stock Items</p>
-              <p className="text-2xl font-bold text-red-600">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Low Stock Items</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {filteredMaterials.filter((m) => (m.stock || 0) < 10).length}
               </p>
             </div>
@@ -645,8 +645,8 @@ function Inventory() {
           {/* Equipment Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-semibold text-gray-800">Equipment Management</h3>
-              <p className="text-gray-600 mt-1">Add, edit, and manage your equipment</p>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Equipment Management</h3>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Add, edit, and manage your equipment</p>
             </div>
             <div className="flex gap-3">
               <button
@@ -677,55 +677,55 @@ function Inventory() {
           )}
 
           {/* Search Filter */}
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, brand, model, or color..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
           </div>
 
           {/* Equipment Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Stock
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Unit
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Brand
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Model
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Color
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Unit Price
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan="8" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                         {materials.filter(m => m.type === currentType).length === 0
                           ? `No ${currentType === 'material' ? 'materials' : 'equipment'} yet. Click "Add ${currentType === 'material' ? 'Material' : 'Equipment'}" to get started.`
                           : 'No items match your search criteria.'}
@@ -733,27 +733,27 @@ function Inventory() {
                     </tr>
                   ) : (
                     paginatedMaterials.map((material) => (
-                      <tr key={material.id} className="hover:bg-gray-50">
+                      <tr key={material.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{material.name || '-'}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{material.name || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{material.stock ?? '-'}</div>
+                          <div className="text-sm text-gray-900 dark:text-white">{material.stock ?? '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{material.unit || '-'}</div>
+                          <div className="text-sm text-gray-900 dark:text-white">{material.unit || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{material.brand || '-'}</div>
+                          <div className="text-sm text-gray-900 dark:text-white">{material.brand || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{material.model || '-'}</div>
+                          <div className="text-sm text-gray-900 dark:text-white">{material.model || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{material.color || '-'}</div>
+                          <div className="text-sm text-gray-900 dark:text-white">{material.color || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-white">
                             {material.unit_price
                               ? `$${parseFloat(material.unit_price).toFixed(2)}`
                               : '-'}
@@ -797,15 +797,15 @@ function Inventory() {
 
           {/* Pagination */}
           {filteredMaterials.length > itemsPerPage && (
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredMaterials.length)} of {filteredMaterials.length} {currentType === 'material' ? 'materials' : 'equipment'}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -823,7 +823,7 @@ function Inventory() {
                           className={`px-3 py-1 border rounded-md text-sm font-medium ${
                             currentPage === page
                               ? 'bg-pool-blue text-white border-pool-blue'
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                         >
                           {page}
@@ -838,7 +838,7 @@ function Inventory() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -848,21 +848,21 @@ function Inventory() {
 
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredMaterials.length}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total {currentType === 'material' ? 'Materials' : 'Equipment'}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredMaterials.length}</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Total Stock Value</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Stock Value</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 ${filteredMaterials
                   .reduce((sum, m) => sum + (m.stock || 0) * (m.unit_price || 0), 0)
                   .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <p className="text-sm text-gray-500">Low Stock Items</p>
-              <p className="text-2xl font-bold text-red-600">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Low Stock Items</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {filteredMaterials.filter((m) => (m.stock || 0) < 10).length}
               </p>
             </div>
@@ -873,17 +873,17 @@ function Inventory() {
       {/* CSV Import Modal - Shared between tabs */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowImportModal(false); setImportErrors([]); setImportProgress({ success: 0, failed: 0, total: 0 }); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Import {activeTab === 'materials' ? 'Materials' : 'Equipment'} from CSV</h3>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Import {activeTab === 'materials' ? 'Materials' : 'Equipment'} from CSV</h3>
                 <button
                   onClick={() => {
                     setShowImportModal(false)
                     setImportErrors([])
                     setImportProgress({ success: 0, failed: 0, total: 0 })
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -923,7 +923,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
 
                 {/* File Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Select CSV File
                   </label>
                   <input
@@ -931,7 +931,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                     accept=".csv"
                     onChange={handleCSVImport}
                     disabled={importing}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-pool-blue file:text-white hover:file:bg-pool-dark"
                   />
                 </div>
 
@@ -975,7 +975,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                       setImportErrors([])
                       setImportProgress({ success: 0, failed: 0, total: 0 })
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Close
                   </button>
@@ -989,10 +989,10 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
       {/* Form Modal - Shared between tabs */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingMaterial(null); resetForm(); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   {editingMaterial 
                     ? `Edit ${formData.type === 'equipment' ? 'Equipment' : 'Material'}` 
                     : `Add New ${formData.type === 'equipment' ? 'Equipment' : 'Material'}`}
@@ -1003,7 +1003,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                     setEditingMaterial(null)
                     resetForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -1011,7 +1011,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Name *
                   </label>
                   <input
@@ -1019,13 +1019,13 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Stock *
                     </label>
                     <input
@@ -1034,18 +1034,18 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                       value={formData.stock}
                       onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Unit *
                     </label>
                     <select
                       value={formData.unit}
                       onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Select unit</option>
                       <option value="unit">Unit</option>
@@ -1062,37 +1062,37 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Brand</label>
                     <input
                       type="text"
                       value={formData.brand}
                       onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
                     <input
                       type="text"
                       value={formData.model}
                       onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
                     <input
                       type="text"
                       value={formData.color}
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Unit Price ($) *
                     </label>
                     <input
@@ -1102,7 +1102,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                       value={formData.unit_price}
                       onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -1115,7 +1115,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                       setEditingMaterial(null)
                       resetForm()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>

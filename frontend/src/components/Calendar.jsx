@@ -350,8 +350,8 @@ function Calendar() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Calendar</h2>
-          <p className="text-gray-600 mt-1">Manage your Google Calendar events</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Calendar</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your Google Calendar events</p>
         </div>
         {googleConnected && (
           <button
@@ -368,12 +368,12 @@ function Calendar() {
       </div>
 
       {/* Google Calendar Connection Section */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Google Calendar</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Google Calendar</h3>
             {googleConnected && googleEmail && (
-              <p className="text-sm text-gray-600 mt-1">Connected as {googleEmail}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Connected as {googleEmail}</p>
             )}
           </div>
           {googleConnected ? (
@@ -413,14 +413,14 @@ function Calendar() {
       </div>
 
       {/* Google Calendar */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         {!googleConnected ? (
           <div className="text-center py-12">
             <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Connect Your Calendar</h3>
-            <p className="text-gray-500 mb-4">Connect your Google Calendar to view and manage your events</p>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Connect Your Calendar</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">Connect your Google Calendar to view and manage your events</p>
             <button
               onClick={handleGoogleSignIn}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition-colors inline-flex items-center gap-2"
@@ -466,7 +466,7 @@ function Calendar() {
       {/* Google Calendar Event Form Modal */}
       {showGoogleForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowGoogleForm(false); setEditingGoogleEvent(null); resetGoogleForm(); }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-gray-800">
@@ -478,7 +478,7 @@ function Calendar() {
                     setEditingGoogleEvent(null)
                     resetGoogleForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -546,7 +546,7 @@ function Calendar() {
                       setEditingGoogleEvent(null)
                       resetGoogleForm()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
