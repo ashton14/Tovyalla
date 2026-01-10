@@ -86,7 +86,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Register endpoint - checks whitelist before allowing registration
+// Register endpoint - requires company to exist and email to be whitelisted
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { companyID, email, password } = req.body;
@@ -97,49 +97,17 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // Check if this company ID exists in the whitelist at all
-    const { data: companyWhitelist, error: companyCheckError } = await supabase
-      .from('company_whitelist')
-      .select('*')
-      .eq('company_id', companyID);
+    // First, check if the company ID exists in the companies table
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('company_id')
+      .eq('company_id', companyID)
+      .single();
 
-    // If company doesn't exist in whitelist, allow first user to register
-    // This creates the company and adds them as the first user
-    if (!companyCheckError && (!companyWhitelist || companyWhitelist.length === 0)) {
-      // Company doesn't exist yet - allow registration and create whitelist entry
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            companyID: companyID,
-          },
-          emailRedirectTo: `${frontendUrl}/login`,
-        },
+    if (companyError || !company) {
+      return res.status(403).json({ 
+        error: 'Invalid Company ID. Please contact your administrator to get the correct Company ID.' 
       });
-
-      if (error) {
-        return res.status(400).json({ error: error.message });
-      }
-
-      // Create whitelist entry for this first user
-      await supabase
-        .from('company_whitelist')
-        .insert([
-          {
-            company_id: companyID,
-            email: email.toLowerCase(),
-            registered: true,
-            registered_at: new Date().toISOString(),
-          },
-        ]);
-
-      res.json({
-        user: data.user,
-        session: data.session,
-      });
-      return;
     }
 
     // Company exists - check if email is whitelisted
@@ -156,7 +124,14 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // Email is whitelisted - proceed with registration
+    // Check if this email has already been registered
+    if (whitelistData.registered) {
+      return res.status(400).json({ 
+        error: 'This email has already been registered. Please try logging in instead.' 
+      });
+    }
+
+    // Email is whitelisted and not yet registered - proceed with registration
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const { data, error } = await supabase.auth.signUp({
       email,

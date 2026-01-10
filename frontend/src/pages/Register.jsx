@@ -115,8 +115,8 @@ function Register() {
                 required
               />
               <p className="mt-1 text-xs text-gray-500">
-                Enter your company ID. If this is a new company, you'll be the first user. 
-                If the company already exists, your email must be on the whitelist.
+                Be sure an administrator has added your email to the whitelist on the employees 
+                page before registering.
               </p>
             </div>
 
