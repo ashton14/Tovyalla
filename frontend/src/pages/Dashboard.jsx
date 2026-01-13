@@ -168,12 +168,12 @@ function Dashboard() {
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 flex flex-col
         transform transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0
+        lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo/Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-14 w-auto" />
+        <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 w-auto" />
           {/* Close button for mobile */}
           <button
             onClick={() => setSidebarOpen(false)}
@@ -186,10 +186,10 @@ function Dashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1.5">
           <button
             onClick={() => handleNavClick('overview')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'overview'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -199,7 +199,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('company')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'company'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -209,7 +209,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('customers')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'customers'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -219,7 +219,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('projects')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'projects'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -229,7 +229,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('inventory')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'inventory'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -239,7 +239,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('subcontractors')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'subcontractors'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -249,7 +249,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('employees')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'employees'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -259,7 +259,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('calendar')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'calendar'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -269,7 +269,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('goals')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'goals'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -283,7 +283,7 @@ function Dashboard() {
 
           <button
             onClick={() => handleNavClick('settings')}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
               activeSection === 'settings'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -300,12 +300,12 @@ function Dashboard() {
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="mb-4">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="mb-3">
             <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Logged in as</p>
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.email}</p>
             {user.user_metadata?.companyID && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{user.user_metadata.companyID}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{user.user_metadata.companyID}</p>
             )}
           </div>
           <button
@@ -318,7 +318,7 @@ function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto lg:ml-0">
+      <main className="flex-1 overflow-auto lg:ml-64">
         {/* Mobile Header */}
         <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center lg:hidden">
           <button
