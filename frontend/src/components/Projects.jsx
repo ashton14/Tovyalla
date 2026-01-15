@@ -73,6 +73,7 @@ function Projects() {
     status: 'proposal_request',
     accessories_features: '',
     est_value: '',
+    closing_price: '',
     project_manager: '',
     notes: '',
   })
@@ -94,6 +95,7 @@ function Projects() {
       ...formData,
       sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
       est_value: formData.est_value ? parseFloat(formData.est_value) : null,
+      closing_price: formData.closing_price ? parseFloat(formData.closing_price) : null,
       customer_id: formData.customer_id || null,
     }
 
@@ -141,6 +143,7 @@ function Projects() {
       status: project.status || 'proposal_request',
       accessories_features: project.accessories_features || '',
       est_value: project.est_value || '',
+      closing_price: project.closing_price || '',
       project_manager: project.project_manager || '',
       notes: project.notes || '',
     })
@@ -159,6 +162,7 @@ function Projects() {
       status: 'proposal_request',
       accessories_features: '',
       est_value: '',
+      closing_price: '',
       project_manager: '',
       notes: '',
     })
@@ -350,6 +354,7 @@ function Projects() {
           status: row.status || 'proposal_request',
           accessories_features: row.accessories_features || row['accessories_features'] || row['accessories & features'] || '',
           est_value: row.est_value || row['est_value'] || row['estimated value'] || '',
+          closing_price: row.closing_price || row['closing_price'] || row['closing price'] || '',
           project_manager: row.project_manager || row['project_manager'] || row['project manager'] || row.pm || '',
           notes: row.notes || '',
         }
@@ -409,6 +414,13 @@ function Projects() {
           projectData.est_value = isNaN(parsed) ? null : parsed
         } else {
           projectData.est_value = null
+        }
+
+        if (projectData.closing_price) {
+          const parsed = parseFloat(projectData.closing_price)
+          projectData.closing_price = isNaN(parsed) ? null : parsed
+        } else {
+          projectData.closing_price = null
         }
 
         try {
@@ -580,6 +592,7 @@ function Projects() {
                       <li><code className="bg-blue-100 px-1 rounded">status</code> (defaults to "proposal_request")</li>
                       <li><code className="bg-blue-100 px-1 rounded">accessories_features</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">est_value</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">closing_price</code> (used for profit calculation)</li>
                       <li><code className="bg-blue-100 px-1 rounded">project_manager</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">notes</code></li>
                     </ul>
@@ -590,9 +603,9 @@ function Projects() {
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
                   <h4 className="font-semibold text-gray-900 mb-2">Example CSV Format:</h4>
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
-{`project_name,project_type,pool_or_spa,address,customer_name,status,est_value
-Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000
-Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000`}
+{`project_name,project_type,pool_or_spa,address,customer_name,status,est_value,closing_price
+Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000,48000
+Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000,`}
                   </pre>
                 </div>
 
@@ -664,211 +677,287 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
       {/* Project Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingProject(null); resetForm(); }}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                  {editingProject ? 'Edit Project' : 'Add New Project'}
-                </h3>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-pool-blue to-pool-dark px-6 py-4 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {editingProject ? 'Edit Project' : 'New Project'}
+                  </h3>
+                  <p className="text-pool-light text-sm mt-0.5">
+                    {editingProject ? 'Update project details' : 'Fill in the project information'}
+                  </p>
+                </div>
                 <button
                   onClick={() => {
                     setShowForm(false)
                     setEditingProject(null)
                     resetForm()
                   }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-white/70 hover:text-white transition-colors p-1"
                 >
-                  ✕
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Name</label>
-                  <input
-                    type="text"
-                    value={formData.project_name}
-                    onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
-                    placeholder="e.g., Smith Pool Build"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Customer
-                    </label>
-                    <select
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select a customer...</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.first_name} {customer.last_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Project Manager
-                    </label>
-                    <select
-                      value={formData.project_manager}
-                      onChange={(e) => setFormData({ ...formData, project_manager: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select a project manager...</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.name}>
-                          {employee.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Project Type *
-                    </label>
-                    <select
-                      value={formData.project_type}
-                      onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {PROJECT_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Pool or Spa *
-                    </label>
-                    <select
-                      value={formData.pool_or_spa}
-                      onChange={(e) => setFormData({ ...formData, pool_or_spa: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {POOL_OR_SPA_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Square Feet
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.sq_feet}
-                      onChange={(e) => setFormData({ ...formData, sq_feet: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Status *
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {PROJECT_STATUSES.map((status) => (
-                        <option key={status.value} value={status.value}>
-                          {status.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Estimated Value ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.est_value}
-                      onChange={(e) => setFormData({ ...formData, est_value: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description of Work
-                  </label>
-                  <textarea
-                    value={formData.accessories_features}
-                    onChange={(e) => setFormData({ ...formData, accessories_features: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Describe the project..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Additional project notes..."
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForm(false)
-                      setEditingProject(null)
-                      resetForm()
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createProject.isPending || updateProject.isPending}
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
-                  >
-                    {(createProject.isPending || updateProject.isPending) ? 'Saving...' : (editingProject ? 'Update Project' : 'Add Project')}
-                  </button>
-                </div>
-              </form>
             </div>
+
+            <form onSubmit={handleSubmit} className="p-6">
+              {/* Project Identity Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  Project Details
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Name</label>
+                    <input
+                      type="text"
+                      value={formData.project_name}
+                      onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
+                      placeholder="e.g., Smith Pool Build"
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
+                      <select
+                        value={formData.customer_id}
+                        onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        <option value="">Select a customer...</option>
+                        {customers.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {customer.first_name} {customer.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Manager</label>
+                      <select
+                        value={formData.project_manager}
+                        onChange={(e) => setFormData({ ...formData, project_manager: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        <option value="">Select a project manager...</option>
+                        {employees.map((employee) => (
+                          <option key={employee.id} value={employee.name}>
+                            {employee.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location & Specifications Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Location & Specifications
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="123 Main Street, City, State"
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Project Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.project_type}
+                        onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        {PROJECT_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Pool or Spa <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.pool_or_spa}
+                        onChange={(e) => setFormData({ ...formData, pool_or_spa: e.target.value })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        {POOL_OR_SPA_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Square Feet</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.sq_feet}
+                        onChange={(e) => setFormData({ ...formData, sq_feet: e.target.value })}
+                        placeholder="0"
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Financials Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Status & Financials
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Status <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        {PROJECT_STATUSES.map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estimated Value</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.est_value}
+                          onChange={(e) => setFormData({ ...formData, est_value: e.target.value })}
+                          placeholder="0.00"
+                          className="w-full pl-7 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Closing Price</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.closing_price}
+                          onChange={(e) => setFormData({ ...formData, closing_price: e.target.value })}
+                          placeholder="0.00"
+                          className="w-full pl-7 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for profit calculation</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description & Notes Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Description & Notes
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description of Work</label>
+                    <textarea
+                      value={formData.accessories_features}
+                      onChange={(e) => setFormData({ ...formData, accessories_features: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow resize-none"
+                      placeholder="Describe the project scope, features, and requirements..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Internal Notes</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow resize-none"
+                      placeholder="Additional notes for internal use..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false)
+                    setEditingProject(null)
+                    resetForm()
+                  }}
+                  className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createProject.isPending || updateProject.isPending}
+                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg disabled:opacity-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  {(createProject.isPending || updateProject.isPending) ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {editingProject ? 'Update Project' : 'Create Project'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -312,214 +312,230 @@ function Employees() {
       {/* Employee Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => { setShowForm(false); setEditingEmployee(null); resetForm(); }}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                  {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
-                </h3>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-pool-blue to-pool-dark px-6 py-4 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {editingEmployee ? 'Edit Employee' : 'New Employee'}
+                  </h3>
+                  <p className="text-pool-light text-sm mt-0.5">
+                    {editingEmployee ? 'Update employee information' : 'Add a new team member'}
+                  </p>
+                </div>
                 <button
-                  onClick={() => {
-                    setShowForm(false)
-                    setEditingEmployee(null)
-                    resetForm()
-                  }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={() => { setShowForm(false); setEditingEmployee(null); resetForm(); }}
+                  className="text-white/70 hover:text-white transition-colors p-1"
                 >
-                  ✕
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
+            </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      User Type *
-                    </label>
-                    <select
-                      value={formData.user_type}
-                      onChange={(e) => setFormData({ ...formData, user_type: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {USER_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      User Role
-                    </label>
-                    <select
-                      value={formData.user_role}
-                      onChange={(e) => setFormData({ ...formData, user_role: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Select a role</option>
-                      {USER_ROLES.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email_address}
-                      onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Registered Time Zone
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.registered_time_zone}
-                      onChange={(e) => setFormData({ ...formData, registered_time_zone: e.target.value })}
-                      placeholder="e.g., PST, EST, UTC"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Calendar Color
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={formData.color}
-                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        className="h-10 w-20 border border-gray-300 rounded-md cursor-pointer"
-                      />
+            <form onSubmit={handleSubmit} className="p-6">
+              {/* Basic Information */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Basic Information
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={formData.color}
-                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        placeholder="#0ea5e9"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                        placeholder="John Doe"
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">Color used for this employee's events on the calendar</p>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Email Address <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email_address}
+                        onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
+                        required
+                        placeholder="john@company.com"
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="(555) 555-5555"
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Zone</label>
+                      <input
+                        type="text"
+                        value={formData.registered_time_zone}
+                        onChange={(e) => setFormData({ ...formData, registered_time_zone: e.target.value })}
+                        placeholder="e.g., America/Los_Angeles"
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      />
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Checkboxes */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="current"
-                      checked={formData.current}
-                      onChange={(e) => setFormData({ ...formData, current: e.target.checked })}
-                      className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                    />
-                    <label htmlFor="current" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Current
-                    </label>
+              {/* Role & Classification */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Role & Classification
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        User Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.user_type}
+                        onChange={(e) => setFormData({ ...formData, user_type: e.target.value })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        {USER_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Role</label>
+                      <select
+                        value={formData.user_role}
+                        onChange={(e) => setFormData({ ...formData, user_role: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        <option value="">Select a role</option>
+                        {USER_ROLES.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_project_manager"
-                      checked={formData.is_project_manager}
-                      onChange={(e) => setFormData({ ...formData, is_project_manager: e.target.checked })}
-                      className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                    />
-                    <label htmlFor="is_project_manager" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Project Manager
-                    </label>
+                  {/* Responsibility Toggles */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Responsibilities</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.current ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.current}
+                          onChange={(e) => setFormData({ ...formData, current: e.target.checked })}
+                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_project_manager ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.is_project_manager}
+                          onChange={(e) => setFormData({ ...formData, is_project_manager: e.target.checked })}
+                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">PM</span>
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_sales_person ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.is_sales_person}
+                          onChange={(e) => setFormData({ ...formData, is_sales_person: e.target.checked })}
+                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Sales</span>
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_foreman ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.is_foreman}
+                          onChange={(e) => setFormData({ ...formData, is_foreman: e.target.checked })}
+                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Foreman</span>
+                      </label>
+                    </div>
                   </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_sales_person"
-                      checked={formData.is_sales_person}
-                      onChange={(e) => setFormData({ ...formData, is_sales_person: e.target.checked })}
-                      className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                    />
-                    <label htmlFor="is_sales_person" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Sales Person
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_foreman"
-                      checked={formData.is_foreman}
-                      onChange={(e) => setFormData({ ...formData, is_foreman: e.target.checked })}
-                      className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                    />
-                    <label htmlFor="is_foreman" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Foreman
-                    </label>
-                  </div>
-
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForm(false)
-                      setEditingEmployee(null)
-                      resetForm()
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md"
-                  >
-                    {editingEmployee ? 'Update Employee' : 'Add Employee'}
-                  </button>
+              {/* Calendar Settings */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                  Calendar Settings
+                </h4>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Calendar Color</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="color"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      className="h-12 w-16 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      placeholder="#0ea5e9"
+                      className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Used for this employee's events on the calendar</p>
                 </div>
-              </form>
-            </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setEditingEmployee(null); resetForm(); }}
+                  className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {editingEmployee ? 'Update Employee' : 'Create Employee'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

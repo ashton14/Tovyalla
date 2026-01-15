@@ -660,37 +660,46 @@ function ProjectExpenses({ project, onClose }) {
           )}
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Est. Value</p>
-              <p className="text-xl font-bold text-gray-900">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Est. Value</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">
                 ${projectData.estValue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Expected Expenses</p>
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Closing Price</p>
+              <p className="text-xl font-bold text-pool-blue">
+                {projectData.closingPrice > 0 
+                  ? `$${projectData.closingPrice?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : '-'}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Expected Expenses</p>
               <p className="text-xl font-bold text-orange-600">
                 ${totals.totalExpected?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Actual Expenses</p>
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Actual Expenses</p>
               <p className="text-xl font-bold text-red-600">
                 ${totals.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Profit</p>
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Profit</p>
               <p className={`text-xl font-bold ${projectData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ${projectData.profit?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
               </p>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Profit Margin</p>
+            <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Profit Margin</p>
               <p className={`text-xl font-bold ${projectData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {projectData.estValue > 0
-                  ? `${((projectData.profit / projectData.estValue) * 100).toFixed(1)}%`
-                  : '0%'}
+                {(() => {
+                  const revenue = (projectData.closingPrice > 0 ? projectData.closingPrice : projectData.estValue) || 0;
+                  return revenue > 0 ? `${((projectData.profit / revenue) * 100).toFixed(1)}%` : '0%';
+                })()}
               </p>
             </div>
           </div>

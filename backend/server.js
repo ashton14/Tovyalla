@@ -1068,7 +1068,7 @@ app.get('/api/projects', async (req, res) => {
         )
       `)
       .eq('company_id', companyID)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -1130,13 +1130,13 @@ app.get('/api/projects/statistics', async (req, res) => {
     // Get projects marked as sold or complete from status history
     let soldQuery = supabase
       .from('project_status_history')
-      .select('project_id, projects!inner(est_value)')
+      .select('project_id, projects!inner(est_value, closing_price)')
       .eq('company_id', companyID)
       .eq('status', 'sold');
 
     let completeQuery = supabase
       .from('project_status_history')
-      .select('project_id, projects!inner(est_value)')
+      .select('project_id, projects!inner(est_value, closing_price)')
       .eq('company_id', companyID)
       .eq('status', 'complete');
 
@@ -1179,25 +1179,32 @@ app.get('/api/projects/statistics', async (req, res) => {
       processedProjectIds.add(record.project_id);
 
       const estValue = parseFloat(record.projects?.est_value || 0);
+      const closingPrice = parseFloat(record.projects?.closing_price || 0);
       totalEstValue += estValue;
       projectCount++;
 
-      // Get revenue from milestones (customer_price)
-      const { data: milestones } = await supabase
-        .from('milestones')
-        .select('customer_price')
-        .eq('project_id', record.project_id);
-
-      // Calculate revenue from milestones
+      // Calculate revenue: Use closing_price if available, otherwise use milestones or est_value
       let projectRevenue = 0;
-      if (milestones) {
-        milestones.forEach((milestone) => {
-          projectRevenue += parseFloat(milestone.customer_price || 0);
-        });
-      }
-      // If no milestones, fall back to est_value
-      if (projectRevenue === 0) {
-        projectRevenue = estValue;
+      
+      if (closingPrice > 0) {
+        // Priority 1: Use closing_price if set
+        projectRevenue = closingPrice;
+      } else {
+        // Priority 2: Get revenue from milestones (customer_price)
+        const { data: milestones } = await supabase
+          .from('milestones')
+          .select('customer_price')
+          .eq('project_id', record.project_id);
+
+        if (milestones) {
+          milestones.forEach((milestone) => {
+            projectRevenue += parseFloat(milestone.customer_price || 0);
+          });
+        }
+        // Priority 3: Fall back to est_value
+        if (projectRevenue === 0) {
+          projectRevenue = estValue;
+        }
       }
       totalRevenue += projectRevenue;
 
@@ -1311,7 +1318,7 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
       // Get all sold projects for the year
       supabase
         .from('project_status_history')
-        .select('project_id, changed_at, projects!inner(est_value)')
+        .select('project_id, changed_at, projects!inner(est_value, closing_price)')
         .eq('company_id', companyID)
         .eq('status', 'sold')
         .gte('changed_at', yearStart)
@@ -1320,7 +1327,7 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
       // Get all completed projects for the year
       supabase
         .from('project_status_history')
-        .select('project_id, changed_at, projects!inner(est_value)')
+        .select('project_id, changed_at, projects!inner(est_value, closing_price)')
         .eq('company_id', companyID)
         .eq('status', 'complete')
         .gte('changed_at', yearStart)
@@ -1403,16 +1410,19 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
     const projectExpenses = {};
     const projectRevenue = {};
     const projectEstValue = {};
+    const projectClosingPrice = {};
     
-    // Build lookup for est_value from sold/completed history
+    // Build lookup for est_value and closing_price from sold/completed history
     (soldHistory || []).forEach(h => {
       projectEstValue[h.project_id] = parseFloat(h.projects?.est_value || 0);
+      projectClosingPrice[h.project_id] = parseFloat(h.projects?.closing_price || 0);
     });
     (completedHistory || []).forEach(h => {
       projectEstValue[h.project_id] = parseFloat(h.projects?.est_value || 0);
+      projectClosingPrice[h.project_id] = parseFloat(h.projects?.closing_price || 0);
     });
     
-    // Calculate revenue per project from milestones
+    // Calculate revenue per project from milestones (only used if no closing_price)
     milestones.forEach(m => {
       if (!projectRevenue[m.project_id]) projectRevenue[m.project_id] = 0;
       projectRevenue[m.project_id] += parseFloat(m.customer_price || 0);
@@ -1456,6 +1466,15 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
       _processedProjects: new Set() // Track processed projects to avoid duplicates
     }));
 
+    // Helper to get revenue: closing_price > milestones > est_value
+    const getProjectRevenue = (projectId) => {
+      const closingPrice = projectClosingPrice[projectId] || 0;
+      if (closingPrice > 0) return closingPrice;
+      const milestonesRev = projectRevenue[projectId] || 0;
+      if (milestonesRev > 0) return milestonesRev;
+      return projectEstValue[projectId] || 0;
+    };
+
     // Process sold projects
     (soldHistory || []).forEach(record => {
       const monthIdx = getMonthIndex(record.changed_at);
@@ -1466,7 +1485,7 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         monthData._processedProjects.add(record.project_id);
         const estValue = projectEstValue[record.project_id] || 0;
         monthData.value += estValue;
-        const rev = projectRevenue[record.project_id] || estValue; // Fall back to est_value if no milestones
+        const rev = getProjectRevenue(record.project_id);
         monthData.revenue += rev;
         monthData.expenses += projectExpenses[record.project_id] || 0;
       }
@@ -1482,7 +1501,7 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
         monthData._processedProjects.add(record.project_id);
         const estValue = projectEstValue[record.project_id] || 0;
         monthData.value += estValue;
-        const rev = projectRevenue[record.project_id] || estValue;
+        const rev = getProjectRevenue(record.project_id);
         monthData.revenue += rev;
         monthData.expenses += projectExpenses[record.project_id] || 0;
       }
@@ -1601,6 +1620,7 @@ app.post('/api/projects', async (req, res) => {
       status,
       accessories_features,
       est_value,
+      closing_price,
       project_manager,
       notes,
     } = req.body;
@@ -1625,6 +1645,7 @@ app.post('/api/projects', async (req, res) => {
           status: initialStatus,
           accessories_features: accessories_features || null,
           est_value: est_value ? parseFloat(est_value) : null,
+          closing_price: closing_price ? parseFloat(closing_price) : null,
           project_manager: project_manager || null,
           notes: notes || null,
           created_by: user.id,
@@ -1685,6 +1706,7 @@ app.put('/api/projects/:id', async (req, res) => {
       status,
       accessories_features,
       est_value,
+      closing_price,
       project_manager,
       notes,
     } = req.body;
@@ -1716,6 +1738,7 @@ app.put('/api/projects/:id', async (req, res) => {
         status: newStatus,
         accessories_features: accessories_features || null,
         est_value: est_value ? parseFloat(est_value) : null,
+        closing_price: closing_price ? parseFloat(closing_price) : null,
         project_manager: project_manager || null,
         notes: notes || null,
         updated_at: new Date().toISOString(),
@@ -1829,7 +1852,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('id, est_value')
+      .select('id, est_value, closing_price')
       .eq('id', id)
       .eq('company_id', companyID)
       .single();
@@ -1849,7 +1872,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
         )
       `)
       .eq('project_id', id)
-      .order('date_added', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (feesError) {
       return res.status(500).json({ error: feesError.message });
@@ -1879,7 +1902,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       .from('project_additional_expenses')
       .select('*')
       .eq('project_id', id)
-      .order('expense_date', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (additionalError) {
       return res.status(500).json({ error: additionalError.message });
@@ -1890,7 +1913,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       .from('project_equipment')
       .select('*, inventory(id, name, unit_price)')
       .eq('project_id', id)
-      .order('date_ordered', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (equipmentError) {
       console.log('Equipment query error (table may not exist yet):', equipmentError.message);
@@ -1937,8 +1960,11 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     const totalExpenses = subcontractorTotal + materialsTotal + additionalTotal + equipmentTotal;
     const totalExpected = subcontractorExpected + materialsExpected + additionalExpected + equipmentExpected;
     const estValue = parseFloat(project.est_value || 0);
-    const profit = estValue - totalExpenses;
-    const expectedProfit = estValue - totalExpected;
+    const closingPrice = parseFloat(project.closing_price || 0);
+    // Use closing_price for profit if set, otherwise fall back to est_value
+    const revenueForProfit = closingPrice > 0 ? closingPrice : estValue;
+    const profit = revenueForProfit - totalExpenses;
+    const expectedProfit = revenueForProfit - totalExpected;
 
     res.json({
       subcontractorFees: subcontractorFees || [],
@@ -1959,6 +1985,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       },
       project: {
         estValue: estValue,
+        closingPrice: closingPrice,
         profit: profit,
         expectedProfit: expectedProfit,
       },
@@ -2911,7 +2938,7 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         )
       `)
       .eq('project_id', id)
-      .order('date_added', { ascending: true });
+      .order('created_at', { ascending: false });
 
     const { data: materials } = await supabase
       .from('project_materials')
@@ -2924,20 +2951,20 @@ app.post('/api/projects/:id/contract', async (req, res) => {
         )
       `)
       .eq('project_id', id)
-      .order('date_ordered', { ascending: true });
+      .order('created_at', { ascending: false });
 
     const { data: additionalExpenses } = await supabase
       .from('project_additional_expenses')
       .select('*')
       .eq('project_id', id)
-      .order('expense_date', { ascending: true });
+      .order('created_at', { ascending: false });
 
     // Get equipment expenses with inventory join (same as expenses endpoint)
     const { data: equipment, error: equipmentError } = await supabase
       .from('project_equipment')
       .select('*, inventory(id, name, unit_price)')
       .eq('project_id', id)
-      .order('date_ordered', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (equipmentError) {
       console.error('Error fetching equipment for contract:', equipmentError);
