@@ -438,14 +438,14 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           value={item.title}
           onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
           placeholder="Work title (e.g., Pool Excavation)"
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
         />
         <textarea
           value={item.description}
           onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
           placeholder="Description of work to be performed..."
           rows={3}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
+          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
         />
       </div>
     </div>
@@ -453,9 +453,9 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
-      <div className="bg-white sm:rounded-lg shadow-xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 sm:rounded-lg shadow-xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-white leading-tight">
@@ -463,7 +463,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                  docType === 'change_order' ? 'Change Order' :
                  'Contract'} Preview
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
                 #{contractData.documentNumber} • {contractData.project?.address || 'Project'}
               </p>
             </div>
@@ -504,14 +504,14 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           </div>
 
           {/* Tab Navigation */}
-          <div className="mb-4 border-b border-gray-200">
+          <div className="mb-4 border-b border-gray-200 dark:border-gray-700">
             <nav className="flex -mb-px" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('scope')}
                 className={`flex-1 sm:flex-none py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'scope'
                     ? 'border-pool-blue text-pool-blue'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -526,7 +526,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                 className={`flex-1 sm:flex-none py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'milestones'
                     ? 'border-pool-blue text-pool-blue'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -548,8 +548,8 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           {activeTab === 'scope' && (
             <>
               {/* Info Banner */}
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
                   <strong>Scope of Work:</strong> Define the work items that will be performed. Each item should have a title and optional description.
                 </p>
               </div>
@@ -576,22 +576,22 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700 w-1/3">Work Title</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Description</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Work Title</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Description</th>
                       <th className="w-20"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {scopeOfWork.map((item, index) => (
-                      <tr key={item.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                      <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}>
                         <td className="py-3 px-4 align-top">
                           <input
                             type="text"
                             value={item.title}
                             onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
                             placeholder="Enter work title"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                         </td>
                         <td className="py-3 px-4 align-top">
@@ -600,7 +600,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                             onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
                             placeholder="Description of work..."
                             rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                         </td>
                         <td className="py-3 px-4 text-right align-top">
@@ -640,8 +640,8 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           {activeTab === 'milestones' && (
             <>
               {/* Info Banner */}
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
                   <strong>Payment Milestones:</strong> Add milestones and set what percentage of the total price is due at each stage.
                 </p>
               </div>
@@ -667,7 +667,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                 {/* Add Milestone Button - Mobile */}
                 <button
                   onClick={addMilestone}
-                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -676,12 +676,12 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                 </button>
 
                 {/* Mobile Total Card */}
-                <div className="p-4 bg-gray-100 rounded-lg border-2 border-gray-300 mt-4">
+                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg border-2 border-gray-300 dark:border-gray-600 mt-4">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-gray-900">TOTAL</span>
-                    <span className="font-bold text-gray-900 text-xl">{formatCurrency(customerTotal)}</span>
+                    <span className="font-bold text-gray-900 dark:text-white">TOTAL</span>
+                    <span className="font-bold text-gray-900 dark:text-white text-xl">{formatCurrency(customerTotal)}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {totalPercentage.toFixed(2)}% allocated
                   </div>
                 </div>
@@ -691,23 +691,23 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Milestone Name</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700 w-32">Percentage</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700 w-40">Amount</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Milestone Name</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-32">Percentage</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-40">Amount</th>
                       <th className="w-20"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {milestones.map((milestone, index) => (
-                      <tr key={milestone.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                      <tr key={milestone.id} className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}>
                         <td className="py-3 px-4">
                           <input
                             type="text"
                             value={milestone.name}
                             onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
                             placeholder="Enter milestone name"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -717,23 +717,23 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                               value={milestone.percentage}
                               onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
                               placeholder="0"
-                              className="w-24 pr-7 pl-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                              className="w-24 pr-7 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               step="0.01"
                               min="0"
                               max="100"
                             />
-                            <span className="absolute right-3 text-gray-500">%</span>
+                            <span className="absolute right-3 text-gray-500 dark:text-gray-400">%</span>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="relative inline-flex items-center">
-                            <span className="absolute left-3 text-gray-500">$</span>
+                            <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
                             <input
                               type="number"
                               value={calculateAmount(milestone.percentage).toFixed(2)}
                               onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
                               placeholder="0.00"
-                              className="w-32 pl-7 pr-3 py-2 border border-gray-300 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                              className="w-32 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               step="0.01"
                               min="0"
                             />
@@ -768,14 +768,14 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
                     </tr>
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-gray-300 bg-gray-100">
-                      <td className="py-4 px-4 font-bold text-gray-900">TOTAL</td>
+                    <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
+                      <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">TOTAL</td>
                       <td className="py-4 px-4 text-right font-semibold">
-                        <span className={totalPercentage === 100 ? 'text-green-600' : 'text-amber-600'}>
+                        <span className={totalPercentage === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
                           {totalPercentage.toFixed(2)}%
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-right font-bold text-gray-900 text-lg">
+                      <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white text-lg">
                         {formatCurrency(customerTotal)}
                       </td>
                       <td></td>
@@ -787,23 +787,23 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
           )}
 
           {/* Profit Summary */}
-          <div className="mt-4 sm:mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-800 mb-3 text-sm sm:text-base">Summary</h3>
+          <div className="mt-4 sm:mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-3 text-sm sm:text-base">Summary</h3>
             <div className="grid grid-cols-3 gap-2 sm:gap-4">
               <div>
-                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Total Cost</p>
-                <p className="text-base sm:text-lg font-semibold text-gray-700">{formatCurrency(totalCost)}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase">Total Cost</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(totalCost)}</p>
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Customer Total</p>
-                <p className="text-base sm:text-lg font-semibold text-gray-900">{formatCurrency(customerTotal)}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase">Customer Total</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(customerTotal)}</p>
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">Profit</p>
-                <p className={`text-base sm:text-lg font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase">Profit</p>
+                <p className={`text-base sm:text-lg font-semibold ${profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {formatCurrency(profit)}
                 </p>
-                <p className="text-[10px] sm:text-xs text-gray-500">
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                   {totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : (customerTotal > 0 ? '100' : '0')}% margin
                 </p>
               </div>
@@ -812,7 +812,7 @@ function ContractPreview({ contractData, onClose, onGenerate }) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
           <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
             <button
               onClick={onClose}
