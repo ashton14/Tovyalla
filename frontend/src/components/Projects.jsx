@@ -1041,9 +1041,9 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                       <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
                         {project.sq_feet ? project.sq_feet.toLocaleString() : '-'}
                       </td>
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-2 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.color}`}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusBadge.color}`}
                         >
                           {statusBadge.label}
                         </span>
