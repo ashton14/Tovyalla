@@ -384,7 +384,29 @@ function Dashboard() {
                     <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 ${statistics.totalProfit >= 0 ? 'border-green-500' : 'border-red-500'}`}>
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Profit</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Profit</p>
+                            <div className="relative group">
+                              <svg 
+                                className="w-4 h-4 text-gray-400 dark:text-gray-500 cursor-help hover:text-gray-600 dark:hover:text-gray-300 transition-colors" 
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-64 z-50 shadow-lg">
+                                <p className="font-semibold mb-1">How Profit is Calculated</p>
+                                <p className="text-gray-300 mb-2">Profit = Revenue − Expenses</p>
+                                <p className="text-gray-300 text-[11px] leading-relaxed">
+                                  <span className="font-medium text-white">Revenue:</span> Closing price (or milestones, or est. value)<br/>
+                                  <span className="font-medium text-white">Expenses:</span> Subcontractor fees + Materials + Equipment + Additional expenses
+                                </p>
+                                <p className="text-gray-400 text-[10px] mt-1.5 italic">Only includes sold/completed projects</p>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                              </div>
+                            </div>
+                          </div>
                           <p className={`text-3xl font-bold mt-1 ${statistics.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             ${statistics.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
