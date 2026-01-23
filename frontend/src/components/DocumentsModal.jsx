@@ -1000,6 +1000,10 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
             setContractData(null)
           }}
           onGenerate={handleContractGenerated}
+          onDocumentUploaded={() => {
+            // Refresh the documents list when a document is uploaded
+            fetchDocuments()
+          }}
         />
       )}
 
