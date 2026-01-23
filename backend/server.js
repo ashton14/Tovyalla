@@ -468,6 +468,8 @@ app.put('/api/company', async (req, res) => {
       website,
       license_numbers,
       terms_of_service,
+      default_initial_fee_percent,
+      default_final_fee_percent,
     } = req.body;
 
     // Check if company exists
@@ -497,6 +499,8 @@ app.put('/api/company', async (req, res) => {
             website: website || null,
             license_numbers: license_numbers || [],
             terms_of_service: terms_of_service || null,
+            default_initial_fee_percent: default_initial_fee_percent ?? 20,
+            default_final_fee_percent: default_final_fee_percent ?? 80,
           },
         ])
         .select()
@@ -524,6 +528,8 @@ app.put('/api/company', async (req, res) => {
           website: website || null,
           license_numbers: license_numbers !== undefined ? license_numbers : undefined,
           terms_of_service: terms_of_service !== undefined ? terms_of_service : undefined,
+          default_initial_fee_percent: default_initial_fee_percent !== undefined ? default_initial_fee_percent : undefined,
+          default_final_fee_percent: default_final_fee_percent !== undefined ? default_final_fee_percent : undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyID)

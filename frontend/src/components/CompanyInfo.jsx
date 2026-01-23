@@ -24,6 +24,8 @@ function CompanyInfo() {
     website: '',
     license_numbers: [],
     terms_of_service: '',
+    default_initial_fee_percent: 20,
+    default_final_fee_percent: 80,
   })
   
   const [newLicense, setNewLicense] = useState('')
@@ -69,6 +71,8 @@ function CompanyInfo() {
           website: companyData.website || '',
           license_numbers: companyData.license_numbers || [],
           terms_of_service: companyData.terms_of_service || '',
+          default_initial_fee_percent: companyData.default_initial_fee_percent ?? 20,
+          default_final_fee_percent: companyData.default_final_fee_percent ?? 80,
         })
       }
     } catch (err) {
@@ -136,6 +140,8 @@ function CompanyInfo() {
         website: company.website || '',
         license_numbers: company.license_numbers || [],
         terms_of_service: company.terms_of_service || '',
+        default_initial_fee_percent: company.default_initial_fee_percent ?? 20,
+        default_final_fee_percent: company.default_final_fee_percent ?? 80,
       })
     }
     setNewLicense('')
@@ -592,6 +598,81 @@ function CompanyInfo() {
                   </p>
                 </div>
 
+                {/* Default Contract Signing Fee Percentages */}
+                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-pool-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Default Contract Signing Fee Percentages
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    Set the default initial and final payment percentages for new contracts. These will be used as defaults when creating milestones.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Initial Fee Percentage
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={formData.default_initial_fee_percent}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0
+                            setFormData({ 
+                              ...formData, 
+                              default_initial_fee_percent: value,
+                              default_final_fee_percent: Math.max(0, 100 - value)
+                            })
+                          }}
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">%</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Payment due at contract signing</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Final Fee Percentage
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={formData.default_final_fee_percent}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0
+                            setFormData({ 
+                              ...formData, 
+                              default_final_fee_percent: value,
+                              default_initial_fee_percent: Math.max(0, 100 - value)
+                            })
+                          }}
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="80"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">%</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Payment due at project completion</p>
+                    </div>
+                  </div>
+                  {(formData.default_initial_fee_percent + formData.default_final_fee_percent) !== 100 && (
+                    <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>Percentages should add up to 100%. Currently: {formData.default_initial_fee_percent + formData.default_final_fee_percent}%</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleSave}
@@ -672,6 +753,25 @@ function CompanyInfo() {
                     </div>
                   </div>
                 )}
+                {/* Default Contract Signing Fee Percentages - View Mode */}
+                <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-pool-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Default Contract Signing Fees:
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <div className="px-4 py-2 bg-pool-light dark:bg-pool-blue/20 rounded-md border border-pool-blue">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block">Initial Fee</span>
+                      <span className="text-lg font-semibold text-pool-dark dark:text-pool-blue">{company?.default_initial_fee_percent ?? 20}%</span>
+                    </div>
+                    <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block">Final Fee</span>
+                      <span className="text-lg font-semibold text-green-600 dark:text-green-400">{company?.default_final_fee_percent ?? 80}%</span>
+                    </div>
+                  </div>
+                </div>
                 {!company?.company_name && !company?.address_line1 && !company?.phone && !company?.website && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 italic">
                     No company information set. Click "Edit" to add company details.

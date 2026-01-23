@@ -30,6 +30,17 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const [pdfBlob, setPdfBlob] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  
+  // Import from project state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importType, setImportType] = useState('scope') // 'scope' or 'milestones'
+  const [projectsList, setProjectsList] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [selectedImportProject, setSelectedImportProject] = useState(null)
+  const [importableItems, setImportableItems] = useState([])
+  const [selectedImportItems, setSelectedImportItems] = useState([])
+  const [loadingImportItems, setLoadingImportItems] = useState(false)
 
   // Calculate total cost from expenses (use actual prices, fall back to expected if no actual)
   const calculateTotalCost = () => {
@@ -134,11 +145,13 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       setMilestones(loadedMilestones)
       setNextMilestoneId(loadedMilestones.length + 1)
     } else {
-      // Set default milestones for new documents
+      // Set default milestones for new documents using company defaults
       const docType = contractData.documentType || 'contract'
+      const initialPercent = contractData.company?.default_initial_fee_percent ?? 20
+      const finalPercent = contractData.company?.default_final_fee_percent ?? 80
       const defaultMilestones = [
-        { id: 'milestone-1', name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee', percentage: '20', milestoneType: 'initial_fee' },
-        { id: 'milestone-2', name: 'Final Payment', percentage: '80', milestoneType: 'final_inspection' },
+        { id: 'milestone-1', name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee', percentage: String(initialPercent), milestoneType: 'initial_fee' },
+        { id: 'milestone-2', name: 'Final Payment', percentage: String(finalPercent), milestoneType: 'final_inspection' },
       ]
       setMilestones(defaultMilestones)
       setNextMilestoneId(3)
@@ -521,6 +534,186 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     setUploadError('')
   }
 
+  // ==================== IMPORT FROM PROJECT FUNCTIONS ====================
+
+  // Open import modal
+  const openImportModal = (type) => {
+    setImportType(type)
+    setShowImportModal(true)
+    setSelectedImportProject(null)
+    setImportableItems([])
+    setSelectedImportItems([])
+    setProjectSearch('')
+    fetchProjects()
+  }
+
+  // Fetch all projects for import
+  const fetchProjects = async () => {
+    setProjectsLoading(true)
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+
+      const response = await axios.get('/api/projects', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      // Filter out the current project
+      const otherProjects = (response.data.projects || []).filter(
+        (p) => p.id !== contractData.project.id
+      )
+      setProjectsList(otherProjects)
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+    } finally {
+      setProjectsLoading(false)
+    }
+  }
+
+  // Fetch scope of work or milestones for a selected project (all document types)
+  const fetchProjectItems = async (projectId) => {
+    setLoadingImportItems(true)
+    setSelectedImportItems([])
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+
+      const documentTypes = ['proposal', 'contract', 'change_order']
+      const allItems = []
+
+      if (importType === 'scope') {
+        // Fetch scope of work for all document types
+        const responses = await Promise.all(
+          documentTypes.map((docType) =>
+            axios.get(`/api/projects/${projectId}/scope-of-work?document_type=${docType}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).catch(() => ({ data: { scopeOfWork: [] } }))
+          )
+        )
+
+        documentTypes.forEach((docType, typeIdx) => {
+          const items = responses[typeIdx].data.scopeOfWork || []
+          items.forEach((item, idx) => {
+            allItems.push({
+              id: `import-scope-${docType}-${idx}`,
+              title: item.title,
+              description: item.description || '',
+              documentType: docType,
+            })
+          })
+        })
+      } else {
+        // Fetch milestones for all document types
+        const responses = await Promise.all(
+          documentTypes.map((docType) =>
+            axios.get(`/api/projects/${projectId}/milestones?document_type=${docType}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).catch(() => ({ data: { milestones: [] } }))
+          )
+        )
+
+        documentTypes.forEach((docType, typeIdx) => {
+          const items = responses[typeIdx].data.milestones || []
+          items.forEach((item, idx) => {
+            allItems.push({
+              id: `import-milestone-${docType}-${idx}`,
+              name: item.name,
+              milestoneType: item.milestone_type || 'custom',
+              customerPrice: item.customer_price || 0,
+              documentType: docType,
+            })
+          })
+        })
+      }
+
+      setImportableItems(allItems)
+    } catch (error) {
+      console.error('Error fetching project items:', error)
+      setImportableItems([])
+    } finally {
+      setLoadingImportItems(false)
+    }
+  }
+
+  // Handle project selection
+  const handleSelectImportProject = (project) => {
+    setSelectedImportProject(project)
+    fetchProjectItems(project.id)
+  }
+
+  // Toggle item selection
+  const toggleImportItemSelection = (itemId) => {
+    setSelectedImportItems((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    )
+  }
+
+  // Select all items
+  const selectAllImportItems = () => {
+    if (selectedImportItems.length === importableItems.length) {
+      setSelectedImportItems([])
+    } else {
+      setSelectedImportItems(importableItems.map((item) => item.id))
+    }
+  }
+
+  // Import selected items
+  const handleImportItems = () => {
+    const itemsToImport = importableItems.filter((item) =>
+      selectedImportItems.includes(item.id)
+    )
+
+    if (importType === 'scope') {
+      // Add to scope of work
+      const newScopeItems = itemsToImport.map((item, idx) => ({
+        id: `scope-${nextScopeId + idx}`,
+        title: item.title,
+        description: item.description || '',
+      }))
+      setScopeOfWork((prev) => [...prev, ...newScopeItems])
+      setNextScopeId((prev) => prev + itemsToImport.length)
+    } else {
+      // Add to milestones - distribute percentage evenly among new items
+      const remainingPercentage = 100 - totalPercentage
+      const perItemPercentage = itemsToImport.length > 0 
+        ? (remainingPercentage / itemsToImport.length).toFixed(2)
+        : '0'
+      
+      const newMilestones = itemsToImport.map((item, idx) => ({
+        id: `milestone-${nextMilestoneId + idx}`,
+        name: item.name,
+        percentage: remainingPercentage > 0 ? perItemPercentage : '0',
+        milestoneType: item.milestoneType || 'custom',
+      }))
+      setMilestones((prev) => [...prev, ...newMilestones])
+      setNextMilestoneId((prev) => prev + itemsToImport.length)
+    }
+
+    // Close modal
+    setShowImportModal(false)
+    setSelectedImportProject(null)
+    setImportableItems([])
+    setSelectedImportItems([])
+  }
+
+  // Filter projects by search
+  const filteredProjects = projectsList.filter((project) => {
+    if (!projectSearch.trim()) return true
+    const search = projectSearch.toLowerCase()
+    const projectName = (project.project_name || '').toLowerCase()
+    const address = (project.address || '').toLowerCase()
+    const customerName = project.customers
+      ? `${project.customers.first_name || ''} ${project.customers.last_name || ''}`.toLowerCase()
+      : ''
+    return (
+      projectName.includes(search) ||
+      address.includes(search) ||
+      customerName.includes(search)
+    )
+  })
+
   if (!contractData) {
     return null
   }
@@ -722,10 +915,19 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           {activeTab === 'scope' && (
             <>
               {/* Info Banner */}
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
                   <strong>Scope of Work:</strong> Define the work items that will be performed. Each item should have a title and optional description.
                 </p>
+                <button
+                  onClick={() => openImportModal('scope')}
+                  className="flex-shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Import from Project
+                </button>
               </div>
 
               {/* Mobile Card Layout */}
@@ -814,10 +1016,19 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           {activeTab === 'milestones' && (
             <>
               {/* Info Banner */}
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
                   <strong>Payment Milestones:</strong> Add milestones and set what percentage of the total price is due at each stage.
                 </p>
+                <button
+                  onClick={() => openImportModal('milestones')}
+                  className="flex-shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Import from Project
+                </button>
               </div>
 
               {/* Percentage Warning */}
@@ -1156,6 +1367,208 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                     Save Document
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import from Project Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={() => setShowImportModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                  Import {importType === 'scope' ? 'Scope of Work' : 'Milestones'} from Project
+                </h3>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-hidden flex flex-col sm:flex-row min-h-0">
+              {/* Project List Panel */}
+              <div className="w-full sm:w-1/2 border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700 flex flex-col min-h-[200px] sm:min-h-0">
+                <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                      placeholder="Search projects..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {projectsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pool-blue"></div>
+                    </div>
+                  ) : filteredProjects.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                      {projectSearch ? 'No projects match your search' : 'No other projects found'}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {filteredProjects.map((project) => (
+                        <button
+                          key={project.id}
+                          onClick={() => handleSelectImportProject(project)}
+                          className={`w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                            selectedImportProject?.id === project.id
+                              ? 'bg-pool-blue/10 dark:bg-pool-blue/20 border-l-4 border-pool-blue'
+                              : ''
+                          }`}
+                        >
+                          <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                            {project.project_name || project.address || 'Unnamed Project'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                            {project.address || 'No address'}
+                          </p>
+                          {project.customers && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                              {project.customers.first_name} {project.customers.last_name}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Panel */}
+              <div className="w-full sm:w-1/2 flex flex-col min-h-[200px] sm:min-h-0">
+                {!selectedImportProject ? (
+                  <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm p-4 text-center">
+                    <div>
+                      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      Select a project to see its {importType === 'scope' ? 'scope of work' : 'milestones'}
+                    </div>
+                  </div>
+                ) : loadingImportItems ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pool-blue"></div>
+                  </div>
+                ) : importableItems.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm p-4 text-center">
+                    No {importType === 'scope' ? 'scope of work items' : 'milestones'} found in this project
+                  </div>
+                ) : (
+                  <>
+                    {/* Select All Header */}
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {selectedImportItems.length} of {importableItems.length} selected
+                      </span>
+                      <button
+                        onClick={selectAllImportItems}
+                        className="text-xs text-pool-blue hover:text-pool-dark font-medium"
+                      >
+                        {selectedImportItems.length === importableItems.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
+                    {/* Items List - Grouped by Document Type */}
+                    <div className="flex-1 overflow-y-auto">
+                      {['proposal', 'contract', 'change_order'].map((docType) => {
+                        const docTypeItems = importableItems.filter((item) => item.documentType === docType)
+                        if (docTypeItems.length === 0) return null
+                        
+                        const docTypeLabels = {
+                          proposal: 'Proposal',
+                          contract: 'Contract',
+                          change_order: 'Change Order',
+                        }
+                        const docTypeColors = {
+                          proposal: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+                          contract: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+                          change_order: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+                        }
+                        
+                        return (
+                          <div key={docType}>
+                            {/* Document Type Header */}
+                            <div className="sticky top-0 px-3 py-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${docTypeColors[docType]}`}>
+                                {docTypeLabels[docType]}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                ({docTypeItems.length} {docTypeItems.length === 1 ? 'item' : 'items'})
+                              </span>
+                            </div>
+                            {/* Items for this document type */}
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                              {docTypeItems.map((item) => (
+                                <label
+                                  key={item.id}
+                                  className="flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedImportItems.includes(item.id)}
+                                    onChange={() => toggleImportItemSelection(item.id)}
+                                    className="mt-1 h-4 w-4 text-pool-blue border-gray-300 rounded focus:ring-pool-blue"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                      {importType === 'scope' ? item.title : item.name}
+                                    </p>
+                                    {importType === 'scope' && item.description && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                        {item.description}
+                                      </p>
+                                    )}
+                                    {importType === 'milestones' && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Type: {item.milestoneType || 'custom'}
+                                      </p>
+                                    )}
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-medium rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportItems}
+                disabled={selectedImportItems.length === 0}
+                className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Import {selectedImportItems.length > 0 ? `(${selectedImportItems.length})` : ''}
               </button>
             </div>
           </div>
