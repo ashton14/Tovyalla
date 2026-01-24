@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import * as docusignService from './services/docusign.js';
+import * as esignaturesService from './services/esignatures.js';
 import * as googleCalendarService from './services/googleCalendar.js';
 
 // Get the directory of the current module
@@ -5542,10 +5542,10 @@ app.delete('/api/goals/:id', async (req, res) => {
   }
 });
 
-// ==================== DOCUSIGN ENDPOINTS ====================
+// ==================== ESIGNATURES ENDPOINTS ====================
 
-// Send document via DocuSign for e-signature
-app.post('/api/docusign/send', async (req, res) => {
+// Send document via eSignatures.com for e-signature
+app.post('/api/esign/send', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -5578,178 +5578,142 @@ app.post('/api/docusign/send', async (req, res) => {
       return res.status(400).json({ error: 'Subject is required' });
     }
 
-    // Download document from the URL
-    let documentBuffer;
-    try {
-      const response = await fetch(documentUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to download document: ${response.statusText}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      documentBuffer = Buffer.from(arrayBuffer);
-    } catch (fetchError) {
-      console.error('Error downloading document:', fetchError);
-      return res.status(500).json({ error: 'Failed to download document: ' + fetchError.message });
-    }
-
-    // Parse CC and BCC emails
+    // Parse CC emails (BCC not supported by eSignatures.com, will be ignored)
     const ccEmails = cc ? (Array.isArray(cc) ? cc : cc.split(',').map(e => e.trim()).filter(Boolean)) : [];
-    const bccEmails = bcc ? (Array.isArray(bcc) ? bcc : bcc.split(',').map(e => e.trim()).filter(Boolean)) : [];
 
-    // Get company name for company signer
+    // Get company info for branding
     let companyName = null;
+    let companyLogoUrl = null;
     try {
       const { data: company, error: companyError } = await supabase
         .from('companies')
-        .select('company_name')
+        .select('company_name, logo_url')
         .eq('company_id', companyID)
         .single();
       
       if (!companyError && company) {
         companyName = company.company_name || companyID;
+        companyLogoUrl = company.logo_url || null;
       } else {
         companyName = companyID; // Fallback to company ID if name not found
       }
     } catch (error) {
-      console.warn('Error fetching company name, using company ID:', error);
+      console.warn('Error fetching company info, using company ID:', error);
       companyName = companyID; // Fallback to company ID
     }
 
     // Get sender's name (current logged in user) for contractor signature
-    // Try to get name from user metadata, or use email as fallback
     const senderName = user.user_metadata?.full_name || 
                        user.user_metadata?.name || 
                        user.user_metadata?.display_name ||
                        user.email;
 
-    // Create and send DocuSign envelope
-    // Include company signer (sender) so they can sign after the owner
-    let envelopeId;
+    // Send contract via BoldSign
+    let contractResult;
     try {
-      envelopeId = await docusignService.createAndSendEnvelope({
-        documentBuffer,
+      contractResult = await esignaturesService.sendContractForSignature({
+        documentUrl,
         documentName,
         recipientEmail,
         recipientName: recipientName || recipientEmail,
         subject,
-        emailBlurb: message || '',
+        message: message || '',
         ccEmails,
-        bccEmails,
-        companySignerEmail: user.email, // Add sender as company signer
-        companyName: companyName,
-        companySignerName: senderName, // Use sender's name for contractor signature
+        companySignerEmail: user.email, // Add sender as company signer (second signer)
+        companySignerName: senderName,
+        companyName,
+        companyLogoUrl,
       });
-    } catch (docusignError) {
-      console.error('DocuSign error:', docusignError);
-      return res.status(500).json({ error: 'Failed to send via DocuSign: ' + docusignError.message });
+    } catch (esignError) {
+      console.error('BoldSign error:', esignError);
+      return res.status(500).json({ error: 'Failed to send for signature: ' + esignError.message });
     }
 
-    // Update project_documents table with envelope ID if documentId is provided
+    // Update project_documents table with contract ID if documentId is provided
     if (documentId) {
       const { error: updateError } = await supabase
         .from('project_documents')
         .update({
-          docusign_envelope_id: envelopeId,
-          docusign_status: 'sent',
-          docusign_sent_at: new Date().toISOString(),
-          docusign_sender_email: user.email, // Store sender email for notifications
-          docusign_sender_company_id: companyID, // Store company ID for company signer
+          esign_contract_id: contractResult.contractId,
+          esign_status: 'sent',
+          esign_sent_at: new Date().toISOString(),
+          esign_sender_email: user.email,
+          esign_sender_company_id: companyID,
         })
         .eq('id', documentId)
         .eq('company_id', companyID);
 
       if (updateError) {
-        console.error('Error updating document with envelope ID:', updateError);
+        console.error('Error updating document with contract ID:', updateError);
         // Don't fail the request if update fails
       }
     }
 
     res.json({ 
       success: true, 
-      message: 'Document sent for signature via DocuSign',
-      envelopeId,
+      message: 'Document sent for signature',
+      contractId: contractResult.contractId,
     });
   } catch (error) {
-    console.error('DocuSign send error:', error);
+    console.error('eSign send error:', error);
     res.status(500).json({ error: error.message || 'Failed to send document for signature' });
   }
 });
 
-// DocuSign webhook endpoint for status updates
-app.post('/api/docusign/webhook', async (req, res) => {
+// eSignatures.com webhook endpoint for status updates
+app.post('/api/esign/webhook', async (req, res) => {
   try {
-    // DocuSign webhook format: { data: { envelopeId, status, ... }, event: 'envelope-sent', ... }
+    // BoldSign webhook format
+    // Fields: event (object with Type), document (object with DocumentId)
     const webhookData = req.body;
     
-    // DocuSign can send different webhook formats
-    // Format 1: { data: { envelopeId, status }, event: 'envelope-sent' }
-    // Format 2: { envelopeId, status, event } (direct properties)
-    let envelopeId = webhookData.data?.envelopeId || webhookData.envelopeId;
-    let event = webhookData.event || webhookData.data?.event;
-    let status = webhookData.data?.status || webhookData.status;
+    // Get document ID and event from webhook data
+    // BoldSign format: { event: { Type: "Completed" }, document: { DocumentId: "..." } }
+    const contractId = webhookData.document?.DocumentId || webhookData.documentId || webhookData.data?.documentId;
+    const event = webhookData.event?.Type || webhookData.Event || webhookData.event;
 
-    if (!envelopeId) {
-      console.error('Webhook missing envelopeId:', webhookData);
-      // Still return 200 to prevent DocuSign from retrying
-      return res.status(200).json({ received: true, error: 'Missing envelopeId' });
+    console.log('BoldSign webhook received:', { event, contractId, raw: JSON.stringify(webhookData).slice(0, 500) });
+
+    if (!contractId) {
+      console.error('Webhook missing documentId:', webhookData);
+      // Return 200 to acknowledge receipt
+      return res.status(200).json({ received: true, error: 'Missing documentId' });
     }
 
-    // Map DocuSign status/event to our status
-    // DocuSign status values: 'sent', 'delivered', 'signed', 'completed', 'declined', 'voided'
-    if (!status && event) {
-      // Map event to status if status not provided
-      switch (event) {
-        case 'envelope-sent':
-          status = 'sent';
-          break;
-        case 'envelope-delivered':
-          status = 'delivered';
-          break;
-        case 'envelope-signed':
-          status = 'signed';
-          break;
-        case 'envelope-completed':
-          status = 'completed';
-          break;
-        case 'envelope-declined':
-          status = 'declined';
-          break;
-        case 'envelope-voided':
-          status = 'voided';
-          break;
-        default:
-          status = 'sent';
-      }
+    // Map BoldSign event to our internal status
+    const status = esignaturesService.mapWebhookEventToStatus(event, webhookData);
+
+    if (!status) {
+      // Unknown event type, just acknowledge
+      console.log('Unknown BoldSign webhook event:', event);
+      return res.status(200).json({ received: true, event });
     }
 
     // Normalize status to our allowed values
     const validStatuses = ['sent', 'delivered', 'signed', 'completed', 'declined', 'voided'];
-    if (!validStatuses.includes(status)) {
-      status = 'sent'; // Default fallback
-    }
+    const normalizedStatus = validStatuses.includes(status) ? status : 'sent';
 
-    // Find document by envelope ID and get sender info
+    // Find document by contract ID
     const { data: documents, error: findError } = await supabase
       .from('project_documents')
-      .select('id, name, docusign_sender_email, docusign_sender_company_id, docusign_status')
-      .eq('docusign_envelope_id', envelopeId)
+      .select('id, name, esign_sender_email, esign_sender_company_id, esign_status')
+      .eq('esign_contract_id', contractId)
       .limit(1);
 
     if (findError) {
       console.error('Error finding document:', findError);
-      // Still return 200 to prevent DocuSign from retrying
       return res.status(200).json({ received: true, error: 'Database error' });
     }
 
     if (documents && documents.length > 0) {
       const document = documents[0];
       const updateData = {
-        docusign_status: status,
+        esign_status: normalizedStatus,
       };
 
       // Set completed_at if status is completed
-      if (status === 'completed') {
-        updateData.docusign_completed_at = new Date().toISOString();
+      if (normalizedStatus === 'completed') {
+        updateData.esign_completed_at = new Date().toISOString();
       }
 
       const { error: updateError } = await supabase
@@ -5759,65 +5723,19 @@ app.post('/api/docusign/webhook', async (req, res) => {
 
       if (updateError) {
         console.error('Error updating document status:', updateError);
-        // Still return 200 to prevent DocuSign from retrying
         return res.status(200).json({ received: true, error: 'Update failed' });
       }
 
-
-      // Check if customer (first signer) has signed and company signer hasn't been added yet
-      // Detect customer signing: 
-      // - Status changed to 'signed' (customer signed, but envelope not yet completed)
-      // - Event is 'recipient-signed' with routingOrder 1 (first signer)
-      // - Previous status was not 'signed' (only trigger once)
-      const previousStatus = document.docusign_status;
-      const recipientRoutingOrder = webhookData.data?.routingOrder || webhookData.routingOrder;
-      const isCustomerSigned = 
-        (status === 'signed' || 
-         event === 'recipient-signed' || 
-         event === 'envelope-signed') &&
-        previousStatus !== 'signed' && // Only trigger once (status changed from non-signed to signed)
-        (recipientRoutingOrder === '1' || recipientRoutingOrder === 1 || !recipientRoutingOrder) && // First signer or no routing order specified
-        document.docusign_sender_email && // Must have sender email
-        document.docusign_sender_company_id && // Must have company ID
-        status !== 'completed'; // Don't trigger if envelope is already completed
-
-      if (isCustomerSigned) {
-        try {
-          // Get company name from companies table
-          const { data: company, error: companyError } = await supabase
-            .from('companies')
-            .select('company_name')
-            .eq('company_id', document.docusign_sender_company_id)
-            .single();
-
-          if (companyError || !company) {
-            console.error('Error fetching company name:', companyError);
-            // Use company ID as fallback
-            var companyName = document.docusign_sender_company_id;
-          } else {
-            var companyName = company.company_name || document.docusign_sender_company_id;
-          }
-
-          // Add company signer to envelope
-          // DocuSign will automatically email the company signer when they're added
-          await docusignService.addCompanySignerToEnvelope(
-            envelopeId,
-            document.docusign_sender_email,
-            companyName
-          );
-
-        } catch (signerError) {
-          console.error('Error adding company signer:', signerError);
-          // Don't fail the webhook, but log the error
-        }
-      }
+      console.log(`Updated document ${document.id} status to ${normalizedStatus} (event: ${event})`);
+    } else {
+      console.log(`No document found for contract ID: ${contractId}`);
     }
 
     // Always return 200 to acknowledge receipt
     res.status(200).json({ received: true });
   } catch (error) {
     console.error('Webhook error:', error);
-    // Still return 200 to prevent DocuSign from retrying
+    // Still return 200 to prevent retrying
     res.status(200).json({ received: true, error: error.message });
   }
 });
