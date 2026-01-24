@@ -5691,6 +5691,7 @@ app.post('/api/esign/send', async (req, res) => {
         .update({
           esign_contract_id: contractResult.contractId,
           esign_status: 'sent',
+          status: 'sent',
           esign_sent_at: new Date().toISOString(),
           esign_sender_email: user.email,
           esign_sender_company_id: companyID,
@@ -5751,10 +5752,9 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
     const statusResult = await esignaturesService.getContractStatus(document.esign_contract_id);
     console.log(`Document ${documentId} BoldSign status:`, statusResult.status);
 
-    // Update status in database
+    // Update esign_status in database (don't change regular status - only signed doc gets 'signed' status)
     const updateData = { 
       esign_status: statusResult.status,
-      status: statusResult.status === 'completed' ? 'signed' : statusResult.status,
     };
     
     if (statusResult.status === 'completed') {
@@ -5924,7 +5924,7 @@ app.post('/api/esign/webhook', async (req, res) => {
       const document = documents[0];
       const updateData = {
         esign_status: normalizedStatus,
-        status: normalizedStatus === 'completed' ? 'signed' : normalizedStatus,
+        // Don't update regular status - only the signed document gets 'signed' status
       };
 
       // Set completed_at if status is completed
