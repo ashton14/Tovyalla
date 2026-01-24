@@ -11,8 +11,6 @@ function SendEmailModal({ document, projectName, customerEmail, onClose, onSucce
   const [formData, setFormData] = useState({
     to: customerEmail || '',
     recipientName: '',
-    cc: '',
-    bcc: '',
     subject: `${projectName || 'Project'} - ${document.document_type ? document.document_type.charAt(0).toUpperCase() + document.document_type.slice(1).replace('_', ' ') : 'Document'}${document.document_number ? ` #${String(document.document_number).padStart(5, '0')}` : ''}`,
     message: `Please review and sign the attached document.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\n${user?.user_metadata?.full_name || user?.email || ''}`,
   })
@@ -60,8 +58,6 @@ function SendEmailModal({ document, projectName, customerEmail, onClose, onSucce
           recipientName: formData.recipientName || formData.to,
           subject: formData.subject,
           message: formData.message,
-          cc: formData.cc || undefined,
-          bcc: formData.bcc || undefined,
           documentId: document.id,
         },
         {
@@ -151,36 +147,6 @@ function SendEmailModal({ document, projectName, customerEmail, onClose, onSucce
               value={formData.recipientName}
               onChange={handleChange}
               placeholder="Signer's full name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
-            />
-          </div>
-
-          {/* CC */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              CC <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="email"
-              name="cc"
-              value={formData.cc}
-              onChange={handleChange}
-              placeholder="cc@email.com"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
-            />
-          </div>
-
-          {/* BCC */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              BCC <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="email"
-              name="bcc"
-              value={formData.bcc}
-              onChange={handleChange}
-              placeholder="bcc@email.com"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
             />
           </div>
