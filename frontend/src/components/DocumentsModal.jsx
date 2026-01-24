@@ -310,15 +310,25 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
   }
 
   // Handle file download
-  const handleDownload = async (fileName) => {
+  const handleDownload = async (doc) => {
     try {
       const token = await getAuthToken()
       if (!token) {
         throw new Error('Not authenticated')
       }
 
+      // Use by-id endpoint if document has file_path stored (for signed documents)
+      // Otherwise use the standard path-based endpoint
+      let downloadUrl
+      if (doc.id && doc.file_path) {
+        downloadUrl = `/api/documents/by-id/${doc.id}/download`
+      } else {
+        const fileName = doc.file_name || doc.name || doc
+        downloadUrl = `/api/documents/${entityType}/${entityId}/${fileName}/download`
+      }
+
       const response = await axios.get(
-        `/api/documents/${entityType}/${entityId}/${fileName}/download`,
+        downloadUrl,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -972,7 +982,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                           </button>
                         )}
                         <button
-                          onClick={() => handleDownload(fileName)}
+                          onClick={() => handleDownload(doc)}
                           className="px-3 py-1 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors"
                         >
                           View

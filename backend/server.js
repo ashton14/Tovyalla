@@ -4271,12 +4271,16 @@ app.get('/api/documents/:entityType/:entityId', async (req, res) => {
         document_date: doc.document_date,
         status: doc.status,
         file_name: doc.file_name,
+        file_path: doc.file_path,
         path: doc.file_path,
         size: doc.file_size,
         mime_type: doc.mime_type,
         notes: doc.notes,
         created_at: doc.created_at,
         updated_at: doc.updated_at,
+        esign_status: doc.esign_status,
+        esign_contract_id: doc.esign_contract_id,
+        esign_completed_at: doc.esign_completed_at,
       }));
 
       return res.json({ documents });
@@ -4960,6 +4964,61 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
     res.json({ success: true, message: 'Document deleted successfully' });
   } catch (error) {
     console.error('Delete document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get document download URL by document ID (uses stored file_path)
+app.get('/api/documents/by-id/:documentId/download', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { documentId } = req.params;
+
+    // Get document from database
+    const { data: document, error: docError } = await supabase
+      .from('project_documents')
+      .select('id, file_path, file_name, company_id')
+      .eq('id', documentId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (docError || !document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    if (!document.file_path) {
+      return res.status(400).json({ error: 'Document has no file path' });
+    }
+
+    // Get signed URL using the stored file_path
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(document.file_path, 3600);
+
+    if (urlError) {
+      console.error('URL Error for document', documentId, ':', urlError);
+      return res.status(500).json({ error: urlError.message });
+    }
+
+    res.json({ url: urlData.signedUrl });
+  } catch (error) {
+    console.error('Get download URL by ID error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
