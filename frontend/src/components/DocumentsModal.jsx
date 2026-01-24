@@ -457,11 +457,17 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     }
   }
 
-  // Handle sync document status (check BoldSign and download signed doc if completed)
-  const handleSync = async (doc) => {
-    if (!doc.id || !doc.esign_contract_id) return
+  // Handle sync all documents (check BoldSign and download signed docs if completed)
+  const handleSyncAll = async () => {
+    // Find all documents that have been sent for signature but not yet marked as signed
+    const docsToSync = documents.filter(doc => doc.esign_contract_id && doc.esign_status !== 'signed')
+    
+    if (docsToSync.length === 0) {
+      setSuccess('No documents to sync')
+      return
+    }
 
-    setSyncingDocId(doc.id)
+    setSyncingDocId('all')
     setError('')
     setSuccess('')
 
@@ -471,30 +477,43 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         throw new Error('Not authenticated')
       }
 
-      const response = await axios.post(
-        `/api/esign/sync/${doc.id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
+      let synced = 0
+      let downloaded = 0
 
-      if (response.data.success) {
-        if (response.data.signedDocumentUploaded) {
-          setSuccess('Signed document downloaded and saved!')
-        } else if (response.data.status === 'completed') {
-          setSuccess('Document is completed but signed copy could not be downloaded')
-        } else {
-          setSuccess(`Document status: ${response.data.status}`)
+      for (const doc of docsToSync) {
+        try {
+          const response = await axios.post(
+            `/api/esign/sync/${doc.id}`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+
+          if (response.data.success) {
+            synced++
+            if (response.data.signedDocumentUploaded) {
+              downloaded++
+            }
+          }
+        } catch (err) {
+          console.error(`Error syncing document ${doc.id}:`, err)
         }
-        // Refresh documents list
-        fetchDocuments()
       }
+
+      if (downloaded > 0) {
+        setSuccess(`Synced ${synced} document(s), downloaded ${downloaded} signed document(s)`)
+      } else {
+        setSuccess(`Synced ${synced} document(s)`)
+      }
+      
+      // Refresh documents list
+      fetchDocuments()
     } catch (err) {
-      console.error('Error syncing document:', err)
-      setError(err.response?.data?.error || 'Failed to sync document status')
+      console.error('Error syncing documents:', err)
+      setError(err.response?.data?.error || 'Failed to sync documents')
     } finally {
       setSyncingDocId(null)
     }
@@ -791,9 +810,36 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
 
           {/* Documents List */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">
-              Documents ({documents.length})
-            </h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">
+                Documents ({documents.length})
+              </h4>
+              {documents.some(doc => doc.esign_contract_id && doc.esign_status !== 'signed') && (
+                <button
+                  onClick={handleSyncAll}
+                  disabled={syncingDocId === 'all'}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1"
+                  title="Sync all pending e-signatures and download signed documents"
+                >
+                  {syncingDocId === 'all' ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Sync Signatures
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -938,16 +984,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         >
                           Send
                         </button>
-                        {doc.esign_contract_id && doc.esign_status !== 'signed' && (
-                          <button
-                            onClick={() => handleSync(doc)}
-                            disabled={syncingDocId === doc.id}
-                            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium rounded-md transition-colors"
-                            title="Sync signature status and download signed document"
-                          >
-                            {syncingDocId === doc.id ? 'Syncing...' : 'Sync'}
-                          </button>
-                        )}
                         {doc.id && (
                       <button
                             onClick={() => handleEditClick(doc)}
