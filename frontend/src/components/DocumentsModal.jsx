@@ -31,6 +31,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
   const [selectedDocumentForNotes, setSelectedDocumentForNotes] = useState(null)
   const [documentNotes, setDocumentNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [syncingDocId, setSyncingDocId] = useState(null)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -453,6 +454,49 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     } catch (err) {
       console.error('Error getting document URL:', err)
       setError(err.response?.data?.error || 'Failed to prepare document for sending')
+    }
+  }
+
+  // Handle sync document status (check BoldSign and download signed doc if completed)
+  const handleSync = async (doc) => {
+    if (!doc.id || !doc.esign_contract_id) return
+
+    setSyncingDocId(doc.id)
+    setError('')
+    setSuccess('')
+
+    try {
+      const token = await getAuthToken()
+      if (!token) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await axios.post(
+        `/api/esign/sync/${doc.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (response.data.success) {
+        if (response.data.signedDocumentUploaded) {
+          setSuccess('Signed document downloaded and saved!')
+        } else if (response.data.status === 'completed') {
+          setSuccess('Document is completed but signed copy could not be downloaded')
+        } else {
+          setSuccess(`Document status: ${response.data.status}`)
+        }
+        // Refresh documents list
+        fetchDocuments()
+      }
+    } catch (err) {
+      console.error('Error syncing document:', err)
+      setError(err.response?.data?.error || 'Failed to sync document status')
+    } finally {
+      setSyncingDocId(null)
     }
   }
 
@@ -894,6 +938,16 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         >
                           Send
                         </button>
+                        {doc.esign_contract_id && doc.esign_status !== 'signed' && (
+                          <button
+                            onClick={() => handleSync(doc)}
+                            disabled={syncingDocId === doc.id}
+                            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium rounded-md transition-colors"
+                            title="Sync signature status and download signed document"
+                          >
+                            {syncingDocId === doc.id ? 'Syncing...' : 'Sync'}
+                          </button>
+                        )}
                         {doc.id && (
                       <button
                             onClick={() => handleEditClick(doc)}

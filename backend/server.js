@@ -5656,6 +5656,151 @@ app.post('/api/esign/send', async (req, res) => {
   }
 });
 
+// Manual sync endpoint - check document status and download signed version if completed
+app.post('/api/esign/sync/:documentId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { documentId } = req.params;
+
+    // Find document in database
+    const { data: document, error: findError } = await supabase
+      .from('project_documents')
+      .select('id, name, project_id, company_id, file_name, document_type, esign_contract_id, esign_status')
+      .eq('id', documentId)
+      .single();
+
+    if (findError || !document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    if (!document.esign_contract_id) {
+      return res.status(400).json({ error: 'Document has not been sent for signature' });
+    }
+
+    // Check status from BoldSign
+    const statusResult = await esignaturesService.getContractStatus(document.esign_contract_id);
+    console.log(`Document ${documentId} BoldSign status:`, statusResult.status);
+
+    // Update status in database
+    const updateData = { esign_status: statusResult.status };
+    
+    if (statusResult.status === 'completed') {
+      updateData.esign_completed_at = new Date().toISOString();
+    }
+
+    await supabase
+      .from('project_documents')
+      .update(updateData)
+      .eq('id', document.id);
+
+    // If completed, download and upload signed document
+    if (statusResult.status === 'completed') {
+      try {
+        console.log(`Downloading signed document for contract ${document.esign_contract_id}...`);
+        const signedPdfBuffer = await esignaturesService.downloadSignedDocument(document.esign_contract_id);
+        
+        // Create filename for signed version
+        const originalName = document.file_name || document.name || 'document';
+        const baseName = originalName.replace(/\.pdf$/i, '');
+        const signedFileName = `${baseName}_signed.pdf`;
+        
+        // Upload to Supabase storage
+        const storagePath = `projects/${document.company_id}/${document.project_id}/${signedFileName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(storagePath, signedPdfBuffer, {
+            contentType: 'application/pdf',
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('Error uploading signed document:', uploadError);
+          return res.json({ 
+            success: true, 
+            status: statusResult.status,
+            signedDocumentUploaded: false,
+            error: 'Failed to upload signed document'
+          });
+        }
+
+        console.log(`Signed document uploaded to: ${storagePath}`);
+        
+        // Check if signed document record already exists
+        const { data: existingSignedDoc } = await supabase
+          .from('project_documents')
+          .select('id')
+          .eq('esign_contract_id', document.esign_contract_id)
+          .eq('esign_status', 'signed')
+          .single();
+
+        if (!existingSignedDoc) {
+          // Create new document record for the signed version
+          const { data: signedDocRecord, error: signedDocError } = await supabase
+            .from('project_documents')
+            .insert([{
+              company_id: document.company_id,
+              project_id: document.project_id,
+              name: `${document.name} (Signed)`,
+              document_type: document.document_type || 'contract',
+              file_name: signedFileName,
+              file_path: storagePath,
+              file_size: signedPdfBuffer.length,
+              mime_type: 'application/pdf',
+              esign_status: 'signed',
+              esign_contract_id: document.esign_contract_id,
+              esign_completed_at: new Date().toISOString(),
+            }])
+            .select()
+            .single();
+
+          if (signedDocError) {
+            console.error('Error creating signed document record:', signedDocError);
+          } else {
+            console.log(`Created signed document record: ${signedDocRecord.id}`);
+          }
+        }
+
+        return res.json({ 
+          success: true, 
+          status: statusResult.status,
+          signedDocumentUploaded: true,
+          message: 'Signed document downloaded and uploaded successfully'
+        });
+      } catch (downloadError) {
+        console.error('Error downloading signed document:', downloadError);
+        return res.json({ 
+          success: true, 
+          status: statusResult.status,
+          signedDocumentUploaded: false,
+          error: 'Failed to download signed document: ' + downloadError.message
+        });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      status: statusResult.status,
+      message: statusResult.status === 'completed' ? 'Document is completed' : 'Document is still pending signatures'
+    });
+  } catch (error) {
+    console.error('Sync error:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync document status' });
+  }
+});
+
 // eSignatures.com webhook endpoint for status updates
 app.post('/api/esign/webhook', async (req, res) => {
   try {
@@ -5730,7 +5875,7 @@ app.post('/api/esign/webhook', async (req, res) => {
           // Get original document details to find project_id and company_id
           const { data: fullDoc, error: fullDocError } = await supabase
             .from('project_documents')
-            .select('id, name, project_id, company_id, file_name')
+            .select('id, name, project_id, company_id, file_name, document_type')
             .eq('id', document.id)
             .single();
 
@@ -5769,7 +5914,7 @@ app.post('/api/esign/webhook', async (req, res) => {
                   company_id: fullDoc.company_id,
                   project_id: fullDoc.project_id,
                   name: `${fullDoc.name} (Signed)`,
-                  document_type: 'contract',
+                  document_type: fullDoc.document_type || 'contract',
                   file_name: signedFileName,
                   file_path: storagePath,
                   file_size: signedPdfBuffer.length,
