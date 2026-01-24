@@ -5752,7 +5752,10 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
     console.log(`Document ${documentId} BoldSign status:`, statusResult.status);
 
     // Update status in database
-    const updateData = { esign_status: statusResult.status };
+    const updateData = { 
+      esign_status: statusResult.status,
+      status: statusResult.status === 'completed' ? 'signed' : statusResult.status,
+    };
     
     if (statusResult.status === 'completed') {
       updateData.esign_completed_at = new Date().toISOString();
@@ -5921,6 +5924,7 @@ app.post('/api/esign/webhook', async (req, res) => {
       const document = documents[0];
       const updateData = {
         esign_status: normalizedStatus,
+        status: normalizedStatus === 'completed' ? 'signed' : normalizedStatus,
       };
 
       // Set completed_at if status is completed

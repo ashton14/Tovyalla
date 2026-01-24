@@ -470,7 +470,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
   // Handle sync all documents (check BoldSign and download signed docs if completed)
   const handleSyncAll = async () => {
     // Find all documents that have been sent for signature but not yet marked as signed
-    const docsToSync = documents.filter(doc => doc.esign_contract_id && doc.esign_status !== 'signed')
+    const docsToSync = documents.filter(doc => doc.esign_contract_id && doc.status !== 'signed')
     
     if (docsToSync.length === 0) {
       setSuccess('No documents to sync')
@@ -824,7 +824,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
               <h4 className="text-sm font-semibold text-gray-700">
                 Documents ({documents.length})
               </h4>
-              {documents.some(doc => doc.esign_contract_id && doc.esign_status !== 'signed') && (
+              {documents.some(doc => doc.esign_contract_id && doc.status !== 'signed') && (
                 <button
                   onClick={handleSyncAll}
                   disabled={syncingDocId === 'all'}
@@ -899,24 +899,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     expired: 'Expired',
                   }
 
-                  // eSign status badge colors
-                  const esignStatusColors = {
-                    sent: 'bg-blue-100 text-blue-800',
-                    delivered: 'bg-yellow-100 text-yellow-800',
-                    signed: 'bg-green-100 text-green-800',
-                    completed: 'bg-green-100 text-green-800',
-                    declined: 'bg-red-100 text-red-800',
-                    voided: 'bg-gray-100 text-gray-800',
-                  }
-                  
-                  const esignStatusLabels = {
-                    sent: 'eSign: Sent',
-                    delivered: 'eSign: Delivered',
-                    signed: 'eSign: Signed',
-                    completed: 'eSign: Completed',
-                    declined: 'eSign: Declined',
-                    voided: 'eSign: Voided',
-                  }
                   
                   return (
                   <div
@@ -941,11 +923,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                           {doc.document_number && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700">
                               #{String(doc.document_number).padStart(5, '0')}
-                            </span>
-                          )}
-                          {doc.esign_status && (
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${esignStatusColors[doc.esign_status] || 'bg-gray-100 text-gray-800'}`}>
-                              {esignStatusLabels[doc.esign_status] || `eSign: ${doc.esign_status}`}
                             </span>
                           )}
                         </div>
