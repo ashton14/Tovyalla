@@ -294,8 +294,9 @@ function mapBoldSignStatus(boldSignStatus) {
  * @returns {string|null} Internal status or null if not mapped
  */
 export function mapWebhookEventToStatus(event, data = {}) {
-  // BoldSign webhook events
+  // BoldSign webhook events - handle various formats
   const eventMap = {
+    // PascalCase
     'Sent': 'sent',
     'Viewed': 'delivered',
     'Signed': 'signed',
@@ -304,10 +305,21 @@ export function mapWebhookEventToStatus(event, data = {}) {
     'Expired': 'voided',
     'Revoked': 'voided',
     'Reassigned': 'sent',
+    // BoldSign actual event types (camelCase with prefix)
+    'DocumentSent': 'sent',
+    'DocumentViewed': 'delivered',
+    'DocumentSigned': 'signed',
+    'DocumentCompleted': 'completed',
+    'DocumentDeclined': 'declined',
+    'DocumentExpired': 'voided',
+    'DocumentRevoked': 'voided',
+    'SignerCompleted': 'signed',
+    // Skip verification events
+    'Verification': null,
   };
 
   // Handle different event formats
-  const eventType = event || data.event || data.Event;
+  const eventType = event || data.event?.eventType || data.eventType || data.Event;
   
   return eventMap[eventType] || null;
 }

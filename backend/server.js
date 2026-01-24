@@ -5805,15 +5805,26 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
 app.post('/api/esign/webhook', async (req, res) => {
   try {
     // BoldSign webhook format
-    // Fields: event (object with Type), document (object with DocumentId)
     const webhookData = req.body;
     
-    // Get document ID and event from webhook data
-    // BoldSign format: { event: { Type: "Completed" }, document: { DocumentId: "..." } }
-    const contractId = webhookData.document?.DocumentId || webhookData.documentId || webhookData.data?.documentId;
-    const event = webhookData.event?.Type || webhookData.Event || webhookData.event;
+    console.log('BoldSign webhook received:', JSON.stringify(webhookData, null, 2));
 
-    console.log('BoldSign webhook received:', { event, contractId, raw: JSON.stringify(webhookData).slice(0, 500) });
+    // Handle verification event (sent when webhook is first configured)
+    const eventType = webhookData.event?.eventType || webhookData.eventType;
+    if (eventType === 'Verification') {
+      console.log('BoldSign webhook verification successful');
+      return res.status(200).json({ received: true, message: 'Verification successful' });
+    }
+
+    // Get document ID and event from webhook data
+    // BoldSign format varies - try multiple paths
+    const contractId = webhookData.document?.documentId || 
+                       webhookData.documentId || 
+                       webhookData.data?.documentId ||
+                       webhookData.document?.DocumentId;
+    const event = eventType || webhookData.event?.Type || webhookData.Event;
+
+    console.log('Parsed webhook:', { event, contractId });
 
     if (!contractId) {
       console.error('Webhook missing documentId:', webhookData);
