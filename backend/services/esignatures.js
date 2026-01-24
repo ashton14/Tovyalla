@@ -15,6 +15,7 @@ dotenv.config({ path: join(__dirname, '..', '..', '.env') });
 
 // BoldSign configuration
 const API_KEY = process.env.BOLDSIGN_API_KEY;
+const API_BASE_URL = 'https://api.boldsign.com/v1';
 const WEBHOOK_URL = process.env.BOLDSIGN_WEBHOOK_URL;
 
 // Debug: Log which env vars are loaded (without showing sensitive values)
