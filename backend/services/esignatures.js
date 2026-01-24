@@ -63,7 +63,6 @@ async function countPdfPages(pdfBuffer) {
  * @param {string} options.recipientName - Owner/customer name
  * @param {string} options.subject - Email subject line
  * @param {string} options.message - Email message body
- * @param {string[]} options.ccEmails - CC email addresses (optional)
  * @param {string} options.companySignerEmail - Company signer email (second signer, optional)
  * @param {string} options.companySignerName - Company signer name (optional)
  * @param {string} options.companyName - Company name for branding (optional)
@@ -77,7 +76,6 @@ export async function sendContractForSignature({
   recipientName,
   subject,
   message,
-  ccEmails = [],
   companySignerEmail = null,
   companySignerName = null,
   companyName = null,
@@ -109,7 +107,7 @@ export async function sendContractForSignature({
   try {
     // Create form fields for OWNER signature section
     const ownerSignatureBounds = new Rectangle();
-    ownerSignatureBounds.x = 40;
+    ownerSignatureBounds.x = 50;      // +10 right
     ownerSignatureBounds.y = 290;
     ownerSignatureBounds.width = 280;
     ownerSignatureBounds.height = 28;
@@ -123,8 +121,8 @@ export async function sendContractForSignature({
 
     // OWNER Printed Name field
     const ownerNameBounds = new Rectangle();
-    ownerNameBounds.x = 40;
-    ownerNameBounds.y = 360;
+    ownerNameBounds.x = 50;           // +10 right
+    ownerNameBounds.y = 370;          // +10 down for printed name
     ownerNameBounds.width = 280;
     ownerNameBounds.height = 22;
 
@@ -138,7 +136,7 @@ export async function sendContractForSignature({
 
     // OWNER Date field
     const ownerDateBounds = new Rectangle();
-    ownerDateBounds.x = 465;
+    ownerDateBounds.x = 475;          // +10 right
     ownerDateBounds.y = 290;
     ownerDateBounds.width = 140;
     ownerDateBounds.height = 22;
@@ -165,8 +163,8 @@ export async function sendContractForSignature({
     if (companySignerEmail && companySignerEmail.toLowerCase() !== recipientEmail.toLowerCase()) {
       // CONTRACTOR Signature field
       const contractorSignatureBounds = new Rectangle();
-      contractorSignatureBounds.x = 40;
-      contractorSignatureBounds.y = 462;
+      contractorSignatureBounds.x = 50;      // +10 right
+      contractorSignatureBounds.y = 534;     // +72 down
       contractorSignatureBounds.width = 280;
       contractorSignatureBounds.height = 28;
 
@@ -179,8 +177,8 @@ export async function sendContractForSignature({
 
       // CONTRACTOR Printed Name field
       const contractorNameBounds = new Rectangle();
-      contractorNameBounds.x = 40;
-      contractorNameBounds.y = 532;
+      contractorNameBounds.x = 50;           // +10 right
+      contractorNameBounds.y = 614;          // +72 down + 10 for printed name
       contractorNameBounds.width = 280;
       contractorNameBounds.height = 22;
 
@@ -194,8 +192,8 @@ export async function sendContractForSignature({
 
       // CONTRACTOR Date field
       const contractorDateBounds = new Rectangle();
-      contractorDateBounds.x = 465;
-      contractorDateBounds.y = 462;
+      contractorDateBounds.x = 475;          // +10 right
+      contractorDateBounds.y = 534;          // +72 down
       contractorDateBounds.width = 140;
       contractorDateBounds.height = 22;
 
@@ -225,11 +223,6 @@ export async function sendContractForSignature({
     sendForSign.signers = signers;
     sendForSign.files = [fs.createReadStream(tempFilePath)];
     sendForSign.enableSigningOrder = true;
-
-    // Add CC recipients
-    if (ccEmails && ccEmails.length > 0) {
-      sendForSign.cc = ccEmails.map(email => ({ emailAddress: email }));
-    }
 
     // Send the document
     const response = await documentApi.sendDocument(sendForSign);
@@ -319,8 +312,39 @@ export function mapWebhookEventToStatus(event, data = {}) {
   return eventMap[eventType] || null;
 }
 
+/**
+ * Download the signed document from BoldSign
+ * 
+ * @param {string} documentId - The document ID
+ * @returns {Promise<Buffer>} The signed PDF as a buffer
+ */
+export async function downloadSignedDocument(documentId) {
+  if (!API_KEY) {
+    throw new Error('BoldSign API key not configured.');
+  }
+
+  // BoldSign download endpoint
+  const downloadUrl = `${API_BASE_URL}/document/download?documentId=${documentId}`;
+  
+  const response = await fetch(downloadUrl, {
+    method: 'GET',
+    headers: {
+      'X-API-KEY': API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to download signed document: ${response.status} - ${errorText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export default {
   sendContractForSignature,
   getContractStatus,
   mapWebhookEventToStatus,
+  downloadSignedDocument,
 };

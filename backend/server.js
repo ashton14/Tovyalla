@@ -5564,7 +5564,7 @@ app.post('/api/esign/send', async (req, res) => {
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    const { documentUrl, documentName, recipientEmail, recipientName, subject, message, cc, bcc, documentId } = req.body;
+    const { documentUrl, documentName, recipientEmail, recipientName, subject, message, documentId } = req.body;
 
     if (!documentUrl || !documentName) {
       return res.status(400).json({ error: 'Document URL and name are required' });
@@ -5577,9 +5577,6 @@ app.post('/api/esign/send', async (req, res) => {
     if (!subject) {
       return res.status(400).json({ error: 'Subject is required' });
     }
-
-    // Parse CC emails (BCC not supported by eSignatures.com, will be ignored)
-    const ccEmails = cc ? (Array.isArray(cc) ? cc : cc.split(',').map(e => e.trim()).filter(Boolean)) : [];
 
     // Get company info for branding
     let companyName = null;
@@ -5618,7 +5615,6 @@ app.post('/api/esign/send', async (req, res) => {
         recipientName: recipientName || recipientEmail,
         subject,
         message: message || '',
-        ccEmails,
         companySignerEmail: user.email, // Add sender as company signer (second signer)
         companySignerName: senderName,
         companyName,
@@ -5727,6 +5723,76 @@ app.post('/api/esign/webhook', async (req, res) => {
       }
 
       console.log(`Updated document ${document.id} status to ${normalizedStatus} (event: ${event})`);
+
+      // If document is completed (both parties signed), download and upload signed copy
+      if (normalizedStatus === 'completed') {
+        try {
+          // Get original document details to find project_id and company_id
+          const { data: fullDoc, error: fullDocError } = await supabase
+            .from('project_documents')
+            .select('id, name, project_id, company_id, file_name')
+            .eq('id', document.id)
+            .single();
+
+          if (fullDocError || !fullDoc) {
+            console.error('Error fetching full document details:', fullDocError);
+          } else {
+            // Download signed document from BoldSign
+            console.log(`Downloading signed document for contract ${contractId}...`);
+            const signedPdfBuffer = await esignaturesService.downloadSignedDocument(contractId);
+            
+            // Create filename for signed version
+            const originalName = fullDoc.file_name || fullDoc.name || 'document';
+            const baseName = originalName.replace(/\.pdf$/i, '');
+            const signedFileName = `${baseName}_signed.pdf`;
+            
+            // Upload to Supabase storage
+            const storagePath = `projects/${fullDoc.company_id}/${fullDoc.project_id}/${signedFileName}`;
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('documents')
+              .upload(storagePath, signedPdfBuffer, {
+                contentType: 'application/pdf',
+                cacheControl: '3600',
+                upsert: true, // Overwrite if exists
+              });
+
+            if (uploadError) {
+              console.error('Error uploading signed document:', uploadError);
+            } else {
+              console.log(`Signed document uploaded to: ${storagePath}`);
+              
+              // Create new document record for the signed version
+              const { data: signedDocRecord, error: signedDocError } = await supabase
+                .from('project_documents')
+                .insert([{
+                  company_id: fullDoc.company_id,
+                  project_id: fullDoc.project_id,
+                  name: `${fullDoc.name} (Signed)`,
+                  document_type: 'contract',
+                  file_name: signedFileName,
+                  file_path: storagePath,
+                  file_size: signedPdfBuffer.length,
+                  mime_type: 'application/pdf',
+                  esign_status: 'signed',
+                  esign_contract_id: contractId,
+                  esign_completed_at: new Date().toISOString(),
+                }])
+                .select()
+                .single();
+
+              if (signedDocError) {
+                console.error('Error creating signed document record:', signedDocError);
+              } else {
+                console.log(`Created signed document record: ${signedDocRecord.id}`);
+              }
+            }
+          }
+        } catch (downloadError) {
+          console.error('Error downloading/uploading signed document:', downloadError);
+          // Don't fail the webhook - the status update was successful
+        }
+      }
     } else {
       console.log(`No document found for contract ID: ${contractId}`);
     }
