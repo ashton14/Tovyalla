@@ -15,7 +15,7 @@ A comprehensive full-stack Customer Relationship Management system designed spec
 
 ### Advanced Features
 - **Google Calendar Integration**: Sync events with Google Calendar via OAuth 2.0
-- **DocuSign Integration**: Send contracts, proposals, and change orders for electronic signatures
+- **eSignatures Integration**: Send contracts, proposals, and change orders for electronic signatures via eSignatures.com
 - **Document Management**: Upload, organize, and manage documents for customers, projects, and other entities
 - **PDF Generation**: Generate contracts, proposals, and change orders as PDFs
 - **CSV Import/Export**: Bulk import customers, projects, inventory, and subcontractors
@@ -27,7 +27,7 @@ A comprehensive full-stack Customer Relationship Management system designed spec
 - **npm** or **yarn**
 - **Supabase Account** ([supabase.com](https://supabase.com))
 - **Google Cloud Project** (for Google Calendar integration - optional)
-- **DocuSign Account** (for e-signature features - optional)
+- **eSignatures.com Account** (for e-signature features - optional)
 
 ## 🏗️ Project Structure
 
@@ -36,10 +36,8 @@ Tovyalla/
 ├── backend/                    # Express.js server
 │   ├── server.js              # Main server file
 │   ├── services/              # Service modules
-│   │   ├── docusign.js        # DocuSign integration
+│   │   ├── esignatures.js     # eSignatures.com integration
 │   │   └── googleCalendar.js  # Google Calendar integration
-│   ├── scripts/               # Utility scripts
-│   │   └── setup-docusign-webhook.js
 │   └── package.json
 ├── frontend/                   # React application (Vite)
 │   ├── src/
@@ -86,13 +84,9 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/oauth/callback
 FRONTEND_URL=http://localhost:5173
 
-# DocuSign Integration (Optional)
-DOCUSIGN_INTEGRATION_KEY=your-integration-key
-DOCUSIGN_USER_ID=your-email@example.com
-DOCUSIGN_ACCOUNT_ID=your-account-id
-DOCUSIGN_RSA_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nYour key here\n-----END RSA PRIVATE KEY-----
-DOCUSIGN_API_BASE_URL=https://demo.docusign.net/restapi
-DOCUSIGN_WEBHOOK_URL=http://localhost:5000/api/docusign/webhook
+# eSignatures.com Integration (Optional)
+ESIGNATURES_API_TOKEN=your-secret-api-token
+ESIGNATURES_WEBHOOK_URL=http://localhost:5000/api/esign/webhook
 ```
 
 **Important Notes:**
@@ -160,13 +154,12 @@ CREATE INDEX IF NOT EXISTS idx_company_whitelist_email ON public.company_whiteli
 6. Add authorized redirect URI: `http://localhost:5000/api/google/oauth/callback` (or your production URL)
 7. Copy the Client ID and Client Secret to your `.env` file
 
-### 5. DocuSign Setup (Optional)
+### 5. eSignatures.com Setup (Optional)
 
-1. Create a DocuSign Developer account at [developers.docusign.com](https://developers.docusign.com)
-2. Create an Integration (OAuth application)
-3. Generate an RSA key pair for JWT authentication
-4. Add the credentials to your `.env` file
-5. Run the webhook setup script: `node backend/scripts/setup-docusign-webhook.js`
+1. Create an account at [eSignatures.com](https://esignatures.com/)
+2. Go to your account settings → API page
+3. Copy your **Secret Token** and add it as `ESIGNATURES_API_TOKEN` in your `.env` file
+4. Configure the webhook URL in your eSignatures.com dashboard (optional if using custom webhook URL)
 
 ## 🏃 Running the Application
 
@@ -241,7 +234,7 @@ npm start
 Update these for production:
 - `GOOGLE_REDIRECT_URI`: `https://your-backend-url.railway.app/api/google/oauth/callback`
 - `FRONTEND_URL`: `https://your-frontend-url.vercel.app`
-- `DOCUSIGN_WEBHOOK_URL`: `https://your-backend-url.railway.app/api/docusign/webhook`
+- `ESIGNATURES_WEBHOOK_URL`: `https://your-backend-url.railway.app/api/esign/webhook`
 
 ## 🛠️ Tech Stack
 
@@ -249,7 +242,7 @@ Update these for production:
 - **Node.js** with Express.js
 - **Supabase** for database and authentication
 - **Google APIs** (googleapis) for Calendar integration
-- **DocuSign eSignature API** for electronic signatures
+- **eSignatures.com API** for electronic signatures
 - **Multer** for file uploads
 
 ### Frontend
@@ -293,9 +286,9 @@ Update these for production:
 - `DELETE /api/google/calendar/events/:eventId` - Delete event
 - `POST /api/google/calendar/disconnect` - Disconnect Google Calendar
 
-### DocuSign
-- `POST /api/docusign/send-envelope` - Send document for signature
-- `GET /api/docusign/webhook` - Webhook endpoint for status updates
+### eSignatures
+- `POST /api/esign/send` - Send document for signature
+- `POST /api/esign/webhook` - Webhook endpoint for status updates
 
 ### Documents
 - `GET /api/documents/:entityType/:entityId` - List documents
@@ -330,12 +323,12 @@ Make sure you've run `npm run install-all` to install all dependencies in all di
 - Check that OAuth consent screen is configured
 - For testing, add your email as a test user in OAuth consent screen
 
-### DocuSign Integration Issues
+### eSignatures Integration Issues
 
-- Verify all DocuSign credentials are correct
-- Check RSA private key format (see `ENV_VARIABLES_EXAMPLE.md`)
-- Ensure webhook URL is configured in DocuSign
-- Run the webhook setup script: `node backend/scripts/setup-docusign-webhook.js`
+- Verify your `ESIGNATURES_API_TOKEN` is correct (from your eSignatures.com account)
+- Ensure webhook URL is publicly accessible (not localhost) for production
+- Check eSignatures.com dashboard for webhook logs and error messages
+- See `ENV_VARIABLES_EXAMPLE.md` for detailed configuration instructions
 
 ### Data Caching
 

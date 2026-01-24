@@ -799,8 +799,8 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     expired: 'Expired',
                   }
 
-                  // DocuSign status badge colors
-                  const docusignStatusColors = {
+                  // eSign status badge colors
+                  const esignStatusColors = {
                     sent: 'bg-blue-100 text-blue-800',
                     delivered: 'bg-yellow-100 text-yellow-800',
                     signed: 'bg-green-100 text-green-800',
@@ -809,13 +809,13 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                     voided: 'bg-gray-100 text-gray-800',
                   }
                   
-                  const docusignStatusLabels = {
-                    sent: 'DocuSign: Sent',
-                    delivered: 'DocuSign: Delivered',
-                    signed: 'DocuSign: Signed',
-                    completed: 'DocuSign: Completed',
-                    declined: 'DocuSign: Declined',
-                    voided: 'DocuSign: Voided',
+                  const esignStatusLabels = {
+                    sent: 'eSign: Sent',
+                    delivered: 'eSign: Delivered',
+                    signed: 'eSign: Signed',
+                    completed: 'eSign: Completed',
+                    declined: 'eSign: Declined',
+                    voided: 'eSign: Voided',
                   }
                   
                   return (
@@ -843,9 +843,9 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                               #{String(doc.document_number).padStart(5, '0')}
                             </span>
                           )}
-                          {doc.docusign_status && (
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${docusignStatusColors[doc.docusign_status] || 'bg-gray-100 text-gray-800'}`}>
-                              {docusignStatusLabels[doc.docusign_status] || `DocuSign: ${doc.docusign_status}`}
+                          {doc.esign_status && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${esignStatusColors[doc.esign_status] || 'bg-gray-100 text-gray-800'}`}>
+                              {esignStatusLabels[doc.esign_status] || `eSign: ${doc.esign_status}`}
                             </span>
                           )}
                         </div>
@@ -857,9 +857,9 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         {doc.created_at && (
                           <span>Uploaded: {formatDate(doc.created_at)}</span>
                         )}
-                          {doc.docusign_envelope_id && (
-                            <span className="text-gray-400" title={`Envelope ID: ${doc.docusign_envelope_id}`}>
-                              Envelope: {doc.docusign_envelope_id.substring(0, 8)}...
+                          {doc.esign_contract_id && (
+                            <span className="text-gray-400" title={`Contract ID: ${doc.esign_contract_id}`}>
+                              Contract: {doc.esign_contract_id.substring(0, 8)}...
                             </span>
                           )}
                       </div>
