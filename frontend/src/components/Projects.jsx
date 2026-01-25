@@ -965,40 +965,40 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
       {/* Projects Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[12%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Name
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[10%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Customer
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[14%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Address
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[7%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Type
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[6%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Pool
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[5%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   SqFt
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[9%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[8%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Value
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[7%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   PM
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[8%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Updated
                 </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[14%]">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -1017,49 +1017,49 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                   const statusBadge = getStatusBadge(project.status)
                   return (
                     <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-2 py-2">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate" title={project.project_name || '-'}>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {project.project_name || '-'}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white truncate" title={getCustomerName(project)}>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {getCustomerName(project)}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white truncate" title={project.address || '-'}>{project.address || '-'}</div>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">{project.address || '-'}</div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white truncate">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {PROJECT_TYPES.find((t) => t.value === project.project_type)?.label || project.project_type}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white capitalize truncate">{project.pool_or_spa}</div>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white capitalize">{project.pool_or_spa}</div>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {project.sq_feet ? project.sq_feet.toLocaleString() : '-'}
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusBadge.color}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusBadge.color}`}
                         >
                           {statusBadge.label}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-900 dark:text-white">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {project.est_value
                           ? `$${parseFloat(project.est_value).toLocaleString()}`
                           : '-'}
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={project.project_manager || '-'}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {project.project_manager || '-'}
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(project.updated_at).toLocaleDateString()}
                       </td>
-                      <td className="px-2 py-2 text-right text-sm font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => {

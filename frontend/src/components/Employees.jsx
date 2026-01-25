@@ -543,37 +543,37 @@ function Employees() {
       {/* Employees Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[14%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Name
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[9%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Type
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[9%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Role
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[18%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Email
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[10%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Phone
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[10%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Last Logon
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[7%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Active
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[10%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Roles
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[6%]">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   TZ
                 </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-[7%]">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -596,8 +596,8 @@ function Employees() {
 
                   return (
                     <tr key={employee.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-2 py-2">
-                        <div className="flex items-center gap-1">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
                           <div
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                             style={{
@@ -605,35 +605,35 @@ function Employees() {
                             }}
                             title={`Calendar color: ${employee.color || '#0ea5e9'}`}
                           />
-                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate" title={employee.name}>{employee.name}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{employee.name}</div>
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white capitalize truncate">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white capitalize">
                           {USER_TYPES.find((t) => t.value === employee.user_type)?.label || employee.user_type}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white truncate">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {USER_ROLES.find((r) => r.value === employee.user_role)?.label || employee.user_role || '-'}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-900 dark:text-white truncate" title={employee.email_address}>{employee.email_address}</div>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">{employee.email_address}</div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{employee.phone || '-'}</div>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{employee.phone || '-'}</div>
                       </td>
-                      <td className="px-2 py-2">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {employee.last_logon
                             ? new Date(employee.last_logon).toLocaleDateString()
                             : 'Never'}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             employee.current
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -642,13 +642,13 @@ function Employees() {
                           {employee.current ? 'Yes' : 'No'}
                         </span>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="flex flex-wrap gap-0.5">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex flex-wrap gap-1">
                           {roles.length > 0 ? (
                             roles.map((role, idx) => (
                               <span
                                 key={idx}
-                                className="inline-flex items-center px-1 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
                               >
                                 {role}
                               </span>
@@ -658,10 +658,10 @@ function Employees() {
                           )}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="text-sm text-gray-500 dark:text-gray-400 truncate" title={employee.registered_time_zone || '-'}>{employee.registered_time_zone ? employee.registered_time_zone.split('/')[1] || employee.registered_time_zone : '-'}</div>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{employee.registered_time_zone ? employee.registered_time_zone.split('/')[1] || employee.registered_time_zone : '-'}</div>
                       </td>
-                      <td className="px-2 py-2 text-right text-sm font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => {
