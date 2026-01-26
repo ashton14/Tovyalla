@@ -51,7 +51,7 @@ function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-20 w-auto mx-auto mb-2" />
-          <p className="text-white/80">Pool Construction Management</p>
+          <p className="text-white/80">Customer Relationship Management</p>
         </div>
 
         {/* Login Card */}

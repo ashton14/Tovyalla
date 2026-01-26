@@ -169,7 +169,7 @@ function Settings() {
         </h3>
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <span className="font-medium text-gray-900 dark:text-white">Tovyalla CRM</span> - Pool Construction Management
+            <span className="font-medium text-gray-900 dark:text-white">Tovyalla</span> - Customer Relationship Management
           </p>
           <p>
             Version 1.0.0
