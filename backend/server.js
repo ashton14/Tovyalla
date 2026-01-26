@@ -5750,7 +5750,6 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
 
     // Check status from BoldSign
     const statusResult = await esignaturesService.getContractStatus(document.esign_contract_id);
-    console.log(`Document ${documentId} BoldSign status:`, statusResult.status);
 
     // Update esign_status in database (don't change regular status - only signed doc gets 'signed' status)
     const updateData = { 
@@ -5769,7 +5768,6 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
     // If completed, download and upload signed document
     if (statusResult.status === 'completed') {
       try {
-        console.log(`Downloading signed document for contract ${document.esign_contract_id}...`);
         const signedPdfBuffer = await esignaturesService.downloadSignedDocument(document.esign_contract_id);
         
         // Create filename for signed version
@@ -5797,8 +5795,6 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
             error: 'Failed to upload signed document'
           });
         }
-
-        console.log(`Signed document uploaded to: ${storagePath}`);
         
         // Check if signed document record already exists
         const { data: existingSignedDoc } = await supabase
@@ -5831,8 +5827,6 @@ app.post('/api/esign/sync/:documentId', async (req, res) => {
 
           if (signedDocError) {
             console.error('Error creating signed document record:', signedDocError);
-          } else {
-            console.log(`Created signed document record: ${signedDocRecord.id}`);
           }
         }
 
@@ -5870,12 +5864,10 @@ app.post('/api/esign/webhook', async (req, res) => {
     // BoldSign webhook format
     const webhookData = req.body;
     
-    console.log('BoldSign webhook received:', JSON.stringify(webhookData, null, 2));
 
     // Handle verification event (sent when webhook is first configured)
     const eventType = webhookData.event?.eventType || webhookData.eventType;
     if (eventType === 'Verification') {
-      console.log('BoldSign webhook verification successful');
       return res.status(200).json({ received: true, message: 'Verification successful' });
     }
 
@@ -5887,7 +5879,6 @@ app.post('/api/esign/webhook', async (req, res) => {
                        webhookData.document?.DocumentId;
     const event = eventType || webhookData.event?.Type || webhookData.Event;
 
-    console.log('Parsed webhook:', { event, contractId });
 
     if (!contractId) {
       console.error('Webhook missing documentId:', webhookData);
@@ -5900,7 +5891,6 @@ app.post('/api/esign/webhook', async (req, res) => {
 
     if (!status) {
       // Unknown event type, just acknowledge
-      console.log('Unknown BoldSign webhook event:', event);
       return res.status(200).json({ received: true, event });
     }
 
@@ -5942,7 +5932,6 @@ app.post('/api/esign/webhook', async (req, res) => {
         return res.status(200).json({ received: true, error: 'Update failed' });
       }
 
-      console.log(`Updated document ${document.id} status to ${normalizedStatus} (event: ${event})`);
 
       // If document is completed (both parties signed), download and upload signed copy
       if (normalizedStatus === 'completed') {
@@ -5958,7 +5947,6 @@ app.post('/api/esign/webhook', async (req, res) => {
             console.error('Error fetching full document details:', fullDocError);
           } else {
             // Download signed document from BoldSign
-            console.log(`Downloading signed document for contract ${contractId}...`);
             const signedPdfBuffer = await esignaturesService.downloadSignedDocument(contractId);
             
             // Create filename for signed version
@@ -5980,7 +5968,6 @@ app.post('/api/esign/webhook', async (req, res) => {
             if (uploadError) {
               console.error('Error uploading signed document:', uploadError);
             } else {
-              console.log(`Signed document uploaded to: ${storagePath}`);
               
               // Create new document record for the signed version
               const { data: signedDocRecord, error: signedDocError } = await supabase
@@ -6004,8 +5991,6 @@ app.post('/api/esign/webhook', async (req, res) => {
 
               if (signedDocError) {
                 console.error('Error creating signed document record:', signedDocError);
-              } else {
-                console.log(`Created signed document record: ${signedDocRecord.id}`);
               }
             }
           }

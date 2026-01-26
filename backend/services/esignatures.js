@@ -98,7 +98,6 @@ export async function sendContractForSignature({
   const pageCount = await countPdfPages(documentBuffer);
   const lastPage = pageCount; // BoldSign uses 1-indexed page numbers
   
-  console.log(`PDF has ${pageCount} pages. Placing signatures on page ${lastPage}`);
 
   // Write buffer to a temp file (BoldSign SDK requires a file stream)
   const tempDir = os.tmpdir();
@@ -228,7 +227,6 @@ export async function sendContractForSignature({
     // Send the document
     const response = await documentApi.sendDocument(sendForSign);
 
-    console.log('BoldSign document sent successfully:', response.documentId);
 
     return {
       contractId: response.documentId,
