@@ -172,8 +172,8 @@ function Dashboard() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo/Header */}
-        <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 w-auto" />
+        <div className="p-4 lg:p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-10 lg:h-12 w-auto" />
           {/* Close button for mobile */}
           <button
             onClick={() => setSidebarOpen(false)}
@@ -186,10 +186,10 @@ function Dashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1.5">
+        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
           <button
             onClick={() => handleNavClick('overview')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'overview'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -199,7 +199,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('company')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'company'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -209,7 +209,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('customers')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'customers'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -219,7 +219,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('projects')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'projects'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -229,7 +229,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('inventory')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'inventory'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -239,7 +239,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('subcontractors')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'subcontractors'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -249,7 +249,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('employees')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'employees'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -259,7 +259,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('calendar')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'calendar'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -269,7 +269,7 @@ function Dashboard() {
           </button>
           <button
             onClick={() => handleNavClick('goals')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'goals'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -279,18 +279,18 @@ function Dashboard() {
           </button>
 
           {/* Divider */}
-          <div className="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+          <div className="my-1.5 border-t border-gray-200 dark:border-gray-700"></div>
 
           <button
             onClick={() => handleNavClick('settings')}
-            className={`w-full text-left px-4 py-2.5 rounded-md transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
               activeSection === 'settings'
                 ? 'bg-pool-blue text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <span className="font-medium flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -299,18 +299,18 @@ function Dashboard() {
           </button>
         </nav>
 
-        {/* User Info & Logout */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="mb-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Logged in as</p>
-            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.email}</p>
+        {/* User Info & Logout - always visible at bottom */}
+        <div className="p-3 lg:p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-800">
+          <div className="mb-2">
+            <p className="text-[10px] lg:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Logged in as</p>
+            <p className="text-xs lg:text-sm font-medium text-gray-900 dark:text-white truncate">{user.email}</p>
             {user.user_metadata?.companyID && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{user.user_metadata.companyID}</p>
+              <p className="text-[10px] lg:text-xs text-gray-500 dark:text-gray-400">{user.user_metadata.companyID}</p>
             )}
           </div>
           <button
             onClick={handleLogout}
-            className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            className="w-full px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
           >
             Logout
           </button>

@@ -776,9 +776,10 @@ function ProjectExpenses({ project, onClose }) {
             </div>
           </div>
 
-          {/* Tabs/Sections */}
-          <div className="border-b border-gray-200 mb-4">
-            <nav className="-mb-px flex space-x-8">
+          {/* Add Expense Buttons - Grid layout for mobile */}
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Add Expense</p>
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
               <button
                 onClick={() => {
                   setShowSubcontractorForm(true)
@@ -792,9 +793,13 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                className="px-3 py-2 text-xs sm:text-sm font-medium text-pool-blue bg-pool-light hover:bg-pool-blue hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
-                + Subcontractor Fee
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Subcontractor</span>
+                <span className="sm:hidden">Sub</span>
               </button>
               <button
                 onClick={() => {
@@ -810,9 +815,12 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                className="px-3 py-2 text-xs sm:text-sm font-medium text-purple-700 bg-purple-100 hover:bg-purple-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
-                + Material
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Material
               </button>
               <button
                 onClick={() => {
@@ -830,9 +838,12 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                className="px-3 py-2 text-xs sm:text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
-                + Equipment
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Equipment
               </button>
               <button
                 onClick={() => {
@@ -848,11 +859,15 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="py-2 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                className="px-3 py-2 text-xs sm:text-sm font-medium text-red-700 bg-red-100 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
-                + Additional Expense
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Additional</span>
+                <span className="sm:hidden">Other</span>
               </button>
-            </nav>
+            </div>
           </div>
 
           {/* Subcontractor Fees List */}

@@ -309,11 +309,16 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     }
   }
 
-  // Handle file download
+  // Handle file download/view - mobile-friendly approach
   const handleDownload = async (doc) => {
+    // On mobile, window.open in async callbacks gets blocked as popup
+    // Solution: Open window FIRST (sync), then navigate it (async)
+    const newWindow = window.open('about:blank', '_blank')
+    
     try {
       const token = await getAuthToken()
       if (!token) {
+        if (newWindow) newWindow.close()
         throw new Error('Not authenticated')
       }
 
@@ -336,9 +341,15 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         }
       )
 
-      // Open download URL in new tab
-      window.open(response.data.url, '_blank')
+      // Navigate the already-opened window to the document URL
+      if (newWindow) {
+        newWindow.location.href = response.data.url
+      } else {
+        // Fallback if window was blocked - try direct navigation
+        window.location.href = response.data.url
+      }
     } catch (err) {
+      if (newWindow) newWindow.close()
       console.error('Error downloading document:', err)
       setError(err.response?.data?.error || 'Failed to download document')
     }

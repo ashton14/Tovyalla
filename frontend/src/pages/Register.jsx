@@ -16,7 +16,7 @@ function Register() {
   // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="relative min-h-screen w-screen overflow-hidden flex items-center justify-center">
+      <div className="relative min-h-screen min-h-dvh w-screen overflow-hidden flex items-center justify-center">
         <div className="relative text-center z-10">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
           <p className="mt-4 text-white/80">Loading...</p>
@@ -84,12 +84,12 @@ function Register() {
   ]
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden flex items-center justify-center p-4">
+    <div className="relative min-h-screen min-h-dvh w-screen overflow-y-auto flex items-center justify-center p-4 py-6">
       <div className="relative w-full max-w-5xl z-10">
         {/* Header */}
-        <div className="text-center mb-5">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-16 w-auto mx-auto mb-1" />
-          <p className="text-white/80">Customer Relationship Management</p>
+        <div className="text-center mb-4 sm:mb-5">
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          <p className="text-white/80 text-sm sm:text-base">Customer Relationship Management</p>
         </div>
 
         {/* Main Container - Two Panels */}
@@ -97,7 +97,7 @@ function Register() {
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
             
             {/* Left Panel - Existing Company */}
-            <div className="p-6 lg:p-7">
+            <div className="p-4 sm:p-6 lg:p-7">
               <div className="mb-5">
                 <div className="inline-flex items-center justify-center w-11 h-11 bg-pool-light rounded-xl mb-3">
                   <svg className="w-5 h-5 text-pool-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,7 +140,7 @@ function Register() {
                     type="text"
                     value={companyID}
                     onChange={(e) => setCompanyID(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all text-base"
                     placeholder="Enter your company ID"
                     required
                   />
@@ -158,13 +158,13 @@ function Register() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all text-base"
                     placeholder="you@company.com"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                       Password
@@ -174,7 +174,7 @@ function Register() {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all text-base"
                       placeholder="Min. 6 characters"
                       required
                     />
@@ -189,7 +189,7 @@ function Register() {
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all text-base"
                       placeholder="Confirm password"
                       required
                     />
@@ -224,73 +224,75 @@ function Register() {
             </div>
 
             {/* Right Panel - New Company / Pricing */}
-            <div className="p-6 lg:p-7 bg-gradient-to-br from-gray-50 to-gray-100">
-              <div className="mb-5">
-                <div className="inline-flex items-center justify-center w-11 h-11 bg-gradient-to-br from-pool-blue to-pool-dark rounded-xl mb-3 shadow-lg">
+            <div className="p-4 sm:p-6 lg:p-7 bg-gradient-to-br from-gray-50 to-gray-100">
+              <div className="mb-3 sm:mb-5 flex items-center gap-3 md:block">
+                <div className="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-pool-blue to-pool-dark rounded-xl md:mb-3 shadow-lg flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">
-                  New to Tovyalla?
-                </h2>
-                <p className="text-gray-600 text-sm">
-                  Start managing your business with our complete CRM solution
-                </p>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5 sm:mb-1">
+                    New to Tovyalla?
+                  </h2>
+                  <p className="text-gray-600 text-xs sm:text-sm">
+                    Start managing your business with our complete CRM solution
+                  </p>
+                </div>
               </div>
 
               {/* Pricing Card */}
-              <div className="bg-white rounded-xl p-5 shadow-lg border border-gray-200 mb-4">
-                <div className="text-center mb-2">
-                  <span className="text-sm font-medium text-pool-blue bg-pool-light px-3 py-1 rounded-full">
+              <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg border border-gray-200 mb-3 sm:mb-4">
+                <div className="flex items-center justify-between sm:block sm:text-center mb-2 sm:mb-3">
+                  <span className="text-xs sm:text-sm font-medium text-pool-blue bg-pool-light px-2 sm:px-3 py-1 rounded-full">
                     Business Plan
                   </span>
+                  <div className="sm:mt-2">
+                    <span className="text-2xl sm:text-4xl font-bold text-gray-900">$249</span>
+                    <span className="text-gray-600 text-sm">/month</span>
+                  </div>
                 </div>
-                <div className="text-center mb-1">
-                  <span className="text-4xl font-bold text-gray-900">$249</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <p className="text-center text-sm text-gray-500 mb-4">
+                <p className="text-center text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 hidden sm:block">
                   Unlimited users included
                 </p>
 
-                {/* Features List */}
-                <ul className="space-y-2.5 mb-5">
+                {/* Features List - Grid on mobile, list on desktop */}
+                <ul className="grid grid-cols-2 sm:grid-cols-1 gap-1.5 sm:gap-2.5 mb-4 sm:mb-5">
                   {features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2.5 text-sm text-gray-700">
-                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-pool-light rounded-full text-xs">
+                    <li key={index} className="flex items-center gap-1.5 sm:gap-2.5 text-xs sm:text-sm text-gray-700">
+                      <span className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-pool-light rounded-full text-[10px] sm:text-xs">
                         {feature.icon}
                       </span>
-                      {feature.text}
+                      <span className="truncate">{feature.text}</span>
                     </li>
                   ))}
                 </ul>
 
                 <a
                   href=""
-                  className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-center shadow-lg shadow-pool-blue/25 hover:shadow-pool-dark/30"
+                  className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2 sm:py-2.5 px-4 rounded-lg transition-all duration-300 text-center text-sm sm:text-base shadow-lg shadow-pool-blue/25 hover:shadow-pool-dark/30"
                 >
                   Get Started
                 </a>
               </div>
 
               {/* Trust Indicators */}
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+              <div className="text-center space-y-1.5 sm:space-y-2">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-500">
                   <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                     No setup fees
                   </span>
                   <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                     Cancel anytime
                   </span>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-[10px] sm:text-xs text-gray-500">
                   Have questions?{' '}
                   <a href="" className="text-pool-blue hover:text-pool-dark font-medium">
                     Contact our sales team
@@ -302,7 +304,7 @@ function Register() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-sm mt-4">
+        <p className="text-center text-white/60 text-xs sm:text-sm mt-4">
           © 2025 Tovyalla CRM. All rights reserved.
         </p>
       </div>

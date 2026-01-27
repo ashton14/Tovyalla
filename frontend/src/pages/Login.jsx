@@ -14,7 +14,7 @@ function Login() {
   // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="relative h-screen w-screen overflow-hidden flex items-center justify-center">
+      <div className="relative min-h-screen min-h-dvh w-screen overflow-hidden flex items-center justify-center">
         <div className="relative text-center z-10">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
           <p className="mt-4 text-white/80">Loading...</p>
@@ -46,12 +46,12 @@ function Login() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden flex items-center justify-center p-4">
+    <div className="relative min-h-screen min-h-dvh w-screen overflow-y-auto flex items-center justify-center p-4 py-8">
       <div className="relative w-full max-w-md z-10">
         {/* Header */}
-        <div className="text-center mb-6">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-16 w-auto mx-auto mb-1" />
-          <p className="text-white/80 font-light">Customer Relationship Management</p>
+        <div className="text-center mb-4 sm:mb-6">
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          <p className="text-white/80 font-light text-sm sm:text-base">Customer Relationship Management</p>
         </div>
 
         {/* Login Card */}
@@ -183,8 +183,8 @@ function Login() {
           </div>
         </div>
 
-        {/* Trust Indicators */}
-        <div className="flex items-center justify-center gap-6 mt-5">
+        {/* Trust Indicators - hidden on very small screens */}
+        <div className="hidden sm:flex items-center justify-center gap-6 mt-5">
           <div className="flex items-center gap-2 text-white/60 text-sm">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -200,7 +200,7 @@ function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-sm mt-4">
+        <p className="text-center text-white/60 text-xs sm:text-sm mt-4">
           © 2025 Tovyalla CRM. All rights reserved.
         </p>
       </div>
