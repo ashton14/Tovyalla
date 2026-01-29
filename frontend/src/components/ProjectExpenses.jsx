@@ -961,7 +961,7 @@ function ProjectExpenses({ project, onClose }) {
 
           {/* Subcontractor Fees List */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Subcontractor Fees</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Subcontractors</h3>
             {expenses.subcontractorFees && expenses.subcontractorFees.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -1332,7 +1332,7 @@ function ProjectExpenses({ project, onClose }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Fee ($)</label>
                         <input
                           type="number"
                           step="0.01"
