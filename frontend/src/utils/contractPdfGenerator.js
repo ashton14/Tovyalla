@@ -199,14 +199,6 @@ export const generateContractPdf = async (contractData) => {
   const paymentSchedule = generatePaymentSchedule(contractData)
   const paymentTotal = contractData.customerGrandTotal || paymentSchedule.reduce((sum, item) => sum + item.amount, 0)
   
-  // Build equipment list (no prices - prices are shown in payment schedule)
-  const equipmentList = expenses.equipment && expenses.equipment.length > 0
-    ? expenses.equipment.map((eq) => ({
-        name: eq.inventory?.name || eq.name || 'Equipment',
-        description: eq.description || eq.inventory?.description || '',
-        quantity: eq.quantity || 1,
-      }))
-    : []
   
   // Build scope of work items from custom scope in preview only
   let scopeOfWork = []
@@ -362,32 +354,6 @@ export const generateContractPdf = async (contractData) => {
       } : { text: 'Scope of work to be determined.', style: 'note' },
       
       { text: '\n' },
-      
-      // ================== EQUIPMENT LIST ==================
-      // Hide equipment list for change orders
-      (docType !== 'change_order' && equipmentList.length > 0) ? [
-        { text: 'EQUIPMENT LIST', style: 'sectionHeader' },
-        {
-          table: {
-            headerRows: 1,
-            widths: ['40%', '45%', '15%'],
-            body: [
-              [
-                { text: 'Equipment', style: 'tableHeader' },
-                { text: 'Description', style: 'tableHeader' },
-                { text: 'Qty', style: 'tableHeader', alignment: 'center' },
-              ],
-              ...equipmentList.map(eq => [
-                { text: eq.name, style: 'tableValue' },
-                { text: eq.description, style: 'tableValue' },
-                { text: eq.quantity.toString(), style: 'tableValue', alignment: 'center' },
-              ]),
-            ],
-          },
-          layout: 'lightHorizontalLines',
-          margin: [0, 0, 0, 20],
-        },
-      ] : [],
       
       // ================== PAYMENT SCHEDULE ==================
       { text: 'MILESTONE PAYMENT SCHEDULE', style: 'sectionHeader' },

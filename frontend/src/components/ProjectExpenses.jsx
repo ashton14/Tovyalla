@@ -776,10 +776,12 @@ function ProjectExpenses({ project, onClose }) {
             </div>
           </div>
 
-          {/* Add Expense Buttons - Grid layout for mobile */}
-          <div className="mb-4">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Add Expense</p>
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+          {/* Add Expense Buttons */}
+          <div className="mb-6">
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Add Expense</p>
+            
+            {/* Mobile: Grid with colored buttons */}
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
               <button
                 onClick={() => {
                   setShowSubcontractorForm(true)
@@ -793,13 +795,12 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="px-3 py-2 text-xs sm:text-sm font-medium text-pool-blue bg-pool-light hover:bg-pool-blue hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
+                className="px-3 py-2 text-xs font-medium text-pool-blue bg-pool-light hover:bg-pool-blue hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="hidden sm:inline">Subcontractor</span>
-                <span className="sm:hidden">Sub</span>
+                Sub
               </button>
               <button
                 onClick={() => {
@@ -815,7 +816,7 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="px-3 py-2 text-xs sm:text-sm font-medium text-purple-700 bg-purple-100 hover:bg-purple-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
+                className="px-3 py-2 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -838,7 +839,7 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="px-3 py-2 text-xs sm:text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
+                className="px-3 py-2 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -859,20 +860,108 @@ function ProjectExpenses({ project, onClose }) {
                     notes: '',
                   })
                 }}
-                className="px-3 py-2 text-xs sm:text-sm font-medium text-red-700 bg-red-100 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
+                className="px-3 py-2 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-600 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="hidden sm:inline">Additional</span>
-                <span className="sm:hidden">Other</span>
+                Other
+              </button>
+            </div>
+
+            {/* Desktop: Simple text links */}
+            <div className="hidden sm:flex sm:flex-wrap gap-6">
+              <button
+                onClick={() => {
+                  setShowSubcontractorForm(true)
+                  setEditingSubcontractor(null)
+                  setSubcontractorForm({
+                    subcontractor_id: '',
+                    flat_fee: '',
+                    expected_value: '',
+                    date_added: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
+                    notes: '',
+                  })
+                }}
+                className="text-sm font-medium text-pool-blue hover:text-pool-dark flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Subcontractor
+              </button>
+              <button
+                onClick={() => {
+                  setShowMaterialForm(true)
+                  setEditingMaterial(null)
+                  setMaterialForm({
+                    inventory_id: '',
+                    quantity: '',
+                    unit_cost: '',
+                    expected_value: '',
+                    date_used: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
+                    notes: '',
+                  })
+                }}
+                className="text-sm font-medium text-pool-blue hover:text-pool-dark flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Material
+              </button>
+              <button
+                onClick={() => {
+                  setShowEquipmentForm(true)
+                  setEditingEquipment(null)
+                  setEquipmentForm({
+                    inventory_id: '',
+                    description: '',
+                    expected_price: '',
+                    actual_price: '',
+                    quantity: '1',
+                    date_ordered: new Date().toISOString().split('T')[0],
+                    date_received: '',
+                    status: 'pending',
+                    notes: '',
+                  })
+                }}
+                className="text-sm font-medium text-pool-blue hover:text-pool-dark flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Equipment
+              </button>
+              <button
+                onClick={() => {
+                  setShowAdditionalForm(true)
+                  setEditingAdditional(null)
+                  setAdditionalForm({
+                    description: '',
+                    amount: '',
+                    expected_value: '',
+                    expense_date: new Date().toISOString().split('T')[0],
+                    status: 'incomplete',
+                    category: '',
+                    notes: '',
+                  })
+                }}
+                className="text-sm font-medium text-pool-blue hover:text-pool-dark flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Additional
               </button>
             </div>
           </div>
 
           {/* Subcontractor Fees List */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Subcontractor Fees</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Subcontractor Fees</h3>
             {expenses.subcontractorFees && expenses.subcontractorFees.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -937,19 +1026,19 @@ function ProjectExpenses({ project, onClose }) {
 
           {/* Materials List */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Materials Used</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Materials</h3>
             {expenses.materials && expenses.materials.length > 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Material</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Received</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
@@ -961,7 +1050,10 @@ function ProjectExpenses({ project, onClose }) {
                         <tr key={entry.id}>
                           <td className="px-4 py-3 text-sm text-gray-900">{entry.inventory?.name || '-'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDateString(entry.date_ordered || entry.date_received)}
+                            {formatDateString(entry.date_ordered) || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDateString(entry.date_received) || '-'}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -973,17 +1065,14 @@ function ProjectExpenses({ project, onClose }) {
                                entry.status === 'complete' ? 'Complete' : 'Incomplete'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {expectedPrice > 0 ? `$${expectedPrice.toFixed(2)}` : '-'}
-                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {entry.quantity ? `${entry.quantity} ${entry.inventory?.unit || ''}` : '-'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : '-'}
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {expectedPrice > 0 ? `$${expectedPrice.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : (expectedPrice > 0 ? `$${expectedPrice.toFixed(2)}` : '-')}
+                            {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
                             <button
@@ -1006,20 +1095,21 @@ function ProjectExpenses({ project, onClose }) {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">No materials used yet.</p>
+              <p className="text-gray-500 text-sm">No materials added yet.</p>
             )}
           </div>
 
           {/* Equipment List */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Equipment</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Equipment</h3>
             {expenses.equipment && expenses.equipment.length > 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Ordered</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Received</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Qty</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
@@ -1033,11 +1123,12 @@ function ProjectExpenses({ project, onClose }) {
                       const actualTotal = parseFloat(entry.actual_price || 0)
                       return (
                         <tr key={entry.id}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{entry.inventory?.name || entry.name || '-'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            <div>{entry.inventory?.name || entry.name || '-'}</div>
+                            {formatDateString(entry.date_ordered) || '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDateString(entry.date_ordered)}
+                            {formatDateString(entry.date_received) || '-'}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -1088,7 +1179,7 @@ function ProjectExpenses({ project, onClose }) {
 
            {/* Additional Expenses List */}
            <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Additional Expenses</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">Additional Expenses</h3>
             {expenses.additionalExpenses && expenses.additionalExpenses.length > 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -1241,7 +1332,7 @@ function ProjectExpenses({ project, onClose }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Fee ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual ($)</label>
                         <input
                           type="number"
                           step="0.01"

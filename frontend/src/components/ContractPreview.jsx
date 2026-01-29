@@ -2,6 +2,22 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import { getContractPdfBlob } from '../utils/contractPdfGenerator'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // Helper to format currency
 const formatCurrency = (amount) => {
@@ -11,6 +27,20 @@ const formatCurrency = (amount) => {
     currency: 'USD',
   }).format(amount)
 }
+
+// Drag handle icon component
+const DragHandle = ({ listeners, attributes }) => (
+  <button
+    {...listeners}
+    {...attributes}
+    className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 touch-none"
+    title="Drag to reorder"
+  >
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+    </svg>
+  </button>
+)
 
 function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded }) {
   const { supabase, user } = useAuth()
@@ -41,6 +71,42 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const [importableItems, setImportableItems] = useState([])
   const [selectedImportItems, setSelectedImportItems] = useState([])
   const [loadingImportItems, setLoadingImportItems] = useState(false)
+
+  // DnD sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle drag end for scope of work
+  const handleScopeDragEnd = (event) => {
+    const { active, over } = event
+    if (active.id !== over?.id) {
+      setScopeOfWork((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over.id)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+  }
+
+  // Handle drag end for milestones
+  const handleMilestoneDragEnd = (event) => {
+    const { active, over } = event
+    if (active.id !== over?.id) {
+      setMilestones((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over.id)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+  }
 
   // Calculate total cost from expenses (use actual prices, fall back to expected if no actual)
   const calculateTotalCost = () => {
@@ -720,103 +786,292 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
   const docType = contractData.documentType || 'contract'
 
-  // Mobile card component for milestones
-  const MilestoneCard = ({ milestone, index }) => (
-    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-      <div className="flex justify-between items-start mb-3">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Milestone {index + 1}</span>
-        {milestones.length > 1 && (
-          <button
-            onClick={() => removeMilestone(milestone.id)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
-            title="Remove milestone"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
-      </div>
-      <div className="space-y-3">
-        <input
-          type="text"
-          value={milestone.name}
-          onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
-          placeholder="Milestone name"
-          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Percentage</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={milestone.percentage}
-                onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
-                placeholder="0"
-                className="w-full pr-8 pl-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                step="0.01"
-                min="0"
-                max="100"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
-            </div>
+  // Sortable mobile card component for milestones
+  const SortableMilestoneCard = ({ milestone, index }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: milestone.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${isDragging ? 'shadow-lg' : ''}`}
+      >
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-2">
+            <DragHandle listeners={listeners} attributes={attributes} />
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Milestone {index + 1}</span>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-              <input
-                type="number"
-                value={calculateAmount(milestone.percentage).toFixed(2)}
-                onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
-                placeholder="0.00"
-                className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                step="0.01"
-                min="0"
-              />
+          {milestones.length > 1 && (
+            <button
+              onClick={() => removeMilestone(milestone.id)}
+              className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
+              title="Remove milestone"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={milestone.name}
+            onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+            placeholder="Milestone name"
+            className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Percentage</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={milestone.percentage}
+                  onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
+                  placeholder="0"
+                  className="w-full pr-8 pl-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <input
+                  type="number"
+                  value={calculateAmount(milestone.percentage).toFixed(2)}
+                  onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
-  // Mobile card component for scope of work
-  const ScopeCard = ({ item, index }) => (
-    <div className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-      <div className="flex justify-between items-start mb-3">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Work Item {index + 1}</span>
-        {scopeOfWork.length > 1 && (
-          <button
-            onClick={() => removeScopeItem(item.id)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
-            title="Remove item"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
+  // Sortable mobile card component for scope of work
+  const SortableScopeCard = ({ item, index }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: item.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${isDragging ? 'shadow-lg' : ''}`}
+      >
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-2">
+            <DragHandle listeners={listeners} attributes={attributes} />
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Work Item {index + 1}</span>
+          </div>
+          {scopeOfWork.length > 1 && (
+            <button
+              onClick={() => removeScopeItem(item.id)}
+              className="text-red-600 hover:text-red-800 text-sm font-medium p-1"
+              title="Remove item"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={item.title}
+            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+            placeholder="Work title (e.g., Pool Excavation)"
+            className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <textarea
+            value={item.description}
+            onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
+            placeholder="Description of work to be performed..."
+            rows={3}
+            className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
       </div>
-      <div className="space-y-3">
-        <input
-          type="text"
-          value={item.title}
-          onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
-          placeholder="Work title (e.g., Pool Excavation)"
-          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-        <textarea
-          value={item.description}
-          onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
-          placeholder="Description of work to be performed..."
-          rows={3}
-          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-    </div>
-  )
+    )
+  }
+
+  // Sortable table row for milestones (desktop)
+  const SortableMilestoneRow = ({ milestone, index }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: milestone.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <tr
+        ref={setNodeRef}
+        style={style}
+        className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
+      >
+        <td className="py-3 px-2 w-10">
+          <DragHandle listeners={listeners} attributes={attributes} />
+        </td>
+        <td className="py-3 px-4">
+          <input
+            type="text"
+            value={milestone.name}
+            onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+            placeholder="Enter milestone name"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </td>
+        <td className="py-3 px-4 text-right">
+          <div className="relative inline-flex items-center">
+            <input
+              type="number"
+              value={milestone.percentage}
+              onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
+              placeholder="0"
+              className="w-24 pr-7 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              step="0.01"
+              min="0"
+              max="100"
+            />
+            <span className="absolute right-3 text-gray-500">%</span>
+          </div>
+        </td>
+        <td className="py-3 px-4 text-right">
+          <div className="relative inline-flex items-center">
+            <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
+            <input
+              type="number"
+              value={calculateAmount(milestone.percentage).toFixed(2)}
+              onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
+              className="w-32 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              step="0.01"
+              min="0"
+            />
+          </div>
+        </td>
+        <td className="py-3 px-4 text-right">
+          {milestones.length > 1 && (
+            <button
+              onClick={() => removeMilestone(milestone.id)}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Remove milestone"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
+  // Sortable table row for scope of work (desktop)
+  const SortableScopeRow = ({ item, index }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: item.id })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    }
+
+    return (
+      <tr
+        ref={setNodeRef}
+        style={style}
+        className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
+      >
+        <td className="py-3 px-2 w-10 align-top">
+          <DragHandle listeners={listeners} attributes={attributes} />
+        </td>
+        <td className="py-3 px-4 align-top">
+          <input
+            type="text"
+            value={item.title}
+            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+            placeholder="Enter work title"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </td>
+        <td className="py-3 px-4 align-top">
+          <textarea
+            value={item.description}
+            onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
+            placeholder="Description of work..."
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </td>
+        <td className="py-3 px-4 text-right align-top">
+          {scopeOfWork.length > 1 && (
+            <button
+              onClick={() => removeScopeItem(item.id)}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Remove item"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
@@ -931,84 +1186,63 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
               </div>
 
               {/* Mobile Card Layout */}
-              <div className="sm:hidden space-y-3">
-                {scopeOfWork.map((item, index) => (
-                  <ScopeCard key={item.id} item={item} index={index} />
-                ))}
-                
-                {/* Add Scope Item Button - Mobile */}
-                <button
-                  onClick={addScopeItem}
-                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Work Item
-                </button>
-              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleScopeDragEnd}>
+                <SortableContext items={scopeOfWork.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                  <div className="sm:hidden space-y-3">
+                    {scopeOfWork.map((item, index) => (
+                      <SortableScopeCard key={item.id} item={item} index={index} />
+                    ))}
+                    
+                    {/* Add Scope Item Button - Mobile */}
+                    <button
+                      onClick={addScopeItem}
+                      className="w-full py-3 px-4 border-2 border-dashed border-gray-300 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Work Item
+                    </button>
+                  </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Desktop Table Layout */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Work Title</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Description</th>
-                      <th className="w-20"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scopeOfWork.map((item, index) => (
-                      <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}>
-                        <td className="py-3 px-4 align-top">
-                          <input
-                            type="text"
-                            value={item.title}
-                            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
-                            placeholder="Enter work title"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </td>
-                        <td className="py-3 px-4 align-top">
-                          <textarea
-                            value={item.description}
-                            onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
-                            placeholder="Description of work..."
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-right align-top">
-                          {scopeOfWork.length > 1 && (
-                            <button
-                              onClick={() => removeScopeItem(item.id)}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium"
-                              title="Remove item"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </td>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleScopeDragEnd}>
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="w-10"></th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Work Title</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Description</th>
+                        <th className="w-20"></th>
                       </tr>
-                    ))}
-                    {/* Add Scope Item Row */}
-                    <tr>
-                      <td colSpan={3} className="py-3 px-4">
-                        <button
-                          onClick={addScopeItem}
-                          className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Work Item
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <SortableContext items={scopeOfWork.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                      <tbody>
+                        {scopeOfWork.map((item, index) => (
+                          <SortableScopeRow key={item.id} item={item} index={index} />
+                        ))}
+                        {/* Add Scope Item Row */}
+                        <tr>
+                          <td colSpan={4} className="py-3 px-4">
+                            <button
+                              onClick={addScopeItem}
+                              className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              Add Work Item
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </SortableContext>
+                  </table>
+                </div>
+              </DndContext>
             </>
           )}
 
@@ -1044,130 +1278,90 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
               )}
 
               {/* Mobile Card Layout */}
-              <div className="sm:hidden space-y-3">
-                {milestones.map((milestone, index) => (
-                  <MilestoneCard key={milestone.id} milestone={milestone} index={index} />
-                ))}
-                
-                {/* Add Milestone Button - Mobile */}
-                <button
-                  onClick={addMilestone}
-                  className="w-full py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Milestone
-                </button>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMilestoneDragEnd}>
+                <SortableContext items={milestones.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                  <div className="sm:hidden space-y-3">
+                    {milestones.map((milestone, index) => (
+                      <SortableMilestoneCard key={milestone.id} milestone={milestone} index={index} />
+                    ))}
+                    
+                    {/* Add Milestone Button - Mobile */}
+                    <button
+                      onClick={addMilestone}
+                      className="w-full py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-pool-blue hover:text-pool-dark hover:border-pool-blue text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Milestone
+                    </button>
 
-                {/* Mobile Total Card */}
-                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg border-2 border-gray-300 dark:border-gray-600 mt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-gray-900 dark:text-white">TOTAL</span>
-                    <span className="font-bold text-gray-900 dark:text-white text-xl">{formatCurrency(customerTotal)}</span>
+                    {/* Mobile Total Card */}
+                    <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg border-2 border-gray-300 dark:border-gray-600 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-gray-900 dark:text-white">TOTAL</span>
+                        <span className="font-bold text-gray-900 dark:text-white text-xl">{formatCurrency(customerTotal)}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {totalPercentage.toFixed(2)}% allocated
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {totalPercentage.toFixed(2)}% allocated
-                  </div>
-                </div>
-              </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Desktop Table Layout */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Milestone Name</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-32">Percentage</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-40">Amount</th>
-                      <th className="w-20"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {milestones.map((milestone, index) => (
-                      <tr key={milestone.id} className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}>
-                        <td className="py-3 px-4">
-                          <input
-                            type="text"
-                            value={milestone.name}
-                            onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
-                            placeholder="Enter milestone name"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="relative inline-flex items-center">
-                            <input
-                              type="number"
-                              value={milestone.percentage}
-                              onChange={(e) => updateMilestonePercentage(milestone.id, e.target.value)}
-                              placeholder="0"
-                              className="w-24 pr-7 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                            />
-                            <span className="absolute right-3 text-gray-500 dark:text-gray-400">%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="relative inline-flex items-center">
-                            <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
-                            <input
-                              type="number"
-                              value={calculateAmount(milestone.percentage).toFixed(2)}
-                              onChange={(e) => updateMilestoneByAmount(milestone.id, e.target.value)}
-                              placeholder="0.00"
-                              className="w-32 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              step="0.01"
-                              min="0"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {milestones.length > 1 && (
-                            <button
-                              onClick={() => removeMilestone(milestone.id)}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium"
-                              title="Remove milestone"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </td>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMilestoneDragEnd}>
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="w-10"></th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Milestone Name</th>
+                        <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-32">Percentage</th>
+                        <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-40">Amount</th>
+                        <th className="w-20"></th>
                       </tr>
-                    ))}
-                    {/* Add Milestone Row */}
-                    <tr>
-                      <td colSpan={4} className="py-3 px-4">
-                        <button
-                          onClick={addMilestone}
-                          className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Milestone
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
-                      <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">TOTAL</td>
-                      <td className="py-4 px-4 text-right font-semibold">
-                        <span className={totalPercentage === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
-                          {totalPercentage.toFixed(2)}%
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white text-lg">
-                        {formatCurrency(customerTotal)}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                    </thead>
+                    <SortableContext items={milestones.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                      <tbody>
+                        {milestones.map((milestone, index) => (
+                          <SortableMilestoneRow key={milestone.id} milestone={milestone} index={index} />
+                        ))}
+                        {/* Add Milestone Row */}
+                        <tr>
+                          <td colSpan={5} className="py-3 px-4">
+                            <button
+                              onClick={addMilestone}
+                              className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              Add Milestone
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </SortableContext>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
+                        <td></td>
+                        <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">TOTAL</td>
+                        <td className="py-4 px-4 text-right font-semibold">
+                          <span className={totalPercentage === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
+                            {totalPercentage.toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white text-lg">
+                          {formatCurrency(customerTotal)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </DndContext>
             </>
           )}
 
