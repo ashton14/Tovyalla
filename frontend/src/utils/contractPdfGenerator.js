@@ -420,12 +420,6 @@ export const generateContractPdf = async (contractData) => {
         { text: company.terms_of_service, style: 'paragraph', margin: [0, 0, 0, 20] },
       ] : []),
       
-      // ================== NOTES ==================
-      ...(project.notes ? [
-        { text: 'NOTES', style: 'sectionHeader' },
-        { text: project.notes, style: 'paragraph', margin: [0, 0, 0, 20] },
-      ] : []),
-      
       // ================== SIGNATURES ==================
       { text: 'SIGNATURES', style: 'sectionHeader', pageBreak: 'before' },
       { text: 'By signing below, both parties agree to the terms and conditions set forth in this contract.', style: 'paragraph', margin: [0, 0, 0, 20] },
