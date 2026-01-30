@@ -74,6 +74,35 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     }
   }, [entityId, entityType])
 
+  // Subscribe to real-time updates for documents
+  useEffect(() => {
+    if (!supabase || !entityId || entityType !== 'project') return
+
+    // Subscribe to changes on project_documents table for this project
+    const channel = supabase
+      .channel(`documents-${entityId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'project_documents',
+          filter: `project_id=eq.${entityId}`,
+        },
+        (payload) => {
+          console.log('📄 Document change detected:', payload.eventType)
+          // Refresh the documents list when any change occurs
+          fetchDocuments()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, entityId, entityType])
+
   // Close create menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {

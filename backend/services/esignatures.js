@@ -254,6 +254,7 @@ export async function getContractStatus(documentId) {
     throw new Error('BoldSign API key not configured.');
   }
 
+  // Initialize the BoldSign API client
   const documentApi = new DocumentApi();
   documentApi.setApiKey(API_KEY);
 
