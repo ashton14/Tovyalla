@@ -171,8 +171,8 @@ function Calendar() {
         throw new Error('Not authenticated')
       }
 
-      // Get events for the next 3 months
-      const timeMin = new Date().toISOString()
+      // Get events from 3 months ago to 3 months in the future
+      const timeMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
       const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
 
       const response = await axios.get('/api/google/calendar/events', {

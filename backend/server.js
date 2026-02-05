@@ -471,6 +471,10 @@ app.put('/api/company', async (req, res) => {
       terms_of_service,
       default_initial_fee_percent,
       default_final_fee_percent,
+      default_initial_fee_min,
+      default_initial_fee_max,
+      default_final_fee_min,
+      default_final_fee_max,
     } = req.body;
 
     // Check if company exists
@@ -502,6 +506,10 @@ app.put('/api/company', async (req, res) => {
             terms_of_service: terms_of_service || null,
             default_initial_fee_percent: default_initial_fee_percent ?? 20,
             default_final_fee_percent: default_final_fee_percent ?? 80,
+            default_initial_fee_min: default_initial_fee_min || null,
+            default_initial_fee_max: default_initial_fee_max || null,
+            default_final_fee_min: default_final_fee_min || null,
+            default_final_fee_max: default_final_fee_max || null,
           },
         ])
         .select()
@@ -531,6 +539,10 @@ app.put('/api/company', async (req, res) => {
           terms_of_service: terms_of_service !== undefined ? terms_of_service : undefined,
           default_initial_fee_percent: default_initial_fee_percent !== undefined ? default_initial_fee_percent : undefined,
           default_final_fee_percent: default_final_fee_percent !== undefined ? default_final_fee_percent : undefined,
+          default_initial_fee_min: default_initial_fee_min !== undefined ? (default_initial_fee_min || null) : undefined,
+          default_initial_fee_max: default_initial_fee_max !== undefined ? (default_initial_fee_max || null) : undefined,
+          default_final_fee_min: default_final_fee_min !== undefined ? (default_final_fee_min || null) : undefined,
+          default_final_fee_max: default_final_fee_max !== undefined ? (default_final_fee_max || null) : undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyID)
