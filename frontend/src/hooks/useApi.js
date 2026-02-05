@@ -692,3 +692,177 @@ export const useRemoveFromWhitelist = () => {
   })
 }
 
+// ============================================
+// SMS MESSAGES (Twilio)
+// ============================================
+
+// Get all conversations (messages grouped by customer/phone)
+export const useMessages = () => {
+  const getAuthToken = useAuthToken()
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['messages'],
+    queryFn: async () => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.get('/api/messages', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data.conversations || []
+    },
+    enabled: !!user,
+    staleTime: 30 * 1000, // Data is fresh for 30 seconds (messages are more time-sensitive)
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+// Get conversation with a specific customer
+export const useConversation = (customerId) => {
+  const getAuthToken = useAuthToken()
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['conversation', customerId],
+    queryFn: async () => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.get(`/api/messages/conversation/${customerId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    enabled: !!user && !!customerId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+// Get unread message count (polls every 30 seconds)
+export const useUnreadMessageCount = () => {
+  const getAuthToken = useAuthToken()
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['unreadMessageCount'],
+    queryFn: async () => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.get('/api/messages/unread-count', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data.unread_count || 0
+    },
+    enabled: !!user,
+    staleTime: 15 * 1000, // Consider stale after 15 seconds
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 30 * 1000, // Poll every 30 seconds
+  })
+}
+
+// Send a new SMS message
+export const useSendMessage = () => {
+  const queryClient = useQueryClient()
+  const getAuthToken = useAuthToken()
+
+  return useMutation({
+    mutationFn: async ({ customer_id, phone_number, message_body }) => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.post('/api/messages', {
+        customer_id,
+        phone_number,
+        message_body,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] })
+      if (variables.customer_id) {
+        queryClient.invalidateQueries({ queryKey: ['conversation', variables.customer_id] })
+      }
+    },
+  })
+}
+
+// Mark a single message as read
+export const useMarkMessageRead = () => {
+  const queryClient = useQueryClient()
+  const getAuthToken = useAuthToken()
+
+  return useMutation({
+    mutationFn: async (messageId) => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.patch(`/api/messages/${messageId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] })
+      queryClient.invalidateQueries({ queryKey: ['unreadMessageCount'] })
+    },
+  })
+}
+
+// Mark all messages in a conversation as read
+export const useMarkAllMessagesRead = () => {
+  const queryClient = useQueryClient()
+  const getAuthToken = useAuthToken()
+
+  return useMutation({
+    mutationFn: async ({ customer_id, phone_number }) => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.patch('/api/messages/mark-all-read', {
+        customer_id,
+        phone_number,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] })
+      queryClient.invalidateQueries({ queryKey: ['unreadMessageCount'] })
+      if (variables.customer_id) {
+        queryClient.invalidateQueries({ queryKey: ['conversation', variables.customer_id] })
+      }
+    },
+  })
+}
+
+// Get SMS service (Infobip) configuration status
+export const useSmsStatus = () => {
+  const getAuthToken = useAuthToken()
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['smsStatus'],
+    queryFn: async () => {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const response = await axios.get('/api/sms/status', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      return response.data
+    },
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000, // Configuration rarely changes
+    gcTime: 30 * 60 * 1000,
+  })
+}
+
+// Alias for backward compatibility
+export const useTwilioStatus = useSmsStatus
+

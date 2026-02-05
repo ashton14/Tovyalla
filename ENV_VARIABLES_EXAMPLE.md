@@ -55,6 +55,42 @@ FRONTEND_URL=http://localhost:5173
 6. Add authorized redirect URI: `http://localhost:5000/api/google/oauth/callback` (or your production URL)
 7. Copy the Client ID and Client Secret to your `.env` file
 
+## Required Infobip Variables (SMS Messaging)
+
+Add these to your `.env` file for SMS messaging functionality:
+
+```env
+# Infobip Configuration
+INFOBIP_API_KEY=your-api-key
+INFOBIP_BASE_URL=https://xxxxx.api.infobip.com
+INFOBIP_SENDER_ID=+1234567890
+INFOBIP_WEBHOOK_URL=https://your-domain.com/api/sms/webhook
+INFOBIP_WEBHOOK_SECRET=your-optional-secret
+```
+
+### Setting up Infobip:
+
+1. Create an account at [Infobip](https://portal.infobip.com/) (free trial available)
+2. Find your credentials:
+   - **API Key**: Go to your profile settings or API Keys section
+   - **Base URL**: Found on your dashboard (unique to your account, e.g., `https://xxxxx.api.infobip.com`)
+3. Set up a phone number or sender ID:
+   - Go to **Channels and Numbers** → **Numbers**
+   - Purchase or register a phone number, or use an alphanumeric sender ID
+   - Copy it to `INFOBIP_SENDER_ID`
+4. Configure your webhook URL for incoming messages:
+   - Go to **Channels and Numbers** → **Numbers** → Select your number
+   - Under **Forward to HTTP**, set the URL to your backend endpoint
+   - For production: `https://your-domain.com/api/sms/webhook`
+   - For local development: Use a tunneling service like [ngrok](https://ngrok.com/)
+
+**Note:** The `INFOBIP_WEBHOOK_SECRET` is optional but recommended. If set, add it as a query parameter or header when configuring the webhook in Infobip (e.g., `https://your-domain.com/api/sms/webhook?secret=your-secret`).
+
+### Infobip Pricing:
+- Pricing varies by country and volume
+- Free trial includes credits for testing
+- Visit [Infobip Pricing](https://www.infobip.com/pricing) for details
+
 ## Important Notes
 
 1. **No spaces around `=`**: 

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as esignaturesService from './services/esignatures.js';
 import * as googleCalendarService from './services/googleCalendar.js';
+import * as smsService from './services/infobip.js';
 
 // Get the directory of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -6253,6 +6254,474 @@ app.post('/api/google/calendar/disconnect', async (req, res) => {
     console.error('Disconnect error:', error);
     res.status(500).json({ error: error.message || 'Failed to disconnect' });
   }
+});
+
+// ============================================
+// SMS Messages Endpoints (Twilio Integration)
+// ============================================
+
+// Get all conversations (messages grouped by customer/phone)
+app.get('/api/messages', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    // Get all messages for the company, ordered by created_at descending
+    const { data: messages, error } = await supabase
+      .from('sms_messages')
+      .select(`
+        *,
+        customer:customers(id, first_name, last_name, phone, email)
+      `)
+      .eq('company_id', companyID)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Group messages by customer_id or phone_number to create conversations
+    const conversationsMap = new Map();
+    
+    for (const message of messages || []) {
+      const key = message.customer_id || message.phone_number;
+      
+      if (!conversationsMap.has(key)) {
+        conversationsMap.set(key, {
+          id: key,
+          customer_id: message.customer_id,
+          customer: message.customer,
+          phone_number: message.phone_number,
+          last_message: message,
+          unread_count: 0,
+          messages: []
+        });
+      }
+      
+      const conversation = conversationsMap.get(key);
+      conversation.messages.push(message);
+      
+      if (!message.is_read && message.direction === 'inbound') {
+        conversation.unread_count++;
+      }
+    }
+
+    // Convert to array and sort by last message time
+    const conversations = Array.from(conversationsMap.values())
+      .sort((a, b) => new Date(b.last_message.created_at) - new Date(a.last_message.created_at));
+
+    res.json({ conversations });
+  } catch (error) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get unread message count
+app.get('/api/messages/unread-count', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { count, error } = await supabase
+      .from('sms_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', companyID)
+      .eq('is_read', false)
+      .eq('direction', 'inbound');
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ unread_count: count || 0 });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get conversation with a specific customer
+app.get('/api/messages/conversation/:customerId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { customerId } = req.params;
+
+    // Get customer info
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id, first_name, last_name, phone, email')
+      .eq('id', customerId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (customerError || !customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Get messages for this customer
+    const { data: messages, error } = await supabase
+      .from('sms_messages')
+      .select('*')
+      .eq('company_id', companyID)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ 
+      customer,
+      messages: messages || []
+    });
+  } catch (error) {
+    console.error('Get conversation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Send a new SMS message
+app.post('/api/messages', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { customer_id, phone_number, message_body } = req.body;
+
+    if (!message_body) {
+      return res.status(400).json({ error: 'Message body is required' });
+    }
+
+    if (!customer_id && !phone_number) {
+      return res.status(400).json({ error: 'Either customer_id or phone_number is required' });
+    }
+
+    // If customer_id provided, get the customer's phone number
+    let targetPhone = phone_number;
+    let targetCustomerId = customer_id;
+
+    if (customer_id) {
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('id, phone, first_name, last_name')
+        .eq('id', customer_id)
+        .eq('company_id', companyID)
+        .single();
+
+      if (customerError || !customer) {
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+
+      if (!customer.phone) {
+        return res.status(400).json({ error: 'Customer does not have a phone number' });
+      }
+
+      targetPhone = customer.phone;
+      targetCustomerId = customer.id;
+    }
+
+    // Check if Twilio is configured
+    if (!smsService.isConfigured()) {
+      return res.status(503).json({ error: 'SMS service is not configured. Please set up Twilio credentials.' });
+    }
+
+    // Send the SMS via Twilio
+    const twilioResponse = await smsService.sendSMS(targetPhone, message_body);
+
+    // Store the message in the database
+    const { data: message, error } = await supabase
+      .from('sms_messages')
+      .insert({
+        company_id: companyID,
+        customer_id: targetCustomerId || null,
+        phone_number: targetPhone,
+        message_body: message_body,
+        direction: 'outbound',
+        twilio_sid: twilioResponse.sid,
+        status: twilioResponse.status,
+        is_read: true // Outbound messages are automatically "read"
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error storing message:', error);
+      // Message was sent but not stored - still return success
+      return res.json({ 
+        message: { twilio_sid: twilioResponse.sid },
+        warning: 'Message sent but failed to store in database'
+      });
+    }
+
+    res.json({ message });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ error: error.message || 'Failed to send message' });
+  }
+});
+
+// Mark a single message as read
+app.patch('/api/messages/:id/read', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('sms_messages')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    res.json({ message: data });
+  } catch (error) {
+    console.error('Mark message read error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mark all messages in a conversation as read
+app.patch('/api/messages/mark-all-read', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'User does not have a company ID' });
+    }
+
+    const { customer_id, phone_number } = req.body;
+
+    if (!customer_id && !phone_number) {
+      return res.status(400).json({ error: 'Either customer_id or phone_number is required' });
+    }
+
+    let query = supabase
+      .from('sms_messages')
+      .update({ is_read: true })
+      .eq('company_id', companyID)
+      .eq('is_read', false)
+      .eq('direction', 'inbound');
+
+    if (customer_id) {
+      query = query.eq('customer_id', customer_id);
+    } else {
+      query = query.eq('phone_number', phone_number);
+    }
+
+    const { data, error } = await query.select();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ updated_count: data?.length || 0 });
+  } catch (error) {
+    console.error('Mark all read error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Infobip webhook for incoming SMS messages
+// Note: This endpoint doesn't require auth token - it's called by Infobip
+// Configure this URL in your Infobip portal under: Channels & Numbers > Numbers > Your Number > Forward to HTTP
+app.post('/api/sms/webhook', async (req, res) => {
+  try {
+    // Validate that the request is from Infobip (optional - uses secret header)
+    if (!smsService.validateWebhook(req)) {
+      console.warn('Invalid Infobip webhook request');
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Parse the incoming message (Infobip sends JSON)
+    const incomingMessage = smsService.parseIncomingMessage(req.body);
+    
+    if (!incomingMessage.from || !incomingMessage.body) {
+      // Acknowledge receipt even without valid message data
+      return res.status(200).json({ status: 'received' });
+    }
+
+    // Normalize the phone number
+    const normalizedPhone = smsService.normalizePhoneNumber(incomingMessage.from);
+
+    // Try to find a customer with this phone number
+    // We need to search across all companies since we don't know which company this is for
+    // The sender ID determines which company owns this message
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id, company_id, first_name, last_name, phone')
+      .or(`phone.eq.${normalizedPhone},phone.eq.${incomingMessage.from}`);
+
+    // If multiple customers match, we'll use the first one
+    // In a multi-tenant setup, you'd want to use separate sender IDs per company
+    // or implement a lookup based on recent outbound messages to this number
+    const matchedCustomer = customers?.[0];
+
+    if (!matchedCustomer) {
+      // No matching customer found - we can't store this message without a company_id
+      // In production, you might want to store these in a separate "unknown messages" table
+      console.warn('Received SMS from unknown number:', normalizedPhone);
+      return res.status(200).json({ status: 'received', matched: false });
+    }
+
+    // Store the incoming message
+    const { error } = await supabase
+      .from('sms_messages')
+      .insert({
+        company_id: matchedCustomer.company_id,
+        customer_id: matchedCustomer.id,
+        phone_number: normalizedPhone || incomingMessage.from,
+        message_body: incomingMessage.body,
+        direction: 'inbound',
+        twilio_sid: incomingMessage.messageSid, // Kept for backward compatibility, stores Infobip messageId
+        status: 'received',
+        is_read: false
+      });
+
+    if (error) {
+      console.error('Error storing incoming message:', error);
+    }
+
+    // Respond with JSON acknowledgment
+    res.status(200).json({ status: 'received', stored: !error });
+  } catch (error) {
+    console.error('SMS webhook error:', error);
+    // Still respond with 200 to prevent Infobip retries
+    res.status(200).json({ status: 'error', message: error.message });
+  }
+});
+
+// Legacy Twilio webhook endpoint (redirects to new endpoint)
+app.post('/api/twilio/webhook', express.urlencoded({ extended: false }), async (req, res) => {
+  // Redirect to new SMS webhook - kept for backward compatibility
+  console.warn('Deprecated: /api/twilio/webhook called. Please update to /api/sms/webhook');
+  res.status(410).json({ error: 'This endpoint has been deprecated. Use /api/sms/webhook instead.' });
+});
+
+// Check SMS service configuration status
+app.get('/api/sms/status', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    res.json({ 
+      configured: smsService.isConfigured(),
+      phone_number: smsService.getPhoneNumber(),
+      provider: 'infobip'
+    });
+  } catch (error) {
+    console.error('SMS status error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Legacy Twilio status endpoint (redirects to new endpoint)
+app.get('/api/twilio/status', async (req, res) => {
+  // Redirect to new SMS status endpoint
+  res.redirect(307, '/api/sms/status');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
