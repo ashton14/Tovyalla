@@ -222,7 +222,7 @@ export const generateContractPdf = async (contractData) => {
   // Define the document
   const docDefinition = {
     pageSize: 'LETTER',
-    pageMargins: [40, 100, 40, 60],
+    pageMargins: [40, 115, 40, 60],
     
     header: (currentPage, pageCount) => ({
       margin: [40, 20, 40, 0],
@@ -231,36 +231,36 @@ export const generateContractPdf = async (contractData) => {
           columns: [
             // Logo column (left side)
             logoBase64 ? {
-              width: 60,
+              width: 80,
               image: logoBase64,
-              fit: [60, 50],
+              fit: [80, 70],
             } : { text: '', width: 0 },
             // Company info column (center)
             {
               width: '*',
               stack: [
-                { text: company.company_name || 'Pool Construction Company', fontSize: 14, bold: true, color: '#1e40af' },
-                { text: companyAddress.join('  •  '), fontSize: 8, color: '#6b7280', margin: [0, 2, 0, 0] },
-                contactLine ? { text: contactLine, fontSize: 8, color: '#6b7280' } : {},
-                licenseNumbers ? { text: `License: ${licenseNumbers}`, fontSize: 8, color: '#6b7280' } : {},
+                { text: company.company_name || 'Pool Construction Company', fontSize: 18, bold: true, color: '#1e40af' },
+                { text: companyAddress.join('  •  '), fontSize: 10, color: '#6b7280', margin: [0, 3, 0, 0] },
+                contactLine ? { text: contactLine, fontSize: 10, color: '#6b7280' } : {},
+                licenseNumbers ? { text: `License: ${licenseNumbers}`, fontSize: 10, color: '#6b7280' } : {},
               ],
-              margin: [logoBase64 ? 10 : 0, 0, 0, 0],
+              margin: [logoBase64 ? 12 : 0, 0, 0, 0],
             },
             // Document number column (right side)
             {
               width: 'auto',
               stack: [
-                { text: `#${docNumber}`, fontSize: 12, bold: true, color: '#374151', alignment: 'right' },
-                { text: formatDate(docDate), fontSize: 8, color: '#6b7280', alignment: 'right' },
+                { text: `#${docNumber}`, fontSize: 16, bold: true, color: '#374151', alignment: 'right' },
+                { text: formatDate(docDate), fontSize: 11, color: '#6b7280', alignment: 'right' },
               ],
             },
           ],
-          columnGap: 10,
+          columnGap: 12,
         },
         // Separator line
         {
           canvas: [
-            { type: 'line', x1: 0, y1: 8, x2: 532, y2: 8, lineWidth: 1, lineColor: '#e5e7eb' }
+            { type: 'line', x1: 0, y1: 12, x2: 532, y2: 12, lineWidth: 1, lineColor: '#e5e7eb' }
           ],
         },
       ],

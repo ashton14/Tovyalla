@@ -20,6 +20,20 @@ const PIPELINE_STATUSES = [
   { value: 'on_hold', label: 'On Hold', color: 'bg-orange-100 text-orange-800' },
 ]
 
+const LEAD_SOURCES = [
+  { value: '', label: 'Select a source...' },
+  { value: 'Google Search', label: 'Google Search' },
+  { value: 'Facebook', label: 'Facebook' },
+  { value: 'Instagram', label: 'Instagram' },
+  { value: 'Yelp', label: 'Yelp' },
+  { value: 'Referral', label: 'Referral' },
+  { value: 'Repeat Customer', label: 'Repeat Customer' },
+  { value: 'Flyer', label: 'Flyer' },
+  { value: 'Website', label: 'Website' },
+  { value: 'Other', label: 'Other' },
+  { value: '__new__', label: '+ New Source...' },
+]
+
 function Customers() {
   const { user, supabase } = useAuth()
   
@@ -45,6 +59,8 @@ function Customers() {
   const [importErrors, setImportErrors] = useState([])
   const [showDocumentsModal, setShowDocumentsModal] = useState(false)
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
+  const [isCustomLeadSource, setIsCustomLeadSource] = useState(false)
+  const [customLeadSource, setCustomLeadSource] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -79,6 +95,7 @@ function Customers() {
 
     const payload = {
       ...formData,
+      referred_by: isCustomLeadSource ? customLeadSource : formData.referred_by,
       estimated_value: formData.estimated_value ? parseFloat(formData.estimated_value) : null,
     }
 
@@ -116,6 +133,20 @@ function Customers() {
   // Handle edit
   const handleEdit = (customer) => {
     setEditingCustomer(customer)
+    
+    // Check if the lead source is a predefined value or custom
+    const existingSource = customer.referred_by || ''
+    const isPredefinedSource = LEAD_SOURCES.some(s => s.value === existingSource && s.value !== '__new__')
+    
+    if (existingSource && !isPredefinedSource) {
+      // It's a custom source
+      setIsCustomLeadSource(true)
+      setCustomLeadSource(existingSource)
+    } else {
+      setIsCustomLeadSource(false)
+      setCustomLeadSource('')
+    }
+    
     setFormData({
       first_name: customer.first_name || '',
       last_name: customer.last_name || '',
@@ -127,7 +158,7 @@ function Customers() {
       state: customer.state || '',
       zip_code: customer.zip_code || '',
       country: customer.country || 'USA',
-      referred_by: customer.referred_by || '',
+      referred_by: isPredefinedSource ? existingSource : '',
       pipeline_status: customer.pipeline_status || 'lead',
       notes: customer.notes || '',
       estimated_value: customer.estimated_value || '',
@@ -153,6 +184,8 @@ function Customers() {
       notes: '',
       estimated_value: '',
     })
+    setIsCustomLeadSource(false)
+    setCustomLeadSource('')
   }
 
   // Filter customers
@@ -765,12 +798,56 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lead Source</label>
-                      <input
-                        type="text"
-                        value={formData.referred_by}
-                        onChange={(e) => setFormData({ ...formData, referred_by: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
-                      />
+                      {isCustomLeadSource ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={customLeadSource}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setCustomLeadSource(value)
+                              // If user clears the input, switch back to dropdown
+                              if (value === '') {
+                                setIsCustomLeadSource(false)
+                              }
+                            }}
+                            placeholder="Enter custom source..."
+                            className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomLeadSource(false)
+                              setCustomLeadSource('')
+                            }}
+                            className="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                            title="Back to dropdown"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.referred_by}
+                          onChange={(e) => {
+                            if (e.target.value === '__new__') {
+                              setIsCustomLeadSource(true)
+                              setFormData({ ...formData, referred_by: '' })
+                            } else {
+                              setFormData({ ...formData, referred_by: e.target.value })
+                            }
+                          }}
+                          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                        >
+                          {LEAD_SOURCES.map((source) => (
+                            <option key={source.value} value={source.value}>
+                              {source.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estimated Value</label>
