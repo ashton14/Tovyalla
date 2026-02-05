@@ -20,7 +20,8 @@ import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 import Goals from '../components/Goals'
 import Settings from '../components/Settings'
-import { useEmployees, useProjects, useStatistics, useMonthlyStatistics } from '../hooks/useApi'
+import Messages from '../components/Messages'
+import { useEmployees, useProjects, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
 
 const CHART_METRICS = [
   { value: 'value', label: 'Total Value', color: '#0ea5e9', format: 'currency' },
@@ -47,6 +48,7 @@ function Dashboard() {
   const { data: projects = [] } = useProjects()
   const { data: statistics = { totalEstValue: 0, totalProfit: 0, totalExpenses: 0, projectCount: 0 }, isLoading: loadingStats } = useStatistics(timePeriod)
   const { data: monthlyData, isLoading: loadingMonthly } = useMonthlyStatistics(chartYear)
+  const { data: unreadMessageCount = 0 } = useUnreadMessageCount()
 
   // Get year options (current year and 4 years back)
   const yearOptions = useMemo(() => {
@@ -84,7 +86,7 @@ function Dashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const section = urlParams.get('section')
-    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'settings'].includes(section)) {
+    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'messages', 'settings'].includes(section)) {
       setActiveSection(section)
       // Clean up URL
       const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString().replace(/section=[^&]*&?/g, '').replace(/&$/, '') : '')
@@ -276,6 +278,27 @@ function Dashboard() {
             }`}
           >
             <span className="font-medium">Goals</span>
+          </button>
+          <button
+            onClick={() => handleNavClick('messages')}
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
+              activeSection === 'messages'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <span className="font-medium flex items-center justify-between">
+              <span>Messages</span>
+              {unreadMessageCount > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                  activeSection === 'messages'
+                    ? 'bg-white text-pool-blue'
+                    : 'bg-pool-blue text-white'
+                }`}>
+                  {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                </span>
+              )}
+            </span>
           </button>
 
           {/* Divider */}
@@ -555,6 +578,7 @@ function Dashboard() {
           {activeSection === 'employees' && <Employees />}
           {activeSection === 'calendar' && <Calendar />}
           {activeSection === 'goals' && <Goals />}
+          {activeSection === 'messages' && <Messages />}
           {activeSection === 'settings' && <Settings />}
         </div>
       </main>

@@ -16,3 +16,469 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ==========================================
+   React Big Calendar - Custom Styles
+   ========================================== */
+
+/* Base calendar styles */
+.rbc-calendar {
+  font-family: inherit;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* Toolbar (header with navigation) */
+.rbc-toolbar {
+  padding: 1rem;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.rbc-toolbar button {
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  background: white;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+  color: white;
+}
+
+.rbc-toolbar button.rbc-active:hover {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.rbc-btn-group button {
+  border-radius: 0;
+}
+
+.rbc-btn-group button:first-child {
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.rbc-btn-group button:last-child {
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.rbc-btn-group button:not(:first-child) {
+  margin-left: -1px;
+}
+
+.rbc-toolbar-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Month view grid */
+.rbc-month-view {
+  border: none;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.rbc-month-header {
+  background-color: #f9fafb;
+}
+
+.rbc-header {
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.rbc-header + .rbc-header {
+  border-left: 1px solid #e5e7eb;
+}
+
+/* Day cells */
+.rbc-day-bg {
+  transition: background-color 0.15s ease;
+}
+
+.rbc-day-bg:hover {
+  background-color: #f0f9ff;
+}
+
+.rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid #e5e7eb;
+}
+
+.rbc-off-range-bg {
+  background-color: #f9fafb;
+}
+
+.rbc-today {
+  background-color: #dbeafe !important;
+}
+
+/* Date numbers */
+.rbc-date-cell {
+  padding: 0.5rem;
+  text-align: right;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.rbc-date-cell.rbc-now {
+  font-weight: 700;
+}
+
+.rbc-date-cell.rbc-off-range {
+  color: #9ca3af;
+}
+
+/* Events */
+.rbc-event {
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: none;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.rbc-event:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+.rbc-event.rbc-selected {
+  background-color: #0284c7;
+}
+
+.rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rbc-show-more {
+  color: #0ea5e9;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+}
+
+.rbc-show-more:hover {
+  color: #0284c7;
+  text-decoration: underline;
+}
+
+/* Row content */
+.rbc-row-content {
+  z-index: 2;
+}
+
+.rbc-row-segment {
+  padding: 0 0.25rem 0.125rem 0.25rem;
+}
+
+/* Week/Day views */
+.rbc-time-view {
+  border: none;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.rbc-time-header {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-time-header-content {
+  border-left: 1px solid #e5e7eb;
+}
+
+.rbc-time-content {
+  border-top: none;
+}
+
+.rbc-time-gutter {
+  background-color: #f9fafb;
+}
+
+.rbc-timeslot-group {
+  border-bottom: 1px solid #f3f4f6;
+  min-height: 60px;
+}
+
+.rbc-time-slot {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid #f3f4f6;
+}
+
+.rbc-current-time-indicator {
+  background-color: #ef4444;
+  height: 2px;
+}
+
+.rbc-current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+}
+
+/* Agenda view */
+.rbc-agenda-view {
+  border: none;
+}
+
+.rbc-agenda-view table.rbc-agenda-table {
+  border: none;
+}
+
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  background-color: #f9fafb;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.rbc-agenda-date-cell,
+.rbc-agenda-time-cell {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.rbc-agenda-event-cell {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+/* Overlay (for popups) */
+.rbc-overlay {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  z-index: 50;
+}
+
+.rbc-overlay-header {
+  padding: 0.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.5rem;
+}
+
+/* ==========================================
+   Dark Mode Styles
+   ========================================== */
+
+.dark .rbc-toolbar button {
+  color: #e5e7eb;
+  border-color: #4b5563;
+  background: #374151;
+}
+
+.dark .rbc-toolbar button:hover {
+  background-color: #4b5563;
+  border-color: #6b7280;
+}
+
+.dark .rbc-toolbar button.rbc-active {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+  color: white;
+}
+
+.dark .rbc-toolbar button.rbc-active:hover {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.dark .rbc-toolbar-label {
+  color: #f9fafb;
+}
+
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.dark .rbc-agenda-view {
+  background-color: #1f2937;
+}
+
+.dark .rbc-month-header {
+  background-color: #111827;
+}
+
+.dark .rbc-header {
+  color: #9ca3af;
+  border-bottom-color: #374151;
+  background-color: #111827;
+}
+
+.dark .rbc-header + .rbc-header {
+  border-left-color: #374151;
+}
+
+.dark .rbc-day-bg {
+  background-color: #1f2937;
+}
+
+.dark .rbc-day-bg:hover {
+  background-color: #374151;
+}
+
+.dark .rbc-day-bg + .rbc-day-bg {
+  border-left-color: #374151;
+}
+
+.dark .rbc-off-range-bg {
+  background-color: #111827;
+}
+
+.dark .rbc-today {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+}
+
+.dark .rbc-date-cell {
+  color: #e5e7eb;
+}
+
+.dark .rbc-date-cell.rbc-off-range {
+  color: #6b7280;
+}
+
+.dark .rbc-month-row {
+  border-top-color: #374151;
+}
+
+.dark .rbc-month-row + .rbc-month-row {
+  border-top-color: #374151;
+}
+
+.dark .rbc-event {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.dark .rbc-show-more {
+  color: #38bdf8;
+}
+
+.dark .rbc-show-more:hover {
+  color: #7dd3fc;
+}
+
+/* Dark mode time views */
+.dark .rbc-time-header {
+  border-bottom-color: #374151;
+}
+
+.dark .rbc-time-header-content {
+  border-left-color: #374151;
+}
+
+.dark .rbc-time-gutter {
+  background-color: #111827;
+}
+
+.dark .rbc-timeslot-group {
+  border-bottom-color: #374151;
+}
+
+.dark .rbc-time-slot {
+  color: #9ca3af;
+}
+
+.dark .rbc-day-slot .rbc-time-slot {
+  border-top-color: #374151;
+}
+
+.dark .rbc-time-content {
+  border-top-color: #374151;
+}
+
+.dark .rbc-time-content > * + * > * {
+  border-left-color: #374151;
+}
+
+.dark .rbc-allday-cell {
+  background-color: #1f2937;
+}
+
+.dark .rbc-allday-cell + .rbc-allday-cell {
+  border-left-color: #374151;
+}
+
+/* Dark mode agenda view */
+.dark .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  background-color: #111827;
+  color: #e5e7eb;
+  border-bottom-color: #374151;
+}
+
+.dark .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  border-bottom-color: #374151;
+}
+
+.dark .rbc-agenda-date-cell,
+.dark .rbc-agenda-time-cell {
+  color: #9ca3af;
+}
+
+.dark .rbc-agenda-event-cell {
+  color: #f9fafb;
+}
+
+.dark .rbc-agenda-empty {
+  color: #9ca3af;
+}
+
+/* Dark mode overlay */
+.dark .rbc-overlay {
+  background-color: #1f2937;
+  border-color: #374151;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+.dark .rbc-overlay-header {
+  color: #f9fafb;
+  border-bottom-color: #374151;
+}
+
+/* Selection styles */
+.dark .rbc-slot-selection {
+  background-color: rgba(14, 165, 233, 0.3);
+}
+
+.dark .rbc-selected-cell {
+  background-color: rgba(14, 165, 233, 0.15);
+}
+
