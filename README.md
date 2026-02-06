@@ -131,7 +131,6 @@ CREATE TABLE IF NOT EXISTS public.company_whitelist (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id TEXT NOT NULL,
   email TEXT NOT NULL,
-  added_by UUID REFERENCES auth.users(id),
   registered BOOLEAN DEFAULT FALSE,
   registered_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
