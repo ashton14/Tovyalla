@@ -40,7 +40,7 @@ Add these to your `.env` file for Google Calendar integration:
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/oauth/callback
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:3000
 ```
 
 **Note:** For production, update `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` to your production URLs.
@@ -90,6 +90,62 @@ INFOBIP_WEBHOOK_SECRET=your-optional-secret
 - Pricing varies by country and volume
 - Free trial includes credits for testing
 - Visit [Infobip Pricing](https://www.infobip.com/pricing) for details
+
+## Required Stripe Variables (Billing / New Company Signup)
+
+Add these to your `.env` file for Business Plan subscriptions ($299/mo):
+
+```env
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_your-secret-key
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_PRICE_ID=price_your-price-id
+FRONTEND_URL=http://localhost:3000
+```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (starts with `sk_test_` or `sk_live_`) |
+| `STRIPE_WEBHOOK_SECRET` | Yes (for webhooks) | Webhook signing secret (starts with `whsec_`) |
+| `STRIPE_PRICE_ID` | Yes | Price ID for $299/month Business Plan (from Stripe Dashboard) |
+| `FRONTEND_URL` | Yes (if not set) | Base URL for success/cancel redirects. Dev: `http://localhost:3000` (matches Vite port) |
+
+**Frontend:** No Stripe keys needed. All billing is done server-side via Checkout redirects.
+
+## Optional EmailJS Variables (Welcome Email with Company ID)
+
+Add these to your `.env` file to email new users their Company ID after successful registration:
+
+```env
+# EmailJS Configuration (for registration welcome email)
+EMAILJS_SERVICE_ID=your-service-id
+EMAILJS_TEMPLATE_ID=your-template-id
+EMAILJS_PUBLIC_KEY=your-public-key
+EMAILJS_PRIVATE_KEY=your-private-key
+```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EMAILJS_SERVICE_ID` | Yes (if email enabled) | Email service ID from EmailJS dashboard |
+| `EMAILJS_TEMPLATE_ID` | Yes (if email enabled) | Email template ID from EmailJS dashboard |
+| `EMAILJS_PUBLIC_KEY` | Yes (if email enabled) | Public key from EmailJS dashboard |
+| `EMAILJS_PRIVATE_KEY` | Yes (if email enabled) | Private key from EmailJS dashboard (keep secret!) |
+
+**Note:** If EmailJS is not configured, registration still succeeds; the welcome email is simply skipped.
+
+**Template variables:** Create a template in EmailJS with these variables: `{{to_email}}`, `{{company_id}}`, `{{company_name}}`, `{{owner_name}}`, `{{login_url}}`
+
+**Important:** Enable API requests for Node.js in EmailJS: Account → Security → allow non-browser applications
+
+### Setting up Stripe:
+
+1. Create an account at [Stripe](https://dashboard.stripe.com/)
+2. Create a Product + Price: "Business Plan" at $299/month recurring
+3. Copy the Price ID (e.g. `price_xxx`) and add as `STRIPE_PRICE_ID`
+4. Copy your Secret Key from Developers → API keys → add as `STRIPE_SECRET_KEY`
+5. For webhooks:
+   - **Production:** Add endpoint `https://your-domain.com/api/billing/webhook`, subscribe to: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+   - **Local dev:** Use Stripe CLI: `stripe listen --forward-to localhost:5000/api/billing/webhook` to get `STRIPE_WEBHOOK_SECRET`
 
 ## Important Notes
 

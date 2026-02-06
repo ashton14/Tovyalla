@@ -11,6 +11,12 @@ function Register() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showGetStartedForm, setShowGetStartedForm] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [newCompanyEmail, setNewCompanyEmail] = useState('')
+  const [billingError, setBillingError] = useState('')
+  const [billingLoading, setBillingLoading] = useState(false)
   const { register, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
@@ -71,6 +77,51 @@ function Register() {
       setError(err.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGetStartedSubmit = async (e) => {
+    e.preventDefault()
+    setBillingError('')
+    setBillingLoading(true)
+
+    if (!companyName.trim() || !ownerName.trim() || !newCompanyEmail.trim()) {
+      setBillingError('Company name, your name, and email are required')
+      setBillingLoading(false)
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newCompanyEmail)) {
+      setBillingError('Please enter a valid email address')
+      setBillingLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/billing/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          ownerName: ownerName.trim(),
+          email: newCompanyEmail.trim(),
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error('No checkout URL received')
+      }
+    } catch (err) {
+      setBillingError(err.message || 'Something went wrong. Please try again.')
+      setBillingLoading(false)
     }
   }
 
@@ -248,36 +299,128 @@ function Register() {
                 </div>
               </div>
 
-              {/* Pricing Card */}
+              {/* Pricing Card / Get Started Form */}
               <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200 mb-3">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-pool-blue bg-pool-light px-2.5 py-1 rounded-full">
-                    Business Plan
-                  </span>
-                  <div>
-                    <span className="text-3xl font-bold text-gray-900">$299</span>
-                    <span className="text-gray-600 text-sm">/mo</span>
-                  </div>
-                </div>
-
-                {/* Features List */}
-                <ul className="space-y-2 mb-4 text-sm text-gray-700">
-                  {features.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-pool-light rounded-full text-xs">
-                        {feature.icon}
+                {showGetStartedForm ? (
+                  <form onSubmit={handleGetStartedSubmit} className="space-y-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-pool-blue bg-pool-light px-2.5 py-1 rounded-full">
+                        Business Plan
                       </span>
-                      <span>{feature.text}</span>
-                    </li>
-                  ))}
-                </ul>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGetStartedForm(false)
+                          setBillingError('')
+                        }}
+                        className="text-gray-500 hover:text-gray-700 text-sm"
+                      >
+                        Back
+                      </button>
+                    </div>
 
-                <a
-                  href=""
-                  className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-center shadow-lg shadow-pool-blue/25"
-                >
-                  Get Started
-                </a>
+                    {billingError && (
+                      <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                        {billingError}
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Company Name
+                      </label>
+                      <input
+                        id="companyName"
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                        placeholder="Your company name"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="ownerName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Your Name
+                      </label>
+                      <input
+                        id="ownerName"
+                        type="text"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                        placeholder="John Smith"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="newCompanyEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        id="newCompanyEmail"
+                        type="email"
+                        value={newCompanyEmail}
+                        onChange={(e) => setNewCompanyEmail(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent"
+                        placeholder="you@company.com"
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={billingLoading}
+                      className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-center shadow-lg shadow-pool-blue/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {billingLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Redirecting to checkout...
+                        </span>
+                      ) : (
+                        <>Proceed to Payment — $299/mo</>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-pool-blue bg-pool-light px-2.5 py-1 rounded-full">
+                        Business Plan
+                      </span>
+                      <div>
+                        <span className="text-3xl font-bold text-gray-900">$299</span>
+                        <span className="text-gray-600 text-sm">/mo</span>
+                      </div>
+                    </div>
+
+                    {/* Features List */}
+                    <ul className="space-y-2 mb-4 text-sm text-gray-700">
+                      {features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-2">
+                          <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-pool-light rounded-full text-xs">
+                            {feature.icon}
+                          </span>
+                          <span>{feature.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowGetStartedForm(true)}
+                      className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-center shadow-lg shadow-pool-blue/25"
+                    >
+                      Get Started
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Trust Indicators */}

@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
@@ -21,6 +23,96 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
+
+// Stripe webhook - must use raw body for signature verification (before express.json)
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripePriceId = process.env.STRIPE_PRICE_ID;
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+
+if (stripeWebhookSecret && stripe) {
+  app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+    try {
+      event = Stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
+    } catch (err) {
+      console.error('Stripe webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const metadata = session.metadata || {};
+        const companyId = metadata.company_id;
+        const companyName = metadata.company_name || null;
+        const email = metadata.email;
+        const stripeCustomerId = session.customer;
+        const stripeSubscriptionId = session.subscription;
+
+        if (!companyId || !email) {
+          console.error('Webhook: missing company_id or email in metadata');
+          return res.status(200).send('OK');
+        }
+
+        const { data: existing } = await supabase
+          .from('companies')
+          .select('company_id')
+          .eq('company_id', companyId)
+          .single();
+
+        if (!existing) {
+          await supabase.from('companies').insert([
+            {
+              company_id: companyId,
+              company_name: companyName,
+              stripe_customer_id: stripeCustomerId,
+              stripe_subscription_id: stripeSubscriptionId,
+              subscription_status: 'active',
+              subscription_plan: 'business',
+              default_initial_fee_percent: 20,
+              default_final_fee_percent: 80,
+              auto_include_initial_payment: true,
+              auto_include_final_payment: true,
+              auto_include_subcontractor: true,
+              auto_include_equipment_materials: true,
+              auto_include_additional_expenses: true,
+            },
+          ]);
+        }
+      } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object;
+        const { data } = await supabase
+          .from('companies')
+          .update({
+            subscription_status: subscription.status === 'active' ? 'active' : subscription.status === 'past_due' ? 'past_due' : 'canceled',
+          })
+          .eq('stripe_subscription_id', subscription.id)
+          .select()
+          .single();
+        if (!data) {
+          console.warn('Webhook: company not found for subscription', subscription.id);
+        }
+      } else if (event.type === 'invoice.payment_failed') {
+        const invoice = event.data.object;
+        const subscriptionId = invoice.subscription;
+        if (subscriptionId) {
+          await supabase
+            .from('companies')
+            .update({ subscription_status: 'past_due' })
+            .eq('stripe_subscription_id', subscriptionId);
+        }
+      }
+    } catch (err) {
+      console.error('Stripe webhook handler error:', err);
+    }
+    res.status(200).send('OK');
+  });
+} else if (!stripeSecretKey || !stripePriceId) {
+  console.warn('Stripe billing not configured. Set STRIPE_SECRET_KEY, STRIPE_PRICE_ID (and STRIPE_WEBHOOK_SECRET for webhooks).');
+}
+
 app.use(express.json());
 
 // Configure multer for file uploads (store in memory)
@@ -156,7 +248,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Email is whitelisted and not yet registered - proceed with registration
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -198,6 +290,256 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create Stripe Checkout Session for new company signup (Business Plan $299/mo)
+app.post('/api/billing/create-checkout-session', async (req, res) => {
+  try {
+    if (!stripe || !stripePriceId) {
+      return res.status(503).json({ error: 'Stripe billing is not configured' });
+    }
+
+    const { companyName, ownerName, email } = req.body;
+    if (!companyName?.trim() || !ownerName?.trim() || !email?.trim()) {
+      return res.status(400).json({ error: 'Company name, your name, and email are required' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    const companyId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: stripePriceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${frontendUrl}/register/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/register`,
+      customer_email: email.toLowerCase(),
+      metadata: {
+        company_id: companyId,
+        company_name: companyName.trim(),
+        owner_name: ownerName.trim(),
+        email: email.toLowerCase(),
+      },
+      subscription_data: {
+        metadata: {
+          company_id: companyId,
+          company_name: companyName.trim(),
+          owner_name: ownerName.trim(),
+          email: email.toLowerCase(),
+        },
+      },
+    });
+
+    res.json({ url: session.url, companyId });
+  } catch (error) {
+    console.error('Create checkout session error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create checkout session' });
+  }
+});
+
+// Complete registration after successful Stripe payment
+app.post('/api/billing/complete-registration', async (req, res) => {
+  try {
+    if (!stripe || !supabaseUrl || !supabaseServiceKey) {
+      return res.status(503).json({ error: 'Billing or auth is not configured' });
+    }
+
+    const { session_id: sessionId, password } = req.body;
+    if (!sessionId || !password) {
+      return res.status(400).json({ error: 'Session ID and password are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['subscription'],
+    });
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment was not completed. Please complete payment first.' });
+    }
+
+    const metadata = session.metadata || {};
+    const companyId = metadata.company_id;
+    const email = metadata.email;
+    const companyName = metadata.company_name || null;
+    const ownerName = metadata.owner_name || null;
+
+    if (!companyId || !email) {
+      return res.status(400).json({ error: 'Invalid session. Please try signing up again.' });
+    }
+
+    // Ensure company exists (webhook may have created it; if not, create now)
+    const { data: existingCompany } = await supabase
+      .from('companies')
+      .select('company_id')
+      .eq('company_id', companyId)
+      .single();
+
+    if (!existingCompany) {
+      await supabase.from('companies').insert([
+        {
+          company_id: companyId,
+          company_name: companyName,
+          stripe_customer_id: session.customer,
+          stripe_subscription_id: session.subscription,
+          subscription_status: 'active',
+          subscription_plan: 'business',
+          default_initial_fee_percent: 20,
+          default_final_fee_percent: 80,
+          auto_include_initial_payment: true,
+          auto_include_final_payment: true,
+          auto_include_subcontractor: true,
+          auto_include_equipment_materials: true,
+          auto_include_additional_expenses: true,
+        },
+      ]);
+    }
+
+    // Add to whitelist if not exists
+    const { data: whitelistData } = await supabase
+      .from('company_whitelist')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (!whitelistData) {
+      await supabase.from('company_whitelist').insert([
+        {
+          company_id: companyId,
+          email: email.toLowerCase(),
+          registered: false,
+        },
+      ]);
+    }
+
+    // Create Supabase auth user
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email.toLowerCase(),
+      password,
+      email_confirm: true,
+      user_metadata: { companyID: companyId },
+    });
+
+    if (authError) {
+      if (authError.message?.includes('already been registered') || authError.message?.includes('already exists')) {
+        return res.status(400).json({ error: 'This email is already registered. Please log in instead.' });
+      }
+      throw authError;
+    }
+
+    // Mark whitelist as registered
+    await supabase
+      .from('company_whitelist')
+      .update({ registered: true, registered_at: new Date().toISOString() })
+      .eq('company_id', companyId)
+      .eq('email', email.toLowerCase());
+
+    // Create employee record
+    const employeeName = ownerName || companyName || email.split('@')[0];
+    await supabase.from('employees').insert([
+      {
+        company_id: companyId,
+        name: employeeName,
+        email_address: email.toLowerCase(),
+        user_type: 'owner',
+        current: true,
+        is_project_manager: true,
+        is_sales_person: true,
+        is_foreman: false,
+      },
+    ]);
+
+    // Send welcome email with Company ID (non-blocking; registration succeeds even if email fails)
+    try {
+      const emailService = await import('./services/email.js');
+      await emailService.sendRegistrationWelcome({
+        to: email.toLowerCase(),
+        companyId,
+        companyName: companyName || null,
+        ownerName: ownerName || null,
+      });
+    } catch (emailErr) {
+      if (emailErr?.code !== 'ERR_MODULE_NOT_FOUND') {
+        const msg = emailErr?.message || emailErr?.text || emailErr?.statusText || (typeof emailErr === 'object' ? JSON.stringify(emailErr) : String(emailErr));
+        console.error('Registration welcome email failed:', msg || 'Unknown error');
+      }
+    }
+
+    res.json({
+      success: true,
+      email: email.toLowerCase(),
+      companyId,
+    });
+  } catch (error) {
+    console.error('Complete registration error:', error);
+    res.status(500).json({ error: error.message || 'Registration failed' });
+  }
+});
+
+// Cancel subscription and delete company + user
+app.post('/api/billing/cancel-subscription', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'No company associated with this account' });
+    }
+
+    // Get company with stripe_subscription_id
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('stripe_subscription_id')
+      .eq('company_id', companyID)
+      .single();
+
+    if (companyError || !company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Cancel Stripe subscription if it exists
+    if (stripe && company.stripe_subscription_id) {
+      try {
+        await stripe.subscriptions.cancel(company.stripe_subscription_id);
+      } catch (stripeErr) {
+        console.error('Stripe cancel error:', stripeErr.message);
+        // Continue - we'll still delete the company and user
+      }
+    }
+
+    // Delete company (cascade will remove employees, projects, etc.)
+    await supabase.from('companies').delete().eq('company_id', companyID);
+
+    // Delete auth user
+    await supabase.auth.admin.deleteUser(user.id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Cancel subscription error:', error);
+    res.status(500).json({ error: error.message || 'Failed to cancel subscription' });
   }
 });
 
@@ -469,7 +811,6 @@ app.post('/api/whitelist', async (req, res) => {
         {
           company_id: companyID,
           email: email.toLowerCase(),
-          added_by: user.id,
         },
       ])
       .select()
@@ -1032,7 +1373,6 @@ app.post('/api/customers', async (req, res) => {
           pipeline_status: initialStatus,
           notes: notes || null,
           estimated_value: estimated_value || null,
-          created_by: user.id,
         },
       ])
       .select()
@@ -1826,7 +2166,6 @@ app.post('/api/projects', async (req, res) => {
           closing_price: closing_price ? parseFloat(closing_price) : null,
           project_manager: project_manager || null,
           notes: notes || null,
-          created_by: user.id,
         },
       ])
       .select()
@@ -3678,7 +4017,6 @@ app.post('/api/inventory', async (req, res) => {
           color: color || null,
           unit_price: unit_price ? parseFloat(unit_price) : 0,
           type: type || 'material',
-          created_by: user.id,
         },
       ])
       .select()
@@ -3942,7 +4280,6 @@ app.post('/api/subcontractors', async (req, res) => {
           coi_expiration: coi_expiration || null,
           coi_documents: coi_documents || [],
           notes: notes || null,
-          created_by: user.id,
         },
       ])
       .select()
@@ -6215,21 +6552,21 @@ app.get('/api/google/oauth/callback', async (req, res) => {
     const { code, state, error } = req.query;
 
     if (error) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent(error)}`);
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?section=calendar&error=${encodeURIComponent(error)}`);
     }
 
     if (!code || !state) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent('Missing code or state')}`);
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?section=calendar&error=${encodeURIComponent('Missing code or state')}`);
     }
 
     const result = await googleCalendarService.handleOAuthCallback(code, state);
     
     // Redirect to frontend dashboard with calendar section active
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&success=true&email=${encodeURIComponent(result.email || '')}`;
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?section=calendar&success=true&email=${encodeURIComponent(result.email || '')}`;
     res.redirect(redirectUrl);
   } catch (error) {
     console.error('OAuth callback error:', error);
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?section=calendar&error=${encodeURIComponent(error.message || 'OAuth failed')}`;
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?section=calendar&error=${encodeURIComponent(error.message || 'OAuth failed')}`;
     res.redirect(redirectUrl);
   }
 });
