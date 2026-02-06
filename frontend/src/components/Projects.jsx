@@ -53,6 +53,7 @@ function Projects() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
+  const [filterPM, setFilterPM] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
   const [selectedProjectForExpenses, setSelectedProjectForExpenses] = useState(null)
@@ -71,7 +72,7 @@ function Projects() {
     project_type: 'residential',
     pool_or_spa: 'pool',
     sq_feet: '',
-    status: 'contract_sent',
+    status: 'proposal_sent',
     accessories_features: '',
     est_value: '',
     closing_price: '',
@@ -160,7 +161,7 @@ function Projects() {
       project_type: 'residential',
       pool_or_spa: 'pool',
       sq_feet: '',
-      status: 'contract_sent',
+      status: 'proposal_sent',
       accessories_features: '',
       est_value: '',
       closing_price: '',
@@ -180,8 +181,9 @@ function Projects() {
     
     const matchesStatus = filterStatus === 'all' || project.status === filterStatus
     const matchesType = filterType === 'all' || project.project_type === filterType
+    const matchesPM = filterPM === 'all' || project.project_manager === filterPM
     
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch && matchesStatus && matchesType && matchesPM
   })
 
   // Pagination
@@ -193,7 +195,7 @@ function Projects() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filterStatus, filterType])
+  }, [searchTerm, filterStatus, filterType, filterPM])
 
   const getStatusBadge = (status) => {
     const statusObj = PROJECT_STATUSES.find((s) => s.value === status)
@@ -552,6 +554,21 @@ function Projects() {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Manager</label>
+            <select
+              value={filterPM}
+              onChange={(e) => setFilterPM(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="all">All PMs</option>
+              {[...new Set(projects.map(p => p.project_manager).filter(Boolean))].sort().map((pm) => (
+                <option key={pm} value={pm}>
+                  {pm}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -590,7 +607,7 @@ function Projects() {
                       <li><code className="bg-blue-100 px-1 rounded">customer_name</code> or <code className="bg-blue-100 px-1 rounded">customer_id</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">address</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">sq_feet</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">status</code> (defaults to "contract_sent")</li>
+                      <li><code className="bg-blue-100 px-1 rounded">status</code> (defaults to "proposal_sent")</li>
                       <li><code className="bg-blue-100 px-1 rounded">accessories_features</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">est_value</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">closing_price</code> (used for profit calculation)</li>
@@ -606,7 +623,7 @@ function Projects() {
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
 {`project_name,project_type,pool_or_spa,address,customer_name,status,est_value,closing_price
 Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000,48000
-Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75000,`}
+Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_sent,75000,`}
                   </pre>
                 </div>
 
@@ -1085,7 +1102,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75
                             onClick={() => {
                               setSelectedEntityForDocuments({
                                 id: project.id,
-                                name: project.address || `Project ${project.id.substring(0, 8)}`,
+                                name: project.project_name || `Project ${project.id.substring(0, 8)}`,
                                 customerEmail: project.customers?.email || '',
                               })
                               setShowDocumentsModal(true)

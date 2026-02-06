@@ -1730,7 +1730,7 @@ app.post('/api/projects', async (req, res) => {
       return res.status(400).json({ error: 'Project type and pool/spa selection are required' });
     }
 
-    const initialStatus = status || 'contract_sent';
+    const initialStatus = status || 'proposal_sent';
 
     const { data, error } = await supabase
       .from('projects')
@@ -1824,7 +1824,7 @@ app.put('/api/projects/:id', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const newStatus = status || 'contract_sent';
+    const newStatus = status || 'proposal_sent';
     const statusChanged = existing.status !== newStatus;
 
     const { data, error } = await supabase

@@ -8,5 +8,5 @@ ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_status_check;
 ALTER TABLE projects ADD CONSTRAINT projects_status_check 
   CHECK (status IN ('proposal_sent', 'contract_sent', 'sold', 'complete', 'cancelled'));
 
--- Update any existing 'proposal_request' statuses to 'contract_sent'
-UPDATE projects SET status = 'contract_sent' WHERE status = 'proposal_request';
+-- Update any existing 'proposal_request' statuses to 'proposal_sent'
+UPDATE projects SET status = 'proposal_sent' WHERE status = 'proposal_request';
