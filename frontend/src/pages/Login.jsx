@@ -1,11 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+const REMEMBER_KEY = 'tovyalla_remember_login'
 
 function Login() {
   const [companyID, setCompanyID] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REMEMBER_KEY)
+      if (saved) {
+        const { companyID: cid, username: u, password: p } = JSON.parse(saved)
+        if (cid && u && p) {
+          setCompanyID(cid)
+          setUsername(u)
+          setPassword(p)
+          setRememberMe(true)
+        }
+      }
+    } catch {
+      localStorage.removeItem(REMEMBER_KEY)
+    }
+  }, [])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login, loading: authLoading, inactivityMessage, clearInactivityMessage } = useAuth()
@@ -42,6 +63,11 @@ function Login() {
 
     try {
       await login(companyID, username, password)
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ companyID: companyID.trim(), username: username.trim(), password }))
+      } else {
+        localStorage.removeItem(REMEMBER_KEY)
+      }
       navigate('/dashboard')
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.')
@@ -152,6 +178,16 @@ function Login() {
                 </div>
               </div>
 
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-700">Remember me</span>
+              </label>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -206,7 +242,7 @@ function Login() {
 
         {/* Footer */}
         <p className="text-center text-white/60 text-xs sm:text-sm mt-4">
-          © 2025 Tovyalla CRM. All rights reserved.
+          © 2026 Tovyalla CRM. All rights reserved.
         </p>
       </div>
     </div>

@@ -6,6 +6,7 @@ function EmailWhitelist() {
   const { user, supabase } = useAuth()
   const [email, setEmail] = useState('')
   const [whitelist, setWhitelist] = useState([])
+  const [canManage, setCanManage] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,6 +37,7 @@ function EmailWhitelist() {
       })
 
       setWhitelist(response.data.whitelist || [])
+      setCanManage(response.data.canManage === true)
     } catch (err) {
       console.error('Error fetching whitelist:', err)
       setError('Failed to load whitelist')
@@ -142,7 +144,8 @@ function EmailWhitelist() {
         </div>
       )}
 
-      {/* Add Email Form */}
+      {/* Add Email Form - only for admin and manager */}
+      {canManage && (
       <form onSubmit={handleAddEmail} className="mb-6">
         <div className="flex gap-2">
           <input
@@ -162,6 +165,13 @@ function EmailWhitelist() {
           </button>
         </div>
       </form>
+      )}
+
+      {!canManage && (
+        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 italic">
+          Only admins and managers can add or remove emails from the whitelist.
+        </p>
+      )}
 
       {/* Whitelist Table */}
       <div>
@@ -214,12 +224,16 @@ function EmailWhitelist() {
                       {new Date(entry.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
-                      <button
-                        onClick={() => handleRemoveEmail(entry.id)}
-                        className="text-red-600 hover:text-red-800 font-medium"
-                      >
-                        Remove
-                      </button>
+                      {canManage ? (
+                        <button
+                          onClick={() => handleRemoveEmail(entry.id)}
+                          className="text-red-600 hover:text-red-800 font-medium"
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
