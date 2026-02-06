@@ -239,19 +239,19 @@ function Register() {
                     Business Plan
                   </span>
                   <div>
-                    <span className="text-3xl font-bold text-gray-900">$249</span>
+                    <span className="text-3xl font-bold text-gray-900">$299</span>
                     <span className="text-gray-600 text-sm">/mo</span>
                   </div>
                 </div>
 
                 {/* Features List */}
-                <ul className="grid grid-cols-2 gap-1.5 mb-4 text-xs text-gray-700">
+                <ul className="space-y-2 mb-4 text-sm text-gray-700">
                   {features.map((feature, index) => (
                     <li key={index} className="flex items-center gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center bg-pool-light rounded-full text-[10px]">
+                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-pool-light rounded-full text-xs">
                         {feature.icon}
                       </span>
-                      <span className="truncate">{feature.text}</span>
+                      <span>{feature.text}</span>
                     </li>
                   ))}
                 </ul>
