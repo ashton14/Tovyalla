@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -20,9 +20,67 @@ export const useAuth = () => {
   return context
 }
 
+// Inactivity timeout: 6 hours in milliseconds
+const INACTIVITY_TIMEOUT = 6 * 60 * 60 * 1000
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [inactivityMessage, setInactivityMessage] = useState('')
+  const inactivityTimerRef = useRef(null)
+
+  // Function to handle logout due to inactivity
+  const logoutDueToInactivity = useCallback(async () => {
+    if (supabase && user) {
+      await supabase.auth.signOut()
+      setUser(null)
+      setInactivityMessage('You have been logged out due to inactivity.')
+    }
+  }, [user])
+
+  // Function to reset the inactivity timer
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+    }
+    // Only set timer if user is logged in
+    if (user) {
+      inactivityTimerRef.current = setTimeout(logoutDueToInactivity, INACTIVITY_TIMEOUT)
+    }
+  }, [user, logoutDueToInactivity])
+
+  // Set up activity listeners for inactivity timeout
+  useEffect(() => {
+    if (!user) {
+      // Clear timer if user is not logged in
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+        inactivityTimerRef.current = null
+      }
+      return
+    }
+
+    // Activity events to listen for
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+
+    // Start the inactivity timer
+    resetInactivityTimer()
+
+    // Add event listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetInactivityTimer, { passive: true })
+    })
+
+    // Cleanup
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+      }
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetInactivityTimer)
+      })
+    }
+  }, [user, resetInactivityTimer])
 
   useEffect(() => {
     // Helper function to update last logon
@@ -93,6 +151,30 @@ export const AuthProvider = ({ children }) => {
       if (userCompanyID !== companyID) {
         await supabase.auth.signOut()
         throw new Error('Invalid company ID')
+      }
+
+      // Check if employee is active via backend (bypasses RLS)
+      try {
+        const checkResponse = await fetch('/api/auth/check-active', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${data.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        const checkResult = await checkResponse.json()
+        
+        if (checkResult.active === false) {
+          await supabase.auth.signOut()
+          throw new Error('Your account has been deactivated. Please contact an administrator.')
+        }
+      } catch (checkError) {
+        // If it's our deactivation error, rethrow it
+        if (checkError.message.includes('deactivated')) {
+          throw checkError
+        }
+        // Otherwise log and continue (don't block login due to check errors)
+        console.error('Error checking active status:', checkError)
       }
 
       // Update last logon timestamp
@@ -168,6 +250,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null)
   }
 
+  const clearInactivityMessage = () => {
+    setInactivityMessage('')
+  }
+
   const value = {
     user,
     login,
@@ -175,6 +261,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading,
     supabase,
+    inactivityMessage,
+    clearInactivityMessage,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

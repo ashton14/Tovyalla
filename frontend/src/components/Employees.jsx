@@ -8,15 +8,12 @@ const USER_TYPES = [
   { value: 'admin', label: 'Admin' },
   { value: 'manager', label: 'Manager' },
   { value: 'employee', label: 'Employee' },
-  { value: 'contractor', label: 'Contractor' },
 ]
 
 const USER_ROLES = [
   { value: 'owner', label: 'Owner' },
   { value: 'project_manager', label: 'Project Manager' },
   { value: 'sales', label: 'Sales' },
-  { value: 'foreman', label: 'Foreman' },
-  { value: 'field_worker', label: 'Field Worker' },
   { value: 'office_staff', label: 'Office Staff' },
   { value: 'other', label: 'Other' },
 ]
@@ -35,18 +32,19 @@ function Employees() {
   const itemsPerPage = 10
   const [showDocumentsModal, setShowDocumentsModal] = useState(false)
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
+  const [currentUserEmployee, setCurrentUserEmployee] = useState(null)
+  
+  // Check if current user is admin or manager (can modify user types, roles, active status)
+  const canModifyPrivileges = currentUserEmployee?.user_type === 'admin' || currentUserEmployee?.user_type === 'manager'
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     user_type: 'employee',
-    user_role: '',
+    user_roles: [], // Array for multiple role selection
     email_address: '',
     phone: '',
     current: false,
-    is_project_manager: false,
-    is_sales_person: false,
-    is_foreman: false,
     registered_time_zone: '',
     color: '#0ea5e9', // Default blue color
   })
@@ -73,7 +71,14 @@ function Employees() {
         },
       })
 
-      setEmployees(response.data.employees || [])
+      const employeesList = response.data.employees || []
+      setEmployees(employeesList)
+      
+      // Find current user's employee record by email
+      if (user?.email) {
+        const currentEmp = employeesList.find(emp => emp.email_address?.toLowerCase() === user.email.toLowerCase())
+        setCurrentUserEmployee(currentEmp || null)
+      }
     } catch (err) {
       console.error('Error fetching employees:', err)
       console.error('Error details:', err.response?.data || err.message)
@@ -104,12 +109,17 @@ function Employees() {
 
       const payload = {
         ...formData,
-        is_project_manager: formData.is_project_manager || false,
-        is_sales_person: formData.is_sales_person || false,
-        is_foreman: formData.is_foreman || false,
+        // Convert user_roles array to comma-separated string for storage
+        user_role: formData.user_roles.join(', '),
+        // Set responsibility flags based on selected roles
+        is_project_manager: formData.user_roles.includes('project_manager'),
+        is_sales_person: formData.user_roles.includes('sales'),
+        is_foreman: formData.user_roles.includes('foreman'),
         current: formData.current || false,
         color: formData.color && formData.color.trim() !== '' ? formData.color.trim() : null,
       }
+      // Remove user_roles from payload as we've converted it to user_role
+      delete payload.user_roles
 
       if (editingEmployee) {
         await axios.put(`/api/employees/${editingEmployee.id}`, payload, {
@@ -164,16 +174,17 @@ function Employees() {
   // Handle edit
   const handleEdit = (employee) => {
     setEditingEmployee(employee)
+    // Convert stored user_role to array for multi-select
+    const rolesArray = employee.user_role 
+      ? employee.user_role.split(',').map(r => r.trim()).filter(r => r)
+      : []
     setFormData({
       name: employee.name || '',
       user_type: employee.user_type || 'employee',
-      user_role: employee.user_role || '',
+      user_roles: rolesArray,
       email_address: employee.email_address || '',
       phone: employee.phone || '',
       current: employee.current || false,
-      is_project_manager: employee.is_project_manager || false,
-      is_sales_person: employee.is_sales_person || false,
-      is_foreman: employee.is_foreman || false,
       registered_time_zone: employee.registered_time_zone || '',
       color: employee.color || '#0ea5e9',
     })
@@ -185,13 +196,10 @@ function Employees() {
     setFormData({
       name: '',
       user_type: 'employee',
-      user_role: '',
+      user_roles: [],
       email_address: '',
       phone: '',
       current: false,
-      is_project_manager: false,
-      is_sales_person: false,
-      is_foreman: false,
       registered_time_zone: '',
       color: '#0ea5e9',
     })
@@ -405,6 +413,9 @@ function Employees() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   Role & Classification
+                  {!canModifyPrivileges && (
+                    <span className="ml-2 text-xs font-normal text-amber-600 dark:text-amber-400">(Admin/Manager only)</span>
+                  )}
                 </h4>
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -416,7 +427,10 @@ function Employees() {
                         value={formData.user_type}
                         onChange={(e) => setFormData({ ...formData, user_type: e.target.value })}
                         required
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                        disabled={!canModifyPrivileges}
+                        className={`w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow ${
+                          !canModifyPrivileges ? 'opacity-60 cursor-not-allowed' : ''
+                        }`}
                       >
                         {USER_TYPES.map((type) => (
                           <option key={type.value} value={type.value}>
@@ -426,62 +440,75 @@ function Employees() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Role</label>
-                      <select
-                        value={formData.user_role}
-                        onChange={(e) => setFormData({ ...formData, user_role: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Active
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => canModifyPrivileges && setFormData({ ...formData, current: !formData.current })}
+                        disabled={!canModifyPrivileges}
+                        className={`w-full px-4 py-2.5 rounded-lg border font-medium transition-all flex items-center justify-center gap-2 ${
+                          !canModifyPrivileges ? 'opacity-60 cursor-not-allowed' : ''
+                        } ${
+                          formData.current 
+                            ? 'border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400'
+                        }`}
                       >
-                        <option value="">Select a role</option>
-                        {USER_ROLES.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
+                        {formData.current ? (
+                          <>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Active
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Inactive
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Responsibility Toggles */}
+                  {/* User Roles - Multi-select */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Responsibilities</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.current ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                        <input
-                          type="checkbox"
-                          checked={formData.current}
-                          onChange={(e) => setFormData({ ...formData, current: e.target.checked })}
-                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
-                      </label>
-                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_project_manager ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                        <input
-                          type="checkbox"
-                          checked={formData.is_project_manager}
-                          onChange={(e) => setFormData({ ...formData, is_project_manager: e.target.checked })}
-                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">PM</span>
-                      </label>
-                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_sales_person ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                        <input
-                          type="checkbox"
-                          checked={formData.is_sales_person}
-                          onChange={(e) => setFormData({ ...formData, is_sales_person: e.target.checked })}
-                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Sales</span>
-                      </label>
-                      <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${formData.is_foreman ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                        <input
-                          type="checkbox"
-                          checked={formData.is_foreman}
-                          onChange={(e) => setFormData({ ...formData, is_foreman: e.target.checked })}
-                          className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Foreman</span>
-                      </label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">User Roles</label>
+                    <div className={`grid grid-cols-2 md:grid-cols-4 gap-2 ${!canModifyPrivileges ? 'opacity-60' : ''}`}>
+                      {USER_ROLES.map((role) => {
+                        const isSelected = formData.user_roles.includes(role.value)
+                        return (
+                          <label
+                            key={role.value}
+                            className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all ${
+                              !canModifyPrivileges ? 'cursor-not-allowed' : 'cursor-pointer'
+                            } ${
+                              isSelected 
+                                ? 'border-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' 
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={!canModifyPrivileges}
+                              onChange={(e) => {
+                                if (!canModifyPrivileges) return
+                                if (e.target.checked) {
+                                  setFormData({ ...formData, user_roles: [...formData.user_roles, role.value] })
+                                } else {
+                                  setFormData({ ...formData, user_roles: formData.user_roles.filter(r => r !== role.value) })
+                                }
+                              }}
+                              className="h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded disabled:cursor-not-allowed"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{role.label}</span>
+                          </label>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>

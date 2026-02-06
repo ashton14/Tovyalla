@@ -75,6 +75,23 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ error: 'Invalid company ID' });
     }
 
+    // Check if employee is active (current = true)
+    const { data: employee } = await supabase
+      .from('employees')
+      .select('current')
+      .eq('email_address', username.toLowerCase())
+      .eq('company_id', companyID)
+      .single();
+
+    // If employee exists and is marked as inactive, reject login
+    if (employee && employee.current === false) {
+      // Sign out the user since they authenticated but shouldn't have access
+      await supabase.auth.signOut();
+      return res.status(403).json({ 
+        error: 'Your account has been deactivated. Please contact an administrator.' 
+      });
+    }
+
     // Update employee last_logon timestamp (handled by separate endpoint called from frontend)
 
     res.json({
@@ -163,6 +180,56 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Check if employee is active
+app.post('/api/auth/check-active', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    const userEmail = user.email;
+
+    if (!companyID || !userEmail) {
+      // If missing data, allow access (don't block)
+      return res.json({ active: true });
+    }
+
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('current')
+      .eq('email_address', userEmail.toLowerCase())
+      .eq('company_id', companyID)
+      .maybeSingle();
+
+    if (empError) {
+      console.error('Error checking employee active status:', empError);
+      // On error, allow access (don't block due to errors)
+      return res.json({ active: true });
+    }
+
+    // If no employee record found, allow access
+    if (!employee) {
+      return res.json({ active: true });
+    }
+
+    // Return the active status
+    return res.json({ active: employee.current !== false });
+  } catch (error) {
+    console.error('Error in check-active:', error);
+    // On error, allow access
+    return res.json({ active: true });
   }
 });
 
