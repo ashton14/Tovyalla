@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 
 function Register() {
   const [companyID, setCompanyID] = useState('')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -32,7 +33,7 @@ function Register() {
     setLoading(true)
 
     // Basic validation
-    if (!companyID.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!companyID.trim() || !name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('All fields are required')
       setLoading(false)
       return
@@ -61,7 +62,7 @@ function Register() {
     }
 
     try {
-      await register(companyID, email, password)
+      await register(companyID, email, password, name.trim())
       setSuccess('Account created successfully! Redirecting to dashboard...')
       setTimeout(() => {
         navigate('/dashboard')
@@ -140,6 +141,21 @@ function Register() {
                     onChange={(e) => setCompanyID(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
                     placeholder="Enter your company ID"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent transition-all"
+                    placeholder="Your full name"
                     required
                   />
                 </div>

@@ -200,7 +200,7 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const register = async (companyID, email, password) => {
+  const register = async (companyID, email, password, name) => {
     try {
       if (!supabase || !supabaseUrl || !supabaseAnonKey) {
         throw new Error('Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to frontend/.env file.')
@@ -212,7 +212,7 @@ export const AuthProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ companyID, email, password }),
+        body: JSON.stringify({ companyID, email, password, name }),
       })
 
       const result = await response.json()

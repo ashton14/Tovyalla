@@ -107,11 +107,17 @@ app.post('/api/auth/login', async (req, res) => {
 // Register endpoint - requires company to exist and email to be whitelisted
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { companyID, email, password } = req.body;
+    const { companyID, email, password, name } = req.body;
 
     if (!companyID || !email || !password) {
       return res.status(400).json({ 
         error: 'Missing required fields: companyID, email, and password are required' 
+      });
+    }
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ 
+        error: 'Name is required' 
       });
     }
 
@@ -172,6 +178,18 @@ app.post('/api/auth/register', async (req, res) => {
       .update({ registered: true, registered_at: new Date().toISOString() })
       .eq('company_id', companyID)
       .eq('email', email.toLowerCase());
+
+    // Create employee record for whitelist user: user_type employee, no role (name from register form)
+    await supabase
+      .from('employees')
+      .insert([{
+        company_id: companyID,
+        name: name.trim(),
+        email_address: email.toLowerCase(),
+        user_type: 'employee',
+        user_role: null,
+        current: true,
+      }]);
 
     res.json({
       user: data.user,
@@ -279,6 +297,65 @@ app.post('/api/auth/update-last-logon', async (req, res) => {
     res.json({ success: true, employee: updateResult[0] });
   } catch (error) {
     console.error('Error updating last_logon:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Complete registration for new company (called after Stripe checkout + password setup)
+// Creates company and first employee with user_type: admin, user_role: owner
+app.post('/api/billing/complete-registration', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    const userEmail = user.email;
+    if (!companyID || !userEmail) {
+      return res.status(400).json({ error: 'User does not have a company ID or email' });
+    }
+
+    const ownerName = req.body.ownerName || user.user_metadata?.owner_name || userEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Owner';
+
+    // Check if employee already exists (idempotent - e.g. user refreshed page)
+    const { data: existingEmployee } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('company_id', companyID)
+      .eq('email_address', userEmail.toLowerCase())
+      .maybeSingle();
+
+    if (existingEmployee) {
+      return res.json({ success: true, employee: existingEmployee, alreadyExists: true });
+    }
+
+    // Create first employee: user_type admin, user_role owner (company already created by Stripe flow)
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .insert([{
+        company_id: companyID,
+        name: ownerName,
+        email_address: userEmail.toLowerCase(),
+        user_type: 'admin',
+        user_role: 'owner',
+        current: true,
+      }])
+      .select()
+      .single();
+
+    if (empError) {
+      return res.status(500).json({ error: empError.message });
+    }
+
+    res.json({ success: true, employee });
+  } catch (error) {
+    console.error('Complete registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
