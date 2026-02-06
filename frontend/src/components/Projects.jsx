@@ -1024,8 +1024,11 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                   return (
                     <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {project.project_name || '-'}
+                        <div 
+                          className="text-sm font-medium text-gray-900 dark:text-white"
+                          title={project.project_name || ''}
+                        >
+                          {project.project_name ? (project.project_name.length > 12 ? project.project_name.substring(0, 12) + '...' : project.project_name) : '-'}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
