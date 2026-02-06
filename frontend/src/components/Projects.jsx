@@ -749,11 +749,17 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       >
                         <option value="">Select a project manager...</option>
-                        {employees.map((employee) => (
-                          <option key={employee.id} value={employee.name}>
-                            {employee.name}
-                          </option>
-                        ))}
+                        {employees
+                          .filter((employee) => 
+                            employee.is_project_manager === true || 
+                            employee.user_role?.toLowerCase().includes('project_manager') ||
+                            employee.user_role?.toLowerCase().includes('project manager')
+                          )
+                          .map((employee) => (
+                            <option key={employee.id} value={employee.name}>
+                              {employee.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
                   </div>
@@ -1046,7 +1052,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {PROJECT_TYPES.find((t) => t.value === project.project_type)?.label || project.project_type}
+                          {project.project_type === 'residential' ? 'Res' : project.project_type === 'commercial' ? 'Com' : (PROJECT_TYPES.find((t) => t.value === project.project_type)?.label || project.project_type)}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
