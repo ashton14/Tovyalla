@@ -17,6 +17,7 @@ function Register() {
   const [newCompanyEmail, setNewCompanyEmail] = useState('')
   const [billingError, setBillingError] = useState('')
   const [billingLoading, setBillingLoading] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const { register, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
@@ -98,6 +99,12 @@ function Register() {
       return
     }
 
+    if (!acceptedTerms) {
+      setBillingError('You must accept the Terms of Service, Privacy Policy, and Refund Policy to continue')
+      setBillingLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/billing/create-checkout-session', {
         method: 'POST',
@@ -140,8 +147,8 @@ function Register() {
       <div className="relative w-full max-w-5xl z-10">
         {/* Header */}
         <div className="text-center mb-3">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 w-auto mx-auto" />
-          <p className="text-white/80 text-sm">Customer Relationship Management</p>
+          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          <p className="text-white/80 font-light text-sm sm:text-base">Customer Relationship Management</p>
         </div>
 
         {/* Main Container - Two Panels */}
@@ -312,6 +319,7 @@ function Register() {
                         onClick={() => {
                           setShowGetStartedForm(false)
                           setBillingError('')
+                          setAcceptedTerms(false)
                         }}
                         className="text-gray-500 hover:text-gray-700 text-sm"
                       >
@@ -370,9 +378,36 @@ function Register() {
                       />
                     </div>
 
+                    {/* Policy Acceptance Checkbox */}
+                    <div className="pt-2">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 text-pool-blue focus:ring-pool-blue border-gray-300 rounded"
+                          required
+                        />
+                        <span className="text-xs text-gray-700 leading-relaxed">
+                          I agree to the{' '}
+                          <Link to="/terms" target="_blank" className="text-pool-blue hover:text-pool-dark underline font-medium">
+                            Terms of Service
+                          </Link>
+                          ,{' '}
+                          <Link to="/privacy" target="_blank" className="text-pool-blue hover:text-pool-dark underline font-medium">
+                            Privacy Policy
+                          </Link>
+                          , and{' '}
+                          <Link to="/refund" target="_blank" className="text-pool-blue hover:text-pool-dark underline font-medium">
+                            Refund & Cancellation Policy
+                          </Link>
+                        </span>
+                      </label>
+                    </div>
+
                     <button
                       type="submit"
-                      disabled={billingLoading}
+                      disabled={billingLoading || !acceptedTerms}
                       className="block w-full bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-center shadow-lg shadow-pool-blue/25 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {billingLoading ? (
@@ -451,9 +486,28 @@ function Register() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-xs mt-3">
-          © 2026 Tovyalla CRM. All rights reserved.
-        </p>
+        <div className="text-center mt-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-white/60">
+            <Link to="/terms" className="hover:text-white/80 underline transition-colors">
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <Link to="/privacy" className="hover:text-white/80 underline transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/refund" className="hover:text-white/80 underline transition-colors">
+              Refund Policy
+            </Link>
+            <span>•</span>
+            <Link to="/contact" className="hover:text-white/80 underline transition-colors">
+              Contact
+            </Link>
+          </div>
+          <p className="text-xs text-white/60">
+            © 2026 Tovyalla CRM. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   )

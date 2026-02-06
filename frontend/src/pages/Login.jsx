@@ -241,9 +241,28 @@ function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-xs sm:text-sm mt-4">
-          © 2026 Tovyalla CRM. All rights reserved.
-        </p>
+        <div className="text-center mt-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-white/60">
+            <Link to="/terms" className="hover:text-white/80 underline transition-colors">
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <Link to="/privacy" className="hover:text-white/80 underline transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/refund" className="hover:text-white/80 underline transition-colors">
+              Refund Policy
+            </Link>
+            <span>•</span>
+            <Link to="/contact" className="hover:text-white/80 underline transition-colors">
+              Contact
+            </Link>
+          </div>
+          <p className="text-xs text-white/60">
+            © 2026 Tovyalla CRM. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   )
