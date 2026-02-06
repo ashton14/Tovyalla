@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
+import AddressAutocomplete from './AddressAutocomplete'
 import {
   useCustomers,
   useCreateCustomer,
@@ -710,12 +711,21 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 1</label>
-                    <input
-                      type="text"
+                    <AddressAutocomplete
                       value={formData.address_line1}
                       onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-                      placeholder="123 Main Street"
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      onSelect={(parsed) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          address_line1: parsed.address_line1,
+                          city: parsed.city,
+                          state: parsed.state,
+                          zip_code: parsed.zip_code,
+                          country: parsed.country || 'USA',
+                        }))
+                      }}
+                      placeholder="Start typing an address..."
+                      mode="components"
                     />
                   </div>
                   <div>

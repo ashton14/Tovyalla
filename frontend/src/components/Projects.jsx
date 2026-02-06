@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import ProjectExpenses from './ProjectExpenses'
 import DocumentsModal from './DocumentsModal'
+import AddressAutocomplete from './AddressAutocomplete'
 import {
   useProjects,
   useCustomers,
@@ -771,12 +772,17 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
-                    <input
-                      type="text"
+                    <AddressAutocomplete
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="123 Main Street, City, State"
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      onSelect={(parsed) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          address: parsed.full_address,
+                        }))
+                      }}
+                      placeholder="Start typing an address..."
+                      mode="full"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
