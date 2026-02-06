@@ -70,10 +70,10 @@ function Dashboard() {
 
   // Calculate projects in progress from cached data
   const projectsInProgress = {
-    proposalRequest: projects.filter((p) => p.status === 'proposal_request').length,
+    contractSent: projects.filter((p) => p.status === 'contract_sent').length,
     proposalSent: projects.filter((p) => p.status === 'proposal_sent').length,
     sold: projects.filter((p) => p.status === 'sold').length,
-    total: projects.filter((p) => ['proposal_request', 'proposal_sent', 'sold'].includes(p.status)).length,
+    total: projects.filter((p) => ['contract_sent', 'proposal_sent', 'sold'].includes(p.status)).length,
   }
 
   useEffect(() => {
@@ -549,8 +549,8 @@ function Dashboard() {
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Projects In Progress</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-gray-400">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Request</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.proposalRequest}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contract Sent</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.contractSent}</p>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
                     <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Sent</p>

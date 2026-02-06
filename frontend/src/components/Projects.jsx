@@ -26,8 +26,8 @@ const POOL_OR_SPA_OPTIONS = [
 ]
 
 const PROJECT_STATUSES = [
-  { value: 'proposal_request', label: 'Proposal Request', color: 'bg-gray-100 text-gray-800' },
-  { value: 'proposal_sent', label: 'Proposal Sent', color: 'bg-blue-100 text-blue-800' },
+  { value: 'proposal_sent', label: 'Proposal Sent', color: 'bg-gray-100 text-blue-800' },
+  { value: 'contract_sent', label: 'Contract Sent', color: 'bg-blue-100 text-blue-800' },
   { value: 'sold', label: 'Sold', color: 'bg-green-100 text-green-800' },
   { value: 'complete', label: 'Complete', color: 'bg-emerald-100 text-emerald-800' },
   { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800' },
@@ -71,7 +71,7 @@ function Projects() {
     project_type: 'residential',
     pool_or_spa: 'pool',
     sq_feet: '',
-    status: 'proposal_request',
+    status: 'contract_sent',
     accessories_features: '',
     est_value: '',
     closing_price: '',
@@ -141,7 +141,7 @@ function Projects() {
       project_type: project.project_type || 'residential',
       pool_or_spa: project.pool_or_spa || 'pool',
       sq_feet: project.sq_feet || '',
-      status: project.status || 'proposal_request',
+      status: project.status || 'contract_sent',
       accessories_features: project.accessories_features || '',
       est_value: project.est_value || '',
       closing_price: project.closing_price || '',
@@ -160,7 +160,7 @@ function Projects() {
       project_type: 'residential',
       pool_or_spa: 'pool',
       sq_feet: '',
-      status: 'proposal_request',
+      status: 'contract_sent',
       accessories_features: '',
       est_value: '',
       closing_price: '',
@@ -352,7 +352,7 @@ function Projects() {
           project_type: row.project_type || '',
           pool_or_spa: row.pool_or_spa || row['pool_or_spa'] || '',
           sq_feet: row.sq_feet || row['sq_feet'] || row['square feet'] || '',
-          status: row.status || 'proposal_request',
+          status: row.status || 'contract_sent',
           accessories_features: row.accessories_features || row['accessories_features'] || row['accessories & features'] || '',
           est_value: row.est_value || row['est_value'] || row['estimated value'] || '',
           closing_price: row.closing_price || row['closing_price'] || row['closing price'] || '',
@@ -590,7 +590,7 @@ function Projects() {
                       <li><code className="bg-blue-100 px-1 rounded">customer_name</code> or <code className="bg-blue-100 px-1 rounded">customer_id</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">address</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">sq_feet</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">status</code> (defaults to "proposal_request")</li>
+                      <li><code className="bg-blue-100 px-1 rounded">status</code> (defaults to "contract_sent")</li>
                       <li><code className="bg-blue-100 px-1 rounded">accessories_features</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">est_value</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">closing_price</code> (used for profit calculation)</li>
@@ -606,7 +606,7 @@ function Projects() {
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
 {`project_name,project_type,pool_or_spa,address,customer_name,status,est_value,closing_price
 Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000,48000
-Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request,75000,`}
+Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75000,`}
                   </pre>
                 </div>
 
@@ -1028,7 +1028,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                           className="text-sm font-medium text-gray-900 dark:text-white"
                           title={project.project_name || ''}
                         >
-                          {project.project_name ? (project.project_name.length > 12 ? project.project_name.substring(0, 12) + '...' : project.project_name) : '-'}
+                          {project.project_name ? (project.project_name.length > 30 ? project.project_name.substring(0, 30) + '...' : project.project_name) : '-'}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -1196,7 +1196,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Proposals</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {projects.filter((p) => ['proposal_request', 'proposal_sent'].includes(p.status)).length}
+            {projects.filter((p) => ['contract_sent', 'proposal_sent'].includes(p.status)).length}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
