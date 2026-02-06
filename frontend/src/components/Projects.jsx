@@ -1034,7 +1034,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contract_sent,75
                           className="text-sm font-medium text-gray-900 dark:text-white"
                           title={project.project_name || ''}
                         >
-                          {project.project_name ? (project.project_name.length > 30 ? project.project_name.substring(0, 30) + '...' : project.project_name) : '-'}
+                          {project.project_name ? (project.project_name.length > 24 ? project.project_name.substring(0, 21) + '...' : project.project_name) : '-'}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
