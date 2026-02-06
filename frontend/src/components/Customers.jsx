@@ -799,7 +799,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lead Source</label>
                       {isCustomLeadSource ? (
-                        <div className="flex gap-2">
+                        <div className="relative">
                           <input
                             type="text"
                             value={customLeadSource}
@@ -812,7 +812,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                               }
                             }}
                             placeholder="Enter custom source..."
-                            className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                            className="w-full px-4 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                           />
                           <button
                             type="button"
@@ -820,11 +820,11 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                               setIsCustomLeadSource(false)
                               setCustomLeadSource('')
                             }}
-                            className="px-3 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                             title="Back to dropdown"
                           >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </button>
                         </div>

@@ -475,6 +475,11 @@ app.put('/api/company', async (req, res) => {
       default_initial_fee_max,
       default_final_fee_min,
       default_final_fee_max,
+      auto_include_initial_payment,
+      auto_include_final_payment,
+      auto_include_subcontractor,
+      auto_include_equipment_materials,
+      auto_include_additional_expenses,
     } = req.body;
 
     // Check if company exists
@@ -510,6 +515,11 @@ app.put('/api/company', async (req, res) => {
             default_initial_fee_max: default_initial_fee_max || null,
             default_final_fee_min: default_final_fee_min || null,
             default_final_fee_max: default_final_fee_max || null,
+            auto_include_initial_payment: auto_include_initial_payment ?? true,
+            auto_include_final_payment: auto_include_final_payment ?? true,
+            auto_include_subcontractor: auto_include_subcontractor ?? true,
+            auto_include_equipment_materials: auto_include_equipment_materials ?? true,
+            auto_include_additional_expenses: auto_include_additional_expenses ?? true,
           },
         ])
         .select()
@@ -543,6 +553,11 @@ app.put('/api/company', async (req, res) => {
           default_initial_fee_max: default_initial_fee_max !== undefined ? (default_initial_fee_max || null) : undefined,
           default_final_fee_min: default_final_fee_min !== undefined ? (default_final_fee_min || null) : undefined,
           default_final_fee_max: default_final_fee_max !== undefined ? (default_final_fee_max || null) : undefined,
+          auto_include_initial_payment: auto_include_initial_payment !== undefined ? auto_include_initial_payment : undefined,
+          auto_include_final_payment: auto_include_final_payment !== undefined ? auto_include_final_payment : undefined,
+          auto_include_subcontractor: auto_include_subcontractor !== undefined ? auto_include_subcontractor : undefined,
+          auto_include_equipment_materials: auto_include_equipment_materials !== undefined ? auto_include_equipment_materials : undefined,
+          auto_include_additional_expenses: auto_include_additional_expenses !== undefined ? auto_include_additional_expenses : undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('company_id', companyID)

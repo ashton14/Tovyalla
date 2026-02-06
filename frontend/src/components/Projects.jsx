@@ -1028,7 +1028,12 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_request
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{project.address || '-'}</div>
+                        <div 
+                          className="text-sm text-gray-900 dark:text-white"
+                          title={project.address || ''}
+                        >
+                          {project.address ? (project.address.length > 12 ? project.address.substring(0, 12) + '...' : project.address) : '-'}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">

@@ -667,15 +667,33 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     } else {
       // Set default milestones for new documents using company defaults
       const docType = contractData.documentType || 'contract'
+      const company = contractData.company || {}
       
-      // Start with initial fee (no cost, just markup-based fee)
-      const defaultMilestones = [
-        { id: 'milestone-1', name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee', cost: 0, markupPercent: defaultMarkup, flatPrice: null, milestoneType: 'initial_fee' },
-      ]
-      let milestoneId = 2
+      // Get auto-include preferences (default to true if not set)
+      const autoIncludeInitial = company.auto_include_initial_payment !== false
+      const autoIncludeFinal = company.auto_include_final_payment !== false
+      const autoIncludeSubcontractor = company.auto_include_subcontractor !== false
+      const autoIncludeEquipmentMaterials = company.auto_include_equipment_materials !== false
+      const autoIncludeAdditional = company.auto_include_additional_expenses !== false
+      
+      const defaultMilestones = []
+      let milestoneId = 1
 
-      // Add individual milestone for each subcontractor fee
-      if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
+      // Start with initial fee (no cost, just markup-based fee) - if enabled
+      if (autoIncludeInitial) {
+        defaultMilestones.push({
+          id: `milestone-${milestoneId}`,
+          name: docType === 'proposal' ? 'Initial Sign Fee' : 'Initial Contract Fee',
+          cost: 0,
+          markupPercent: defaultMarkup,
+          flatPrice: null,
+          milestoneType: 'initial_fee',
+        })
+        milestoneId++
+      }
+
+      // Add individual milestone for each subcontractor fee - if enabled
+      if (autoIncludeSubcontractor && expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
         expenses.subcontractorFees.forEach((fee) => {
           const jobDesc = fee.job_description || 'Work'
           const cost = parseFloat(fee.flat_fee || fee.expected_value || 0)
@@ -692,34 +710,36 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         })
       }
 
-      // Add single combined milestone for Equipment & Materials
-      const hasEquipment = expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0
-      const hasMaterials = expenses.materials && expenses.materials.length > 0
-      if (hasEquipment || hasMaterials) {
-        let equipmentMaterialsCost = 0
-        if (expenses.equipment && Array.isArray(expenses.equipment)) {
-          expenses.equipment.forEach(eq => {
-            equipmentMaterialsCost += parseFloat(eq.actual_price || eq.expected_price || 0)
+      // Add single combined milestone for Equipment & Materials - if enabled
+      if (autoIncludeEquipmentMaterials) {
+        const hasEquipment = expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0
+        const hasMaterials = expenses.materials && expenses.materials.length > 0
+        if (hasEquipment || hasMaterials) {
+          let equipmentMaterialsCost = 0
+          if (expenses.equipment && Array.isArray(expenses.equipment)) {
+            expenses.equipment.forEach(eq => {
+              equipmentMaterialsCost += parseFloat(eq.actual_price || eq.expected_price || 0)
+            })
+          }
+          if (expenses.materials) {
+            expenses.materials.forEach(mat => {
+              equipmentMaterialsCost += parseFloat(mat.actual_price || mat.expected_price || 0)
+            })
+          }
+          defaultMilestones.push({
+            id: `milestone-${milestoneId}`,
+            name: 'Equipment & Materials',
+            cost: equipmentMaterialsCost,
+            markupPercent: defaultMarkup,
+            flatPrice: null,
+            milestoneType: 'equipment_materials',
           })
+          milestoneId++
         }
-        if (expenses.materials) {
-          expenses.materials.forEach(mat => {
-            equipmentMaterialsCost += parseFloat(mat.actual_price || mat.expected_price || 0)
-          })
-        }
-        defaultMilestones.push({
-          id: `milestone-${milestoneId}`,
-          name: 'Equipment & Materials',
-          cost: equipmentMaterialsCost,
-          markupPercent: defaultMarkup,
-          flatPrice: null,
-          milestoneType: 'equipment_materials',
-        })
-        milestoneId++
       }
 
-      // Add individual milestone for each additional expense
-      if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
+      // Add individual milestone for each additional expense - if enabled
+      if (autoIncludeAdditional && expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
         expenses.additionalExpenses.forEach((exp) => {
           const description = exp.description || 'Additional Service'
           const cost = parseFloat(exp.amount || exp.expected_value || 0)
@@ -736,16 +756,18 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         })
       }
 
-      // Add final payment at the end (no cost, just markup-based fee)
-      defaultMilestones.push({
-        id: `milestone-${milestoneId}`,
-        name: 'Final Payment',
-        cost: 0,
-        markupPercent: defaultMarkup,
-        flatPrice: null,
-        milestoneType: 'final_inspection',
-      })
-      milestoneId++
+      // Add final payment at the end (no cost, just markup-based fee) - if enabled
+      if (autoIncludeFinal) {
+        defaultMilestones.push({
+          id: `milestone-${milestoneId}`,
+          name: 'Final Payment',
+          cost: 0,
+          markupPercent: defaultMarkup,
+          flatPrice: null,
+          milestoneType: 'final_inspection',
+        })
+        milestoneId++
+      }
 
       setMilestones(defaultMilestones)
       setNextMilestoneId(milestoneId)
@@ -756,11 +778,17 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     const subcontractorsDescription = generateSubcontractorsDescription()
     const additionalExpensesDescription = generateAdditionalExpensesDescription()
 
-    // Define auto-generated scope items
+    // Get auto-include preferences for scope (default to true if not set)
+    const company = contractData.company || {}
+    const autoIncludeSubcontractorScope = company.auto_include_subcontractor !== false
+    const autoIncludeEquipmentMaterialsScope = company.auto_include_equipment_materials !== false
+    const autoIncludeAdditionalScope = company.auto_include_additional_expenses !== false
+
+    // Define auto-generated scope items - only include if preference is enabled
     const autoGeneratedItems = [
-      { title: 'Subcontractor Work', description: subcontractorsDescription, hasContent: subcontractorsDescription.length > 0 },
-      { title: 'Equipment & Materials', description: equipmentMaterialsDescription, hasContent: equipmentMaterialsDescription.length > 0 },
-      { title: 'Additional Services', description: additionalExpensesDescription, hasContent: additionalExpensesDescription.length > 0 },
+      { title: 'Subcontractor Work', description: subcontractorsDescription, hasContent: autoIncludeSubcontractorScope && subcontractorsDescription.length > 0 },
+      { title: 'Equipment & Materials', description: equipmentMaterialsDescription, hasContent: autoIncludeEquipmentMaterialsScope && equipmentMaterialsDescription.length > 0 },
+      { title: 'Additional Services', description: additionalExpensesDescription, hasContent: autoIncludeAdditionalScope && additionalExpensesDescription.length > 0 },
     ].filter(item => item.hasContent)
 
     // Load scope of work items
@@ -796,17 +824,13 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       setScopeOfWork(loadedScope)
       setNextScopeId(loadedScope.length + 1)
     } else {
-      // Set default scope of work with auto-generated items
-      const defaultScope = [{ id: 'scope-1', title: '', description: '' }]
-      
-      autoGeneratedItems.forEach((autoItem, idx) => {
-        defaultScope.push({
-          id: `scope-${idx + 2}`,
-          title: autoItem.title,
-          description: autoItem.description,
-          isAutoGenerated: true,
-        })
-      })
+      // Set default scope of work with only auto-generated items (no blank item)
+      const defaultScope = autoGeneratedItems.map((autoItem, idx) => ({
+        id: `scope-${idx + 1}`,
+        title: autoItem.title,
+        description: autoItem.description,
+        isAutoGenerated: true,
+      }))
 
       setScopeOfWork(defaultScope)
       setNextScopeId(defaultScope.length + 1)
