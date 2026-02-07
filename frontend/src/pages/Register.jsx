@@ -136,6 +136,7 @@ function Register() {
     { icon: '📊', text: 'Complete CRM Dashboard' },
     { icon: '👥', text: 'Customer & Employee Management' },
     { icon: '📁', text: 'Project Tracking & Documents' },
+    { icon: '🔧', text: 'Subcontractor Management' },
     { icon: '📅', text: 'Calendar & Scheduling' },
     { icon: '📦', text: 'Inventory Management' },
     { icon: '💰', text: 'Expense Tracking & Reporting' },
