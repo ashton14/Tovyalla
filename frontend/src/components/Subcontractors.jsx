@@ -454,7 +454,7 @@ function Subcontractors() {
           <div className="flex gap-3">
           <button
             onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+            className="hidden md:block px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
           >
             📥 Import CSV
           </button>
@@ -464,7 +464,7 @@ function Subcontractors() {
               setEditingSubcontractor(null)
               setShowForm(true)
             }}
-            className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
+            className="px-2 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors"
           >
             + Add Subcontractor
           </button>

@@ -420,7 +420,7 @@ function Inventory() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowImportModal(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+                className="hidden md:block px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
               >
                 📥 Import CSV
               </button>
@@ -661,7 +661,7 @@ function Inventory() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowImportModal(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
+                className="hidden md:block px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition-colors"
               >
                 📥 Import CSV
               </button>
