@@ -278,6 +278,7 @@ app.post('/api/auth/register', async (req, res) => {
         company_id: companyID,
         name: name.trim(),
         email_address: email.toLowerCase(),
+        user_id: data.user.id,
         user_type: 'employee',
         user_role: null,
         current: true,
@@ -456,6 +457,7 @@ app.post('/api/billing/complete-registration', async (req, res) => {
         company_id: companyId,
         name: employeeName,
         email_address: email.toLowerCase(),
+        user_id: authData.user.id,
         user_type: 'admin',
         current: true,
       },
@@ -681,6 +683,7 @@ app.post('/api/billing/complete-registration', async (req, res) => {
         company_id: companyID,
         name: ownerName,
         email_address: userEmail.toLowerCase(),
+        user_id: user.id,
         user_type: 'admin',
         current: true,
       }])
@@ -4562,12 +4565,26 @@ app.post('/api/employees', async (req, res) => {
       return res.status(400).json({ error: 'Name and email address are required' });
     }
 
+    // Try to find existing auth user by email to link employee
+    let userId = null;
+    try {
+      const { data: authUser } = await supabase.auth.admin.listUsers();
+      const matchingUser = authUser?.users?.find(u => u.email?.toLowerCase() === email_address.toLowerCase());
+      if (matchingUser) {
+        userId = matchingUser.id;
+      }
+    } catch (err) {
+      // If we can't find the user, that's okay - employee can exist without user_id
+      console.log('Could not find auth user for email:', email_address);
+    }
+
     const insertData = {
       company_id: companyID,
       name,
       user_type: user_type || 'employee',
       user_role: user_role || null,
       email_address,
+      user_id: userId,
       phone: phone || null,
       current: current || false,
       is_project_manager: is_project_manager || false,
