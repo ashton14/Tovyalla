@@ -635,7 +635,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
     const { savedMilestones, savedScopeOfWork } = contractData
     const expenses = contractData?.expenses || {}
-    const defaultMarkup = contractData.company?.default_markup_percent ?? 30
+    const defaultMarkup = 0 // category default when not set (no longer use company default_markup_percent)
 
     // Load milestones
     if (savedMilestones && savedMilestones.length > 0) {
@@ -854,7 +854,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
   // Add a new milestone
   const addMilestone = () => {
-    const defaultMarkup = contractData?.company?.default_markup_percent ?? 30
+    const defaultMarkup = 0
     const newMilestone = {
       id: `milestone-${nextMilestoneId}`,
       name: '',
@@ -1443,7 +1443,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         selectedImportMilestoneItems.includes(item.id)
       )
       if (milestoneItemsToImport.length > 0) {
-        const defaultMarkup = contractData?.company?.default_markup_percent ?? 30
+        const defaultMarkup = 0
         
         const newMilestones = milestoneItemsToImport.map((item, idx) => ({
           id: `milestone-${nextMilestoneId + idx}`,

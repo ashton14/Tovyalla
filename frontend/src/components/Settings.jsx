@@ -24,7 +24,7 @@ function Settings() {
     default_final_fee_max: '',
     default_final_fee_min: '',
     default_initial_fee_max: '',
-    default_markup_percent: 30,
+    default_markup_percent: 0,
     default_subcontractor_markup_percent: '',
     default_subcontractor_fee_min: '',
     default_subcontractor_fee_max: '',
@@ -68,7 +68,7 @@ function Settings() {
             default_initial_fee_max: company.default_initial_fee_max ?? '',
             default_final_fee_min: company.default_final_fee_min ?? '',
             default_final_fee_max: company.default_final_fee_max ?? '',
-            default_markup_percent: company.default_markup_percent ?? 30,
+            default_markup_percent: company.default_markup_percent ?? 0,
             default_subcontractor_markup_percent: company.default_subcontractor_markup_percent ?? '',
             default_subcontractor_fee_min: company.default_subcontractor_fee_min ?? '',
             default_subcontractor_fee_max: company.default_subcontractor_fee_max ?? '',
@@ -116,7 +116,7 @@ function Settings() {
           default_initial_fee_max: c.default_initial_fee_max ?? '',
           default_final_fee_min: c.default_final_fee_min ?? '',
           default_final_fee_max: c.default_final_fee_max ?? '',
-          default_markup_percent: c.default_markup_percent ?? 30,
+          default_markup_percent: c.default_markup_percent ?? 0,
           default_subcontractor_markup_percent: c.default_subcontractor_markup_percent ?? '',
           default_subcontractor_fee_min: c.default_subcontractor_fee_min ?? '',
           default_subcontractor_fee_max: c.default_subcontractor_fee_max ?? '',
@@ -229,26 +229,6 @@ function Settings() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Default markup (fallback when a category has no specific markup set) */}
-            <div className="flex items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                Default markup %
-              </label>
-              <div className="relative w-24">
-                <input
-                  type="number"
-                  value={docPrefs.default_markup_percent ?? ''}
-                  onChange={(e) => setDocPrefs(prev => ({ ...prev, default_markup_percent: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 }))}
-                  min={0}
-                  step={1}
-                  className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  placeholder="30"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Used for subcontractor, equipment & materials, and additional expenses when not set per category</span>
-            </div>
-
             {/* Auto-Include Options - each row has a "Set defaults" button */}
             <div>
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
@@ -382,12 +362,12 @@ function Settings() {
                               onChange={(e) => setDocPrefs(prev => ({ ...prev, [`default_${defaultsModalKey}_markup_percent`]: e.target.value === '' ? '' : parseFloat(e.target.value) }))}
                               min={0}
                               step={1}
-                              placeholder={String(docPrefs.default_markup_percent || 30)}
+                              placeholder="0"
                               className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">Leave blank to use company default ({docPrefs.default_markup_percent ?? 30}%)</p>
+                          <p className="text-xs text-gray-500 mt-1">Leave blank for 0%</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
