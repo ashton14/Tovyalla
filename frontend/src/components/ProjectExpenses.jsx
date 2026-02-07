@@ -223,13 +223,13 @@ function ProjectExpenses({ project, onClose }) {
     // Extract date part only (YYYY-MM-DD) to avoid timezone issues
     const dateAdded = entry.date_added ? entry.date_added.split('T')[0] : ''
     setSubcontractorForm({
-      subcontractor_id: entry.subcontractor_id,
-      flat_fee: entry.flat_fee || '',
-      expected_value: entry.expected_value || '',
-      date_added: dateAdded,
+      subcontractor_id: entry.subcontractor_id ?? '',
+      flat_fee: entry.flat_fee ?? '',
+      expected_value: entry.expected_value ?? '',
+      date_added: dateAdded || '',
       status: entry.status || 'incomplete',
-      notes: entry.notes || '',
-      job_description: entry.job_description || '',
+      notes: entry.notes ?? '',
+      job_description: entry.job_description ?? '',
     })
     setShowSubcontractorForm(true)
   }
@@ -320,14 +320,14 @@ function ProjectExpenses({ project, onClose }) {
     const dateOrdered = entry.date_ordered ? entry.date_ordered.split('T')[0] : (entry.date_used ? entry.date_used.split('T')[0] : '')
     const dateReceived = entry.date_received ? entry.date_received.split('T')[0] : ''
     setMaterialForm({
-      inventory_id: entry.inventory_id,
-      quantity: entry.quantity || '',
-      date_ordered: dateOrdered,
-      date_received: dateReceived,
+      inventory_id: entry.inventory_id ?? '',
+      quantity: entry.quantity ?? '',
+      date_ordered: dateOrdered || '',
+      date_received: dateReceived || '',
       status: entry.status || 'incomplete',
-      expected_price: entry.expected_price || entry.expected_value || '',
-      actual_price: entry.actual_price || (entry.unit_cost && entry.quantity ? (parseFloat(entry.unit_cost) * parseFloat(entry.quantity)).toFixed(2) : ''),
-      notes: entry.notes || '',
+      expected_price: entry.expected_price ?? entry.expected_value ?? '',
+      actual_price: entry.actual_price ?? (entry.unit_cost && entry.quantity ? (parseFloat(entry.unit_cost) * parseFloat(entry.quantity)).toFixed(2) : ''),
+      notes: entry.notes ?? '',
     })
     setShowMaterialForm(true)
   }
@@ -407,13 +407,13 @@ function ProjectExpenses({ project, onClose }) {
     // Extract date part only (YYYY-MM-DD) to avoid timezone issues
     const expenseDate = entry.expense_date ? entry.expense_date.split('T')[0] : ''
     setAdditionalForm({
-      description: entry.description,
-      amount: entry.amount || '',
-      expected_value: entry.expected_value || '',
-      expense_date: expenseDate,
+      description: entry.description ?? '',
+      amount: entry.amount ?? '',
+      expected_value: entry.expected_value ?? '',
+      expense_date: expenseDate || '',
       status: entry.status || 'incomplete',
-      category: entry.category || '',
-      notes: entry.notes || '',
+      category: entry.category ?? '',
+      notes: entry.notes ?? '',
     })
     setShowAdditionalForm(true)
   }
@@ -498,14 +498,14 @@ function ProjectExpenses({ project, onClose }) {
     const dateOrdered = entry.date_ordered ? entry.date_ordered.split('T')[0] : ''
     const dateReceived = entry.date_received ? entry.date_received.split('T')[0] : ''
     setEquipmentForm({
-      inventory_id: entry.inventory_id || '',
-      expected_price: entry.expected_price || '',
-      actual_price: entry.actual_price || '',
-      quantity: entry.quantity || '1',
-      date_ordered: dateOrdered,
-      date_received: dateReceived,
+      inventory_id: entry.inventory_id ?? '',
+      expected_price: entry.expected_price ?? '',
+      actual_price: entry.actual_price ?? '',
+      quantity: entry.quantity ?? '1',
+      date_ordered: dateOrdered || '',
+      date_received: dateReceived || '',
       status: entry.status || 'pending',
-      notes: entry.notes || '',
+      notes: entry.notes ?? '',
     })
     setShowEquipmentForm(true)
   }

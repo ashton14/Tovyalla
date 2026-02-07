@@ -8,13 +8,18 @@ const pdfFonts = pdfFontsModule.default || pdfFontsModule
 // Initialize pdfmake with fonts
 pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs
 
-// Helper function to format currency
+// Round monetary values to 2 decimal places
+const roundTo2 = (n) => Math.round(Number(n) * 100) / 100
+
+// Helper function to format currency (always show 2 decimals, e.g. $1,000.00)
 const formatCurrency = (amount) => {
-  if (!amount || isNaN(amount)) return '$0.00'
+  if (amount === undefined || amount === null || isNaN(Number(amount))) return '$0.00'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(amount)
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount))
 }
 
 // Helper function to format date
@@ -28,10 +33,20 @@ const formatDate = (dateString) => {
   })
 }
 
-// Generate payment schedule based on expenses
-// If customerPaymentSchedule is provided, use that instead (customer-facing prices)
+// Generate payment schedule based on expenses or saved document milestones
+// If customerPaymentSchedule is provided, use that; else use savedMilestones from document; else build from expenses
 const generatePaymentSchedule = (data) => {
   const docType = data.documentType || 'contract'
+  
+  // Use saved milestones from document when no custom payment schedule is provided
+  const savedMilestones = data.savedMilestones && Array.isArray(data.savedMilestones) ? data.savedMilestones : []
+  const fromSavedMilestones = savedMilestones.length > 0 && (!data.customerPaymentSchedule || data.customerPaymentSchedule.length === 0)
+  if (fromSavedMilestones) {
+    return savedMilestones.map((m) => ({
+      description: m.name || '',
+      amount: roundTo2(parseFloat(m.customer_price) || 0),
+    }))
+  }
   
   // For proposals, return simplified schedule
   if (docType === 'proposal') {
@@ -92,7 +107,7 @@ const generatePaymentSchedule = (data) => {
   // 2. Subcontractor payments (one per job)
   if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
     expenses.subcontractorFees.forEach((fee) => {
-      const amount = parseFloat(fee.expected_value || fee.flat_fee || 0)
+      const amount = roundTo2(parseFloat(fee.expected_value || fee.flat_fee || 0))
       if (amount > 0) {
         schedule.push({
           description: fee.job_description || 'Work',
@@ -106,7 +121,7 @@ const generatePaymentSchedule = (data) => {
   if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
     schedule.push({
       description: 'Equipment Order',
-      amount: totals.equipmentExpected || totals.equipment || 0,
+      amount: roundTo2(totals.equipmentExpected || totals.equipment || 0),
     })
   }
   
@@ -114,7 +129,7 @@ const generatePaymentSchedule = (data) => {
   if (expenses.materials && expenses.materials.length > 0) {
     schedule.push({
       description: 'Material Order',
-      amount: totals.materialsExpected || totals.materials || 0,
+      amount: roundTo2(totals.materialsExpected || totals.materials || 0),
     })
   }
   
@@ -122,7 +137,7 @@ const generatePaymentSchedule = (data) => {
   if (totals.additional > 0 || totals.additionalExpected > 0) {
     schedule.push({
       description: 'Additional Fees',
-      amount: totals.additionalExpected || totals.additional || 0,
+      amount: roundTo2(totals.additionalExpected || totals.additional || 0),
     })
   }
   
@@ -195,20 +210,24 @@ export const generateContractPdf = async (contractData) => {
     ? company.license_numbers.join(', ') 
     : (company.license_numbers || '')
   
-  // Generate payment schedule (uses customerPaymentSchedule if provided)
+  // Generate payment schedule (uses customerPaymentSchedule, then savedMilestones, then expenses)
   const paymentSchedule = generatePaymentSchedule(contractData)
-  const paymentTotal = contractData.customerGrandTotal || paymentSchedule.reduce((sum, item) => sum + item.amount, 0)
+  const paymentTotal = roundTo2(contractData.customerGrandTotal ?? paymentSchedule.reduce((sum, item) => sum + item.amount, 0))
   
-  
-  // Build scope of work items from custom scope in preview only
+  // Build scope of work: use custom scope from preview, else use saved scope from document
   let scopeOfWork = []
-  
   if (contractData.customScopeOfWork && contractData.customScopeOfWork.length > 0) {
-    // Use custom scope of work items from document preview
     scopeOfWork = contractData.customScopeOfWork
       .filter(item => item.item) // Only include items with a title
       .map((item) => ({
         item: item.item,
+        description: item.description || '',
+      }))
+  } else if (contractData.savedScopeOfWork && contractData.savedScopeOfWork.length > 0) {
+    scopeOfWork = contractData.savedScopeOfWork
+      .filter(item => (item.title || item.item || '').trim())
+      .map((item) => ({
+        item: item.title || item.item || '',
         description: item.description || '',
       }))
   }

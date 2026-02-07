@@ -990,6 +990,16 @@ app.put('/api/company', async (req, res) => {
       default_initial_fee_max,
       default_final_fee_min,
       default_final_fee_max,
+      default_markup_percent,
+      default_subcontractor_markup_percent,
+      default_subcontractor_fee_min,
+      default_subcontractor_fee_max,
+      default_equipment_materials_markup_percent,
+      default_equipment_materials_fee_min,
+      default_equipment_materials_fee_max,
+      default_additional_expenses_markup_percent,
+      default_additional_expenses_fee_min,
+      default_additional_expenses_fee_max,
       auto_include_initial_payment,
       auto_include_final_payment,
       auto_include_subcontractor,
@@ -1030,6 +1040,16 @@ app.put('/api/company', async (req, res) => {
             default_initial_fee_max: default_initial_fee_max || null,
             default_final_fee_min: default_final_fee_min || null,
             default_final_fee_max: default_final_fee_max || null,
+            default_markup_percent: default_markup_percent ?? 30,
+            default_subcontractor_markup_percent: default_subcontractor_markup_percent ?? null,
+            default_subcontractor_fee_min: default_subcontractor_fee_min || null,
+            default_subcontractor_fee_max: default_subcontractor_fee_max || null,
+            default_equipment_materials_markup_percent: default_equipment_materials_markup_percent ?? null,
+            default_equipment_materials_fee_min: default_equipment_materials_fee_min || null,
+            default_equipment_materials_fee_max: default_equipment_materials_fee_max || null,
+            default_additional_expenses_markup_percent: default_additional_expenses_markup_percent ?? null,
+            default_additional_expenses_fee_min: default_additional_expenses_fee_min || null,
+            default_additional_expenses_fee_max: default_additional_expenses_fee_max || null,
             auto_include_initial_payment: auto_include_initial_payment ?? true,
             auto_include_final_payment: auto_include_final_payment ?? true,
             auto_include_subcontractor: auto_include_subcontractor ?? true,
@@ -1046,35 +1066,51 @@ app.put('/api/company', async (req, res) => {
 
       result = data;
     } else {
-      // Company exists, update it
+      // Company exists, update it. Only update fields that are present in req.body (Settings may send only doc prefs).
+      const optionalNum = (v) => (v === '' || v === null || v === undefined) ? null : (parseFloat(v));
+      const body = req.body;
+      const updatePayload = { updated_at: new Date().toISOString() };
+
+      if (body.company_name !== undefined) updatePayload.company_name = body.company_name || null;
+      if (body.address_line1 !== undefined) updatePayload.address_line1 = body.address_line1 || null;
+      if (body.address_line2 !== undefined) updatePayload.address_line2 = body.address_line2 || null;
+      if (body.city !== undefined) updatePayload.city = body.city || null;
+      if (body.state !== undefined) updatePayload.state = body.state || null;
+      if (body.zip_code !== undefined) updatePayload.zip_code = body.zip_code || null;
+      if (body.country !== undefined) updatePayload.country = body.country || 'USA';
+      if (body.phone !== undefined) updatePayload.phone = body.phone || null;
+      if (body.email !== undefined) updatePayload.email = body.email || null;
+      if (body.website !== undefined) updatePayload.website = body.website || null;
+      if (body.license_numbers !== undefined) updatePayload.license_numbers = body.license_numbers;
+      if (body.terms_of_service !== undefined) updatePayload.terms_of_service = body.terms_of_service;
+
+      if (body.default_initial_fee_percent !== undefined) updatePayload.default_initial_fee_percent = parseFloat(body.default_initial_fee_percent) || 0;
+      if (body.default_final_fee_percent !== undefined) updatePayload.default_final_fee_percent = parseFloat(body.default_final_fee_percent) || 0;
+      if (body.default_initial_fee_min !== undefined) updatePayload.default_initial_fee_min = optionalNum(body.default_initial_fee_min);
+      if (body.default_initial_fee_max !== undefined) updatePayload.default_initial_fee_max = optionalNum(body.default_initial_fee_max);
+      if (body.default_final_fee_min !== undefined) updatePayload.default_final_fee_min = optionalNum(body.default_final_fee_min);
+      if (body.default_final_fee_max !== undefined) updatePayload.default_final_fee_max = optionalNum(body.default_final_fee_max);
+      if (body.default_markup_percent !== undefined) updatePayload.default_markup_percent = parseFloat(body.default_markup_percent) ?? 30;
+
+      if (body.default_subcontractor_markup_percent !== undefined) updatePayload.default_subcontractor_markup_percent = (body.default_subcontractor_markup_percent === '' || body.default_subcontractor_markup_percent === null) ? null : parseFloat(body.default_subcontractor_markup_percent);
+      if (body.default_subcontractor_fee_min !== undefined) updatePayload.default_subcontractor_fee_min = (body.default_subcontractor_fee_min === '' || body.default_subcontractor_fee_min === null) ? null : parseFloat(body.default_subcontractor_fee_min);
+      if (body.default_subcontractor_fee_max !== undefined) updatePayload.default_subcontractor_fee_max = (body.default_subcontractor_fee_max === '' || body.default_subcontractor_fee_max === null) ? null : parseFloat(body.default_subcontractor_fee_max);
+      if (body.default_equipment_materials_markup_percent !== undefined) updatePayload.default_equipment_materials_markup_percent = (body.default_equipment_materials_markup_percent === '' || body.default_equipment_materials_markup_percent === null) ? null : parseFloat(body.default_equipment_materials_markup_percent);
+      if (body.default_equipment_materials_fee_min !== undefined) updatePayload.default_equipment_materials_fee_min = (body.default_equipment_materials_fee_min === '' || body.default_equipment_materials_fee_min === null) ? null : parseFloat(body.default_equipment_materials_fee_min);
+      if (body.default_equipment_materials_fee_max !== undefined) updatePayload.default_equipment_materials_fee_max = (body.default_equipment_materials_fee_max === '' || body.default_equipment_materials_fee_max === null) ? null : parseFloat(body.default_equipment_materials_fee_max);
+      if (body.default_additional_expenses_markup_percent !== undefined) updatePayload.default_additional_expenses_markup_percent = (body.default_additional_expenses_markup_percent === '' || body.default_additional_expenses_markup_percent === null) ? null : parseFloat(body.default_additional_expenses_markup_percent);
+      if (body.default_additional_expenses_fee_min !== undefined) updatePayload.default_additional_expenses_fee_min = (body.default_additional_expenses_fee_min === '' || body.default_additional_expenses_fee_min === null) ? null : parseFloat(body.default_additional_expenses_fee_min);
+      if (body.default_additional_expenses_fee_max !== undefined) updatePayload.default_additional_expenses_fee_max = (body.default_additional_expenses_fee_max === '' || body.default_additional_expenses_fee_max === null) ? null : parseFloat(body.default_additional_expenses_fee_max);
+
+      if (body.auto_include_initial_payment !== undefined) updatePayload.auto_include_initial_payment = body.auto_include_initial_payment;
+      if (body.auto_include_final_payment !== undefined) updatePayload.auto_include_final_payment = body.auto_include_final_payment;
+      if (body.auto_include_subcontractor !== undefined) updatePayload.auto_include_subcontractor = body.auto_include_subcontractor;
+      if (body.auto_include_equipment_materials !== undefined) updatePayload.auto_include_equipment_materials = body.auto_include_equipment_materials;
+      if (body.auto_include_additional_expenses !== undefined) updatePayload.auto_include_additional_expenses = body.auto_include_additional_expenses;
+
       const { data, error } = await supabase
         .from('companies')
-        .update({
-          company_name: company_name || null,
-          address_line1: address_line1 || null,
-          address_line2: address_line2 || null,
-          city: city || null,
-          state: state || null,
-          zip_code: zip_code || null,
-          country: country || 'USA',
-          phone: phone || null,
-          email: email || null,
-          website: website || null,
-          license_numbers: license_numbers !== undefined ? license_numbers : undefined,
-          terms_of_service: terms_of_service !== undefined ? terms_of_service : undefined,
-          default_initial_fee_percent: default_initial_fee_percent !== undefined ? default_initial_fee_percent : undefined,
-          default_final_fee_percent: default_final_fee_percent !== undefined ? default_final_fee_percent : undefined,
-          default_initial_fee_min: default_initial_fee_min !== undefined ? (default_initial_fee_min || null) : undefined,
-          default_initial_fee_max: default_initial_fee_max !== undefined ? (default_initial_fee_max || null) : undefined,
-          default_final_fee_min: default_final_fee_min !== undefined ? (default_final_fee_min || null) : undefined,
-          default_final_fee_max: default_final_fee_max !== undefined ? (default_final_fee_max || null) : undefined,
-          auto_include_initial_payment: auto_include_initial_payment !== undefined ? auto_include_initial_payment : undefined,
-          auto_include_final_payment: auto_include_final_payment !== undefined ? auto_include_final_payment : undefined,
-          auto_include_subcontractor: auto_include_subcontractor !== undefined ? auto_include_subcontractor : undefined,
-          auto_include_equipment_materials: auto_include_equipment_materials !== undefined ? auto_include_equipment_materials : undefined,
-          auto_include_additional_expenses: auto_include_additional_expenses !== undefined ? auto_include_additional_expenses : undefined,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('company_id', companyID)
         .select()
         .single();
@@ -3711,12 +3747,14 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    const roundTo2 = (n) => Math.round(Number(n) * 100) / 100;
+
     // If customer_price is provided, update the project's customer_price
     if (customer_price !== undefined && customer_price !== null) {
       const { error: updateError } = await supabase
         .from('projects')
         .update({ 
-          customer_price: parseFloat(customer_price) || 0,
+          customer_price: roundTo2(customer_price) || 0,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -3735,19 +3773,32 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
       .eq('company_id', companyID)
       .eq('document_type', docType);
 
-    // Insert new milestones with document_type
-    const milestonesToInsert = milestones.map((m, index) => ({
-      company_id: companyID,
-      project_id: id,
-      name: m.name,
-      description: m.description || null,
-      milestone_type: m.milestone_type || 'custom',
-      cost: parseFloat(m.cost) || 0,
-      customer_price: parseFloat(m.customer_price) || 0,
-      subcontractor_fee_id: m.subcontractor_fee_id || null,
-      sort_order: index,
-      document_type: docType,
-    }));
+    // Insert new milestones with all fields (support both snake_case and camelCase from client)
+    const milestonesToInsert = milestones.map((m, index) => {
+      const cost = roundTo2(Math.max(0, Number(m.cost) || 0));
+      const customerPrice = roundTo2(Math.max(0, Number(m.customer_price) || 0));
+      const flatPrice = m.flat_price !== undefined && m.flat_price !== null && m.flat_price !== ''
+        ? roundTo2(Math.max(0, Number(m.flat_price) || 0))
+        : null;
+      const markupPercent = (m.markup_percent !== undefined && m.markup_percent !== null)
+        ? roundTo2(Math.max(0, Number(m.markup_percent) || 0))
+        : 0;
+      return {
+        company_id: companyID,
+        project_id: id,
+        name: m.name,
+        description: m.description || null,
+        milestone_type: m.milestone_type || m.milestoneType || 'custom',
+        cost,
+        customer_price: customerPrice,
+        flat_price: flatPrice,
+        markup_percent: markupPercent,
+        subcontractor_fee_id: m.subcontractor_fee_id || m.subcontractorFeeId || null,
+        additional_expense_id: m.additional_expense_id || m.additionalExpenseId || null,
+        sort_order: index,
+        document_type: docType,
+      };
+    });
 
     const { data: savedMilestones, error: insertError } = await supabase
       .from('milestones')
@@ -3759,8 +3810,8 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
       return res.status(500).json({ error: insertError.message });
     }
 
-    // Calculate grand total from customer prices
-    const grandTotal = savedMilestones.reduce((sum, m) => sum + parseFloat(m.customer_price || 0), 0);
+    // Calculate grand total from customer prices (rounded to 2 decimals)
+    const grandTotal = roundTo2(savedMilestones.reduce((sum, m) => sum + parseFloat(m.customer_price || 0), 0));
 
     res.json({ 
       milestones: savedMilestones,

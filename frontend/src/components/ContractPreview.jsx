@@ -19,13 +19,18 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-// Helper to format currency
+// Round monetary values to 2 decimal places
+const roundTo2 = (n) => Math.round(Number(n) * 100) / 100
+
+// Helper to format currency (always show 2 decimals, e.g. $1,000.00)
 const formatCurrency = (amount) => {
-  if (!amount || isNaN(amount)) return '$0.00'
+  if (amount === undefined || amount === null || isNaN(Number(amount))) return '$0.00'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(amount)
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount))
 }
 
 // Drag handle icon component
@@ -43,7 +48,7 @@ const DragHandle = ({ listeners, attributes }) => (
 )
 
 // Sortable mobile card component for milestones - defined outside to prevent recreation on render
-const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMilestone, updateMilestone, formatCurrency, calculatedFeePrice }) => {
+const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMilestone, updateMilestone, formatCurrency, getMilestonePrice, priceEditingValue, priceDisplayValue, onPriceFocus, onPriceChange, onPriceBlur }) => {
   const {
     attributes,
     listeners,
@@ -61,18 +66,7 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
 
   const isFeeMilestone = milestone.milestoneType === 'initial_fee' || milestone.milestoneType === 'final_inspection'
   const cost = milestone.cost || 0
-  
-  // For fee milestones, use the calculated fee price; otherwise use markup calculation
-  let customerPrice
-  if (isFeeMilestone) {
-    customerPrice = milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''
-      ? parseFloat(milestone.flatPrice) || 0
-      : calculatedFeePrice || 0
-  } else {
-    customerPrice = milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''
-      ? parseFloat(milestone.flatPrice) || 0
-      : cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100)
-  }
+  const customerPrice = getMilestonePrice ? getMilestonePrice(milestone) : (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? parseFloat(milestone.flatPrice) || 0 : cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100))
 
   return (
     <div
@@ -119,13 +113,14 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
               <input
-                type="number"
-                value={milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? milestone.flatPrice : customerPrice.toFixed(2)}
-                onChange={(e) => updateMilestone(milestone.id, 'flatPrice', e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={priceEditingValue !== undefined ? priceEditingValue : priceDisplayValue}
+                onFocus={onPriceFocus}
+                onChange={(e) => onPriceChange(e.target.value)}
+                onBlur={(e) => onPriceBlur(e.target.value)}
                 placeholder="0.00"
                 className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                step="0.01"
-                min="0"
               />
             </div>
             {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
@@ -144,13 +139,15 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
               <label className="block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Markup %</label>
               <div className="relative">
                 <input
-                  type="number"
-                  value={milestone.markupPercent || ''}
-                  onChange={(e) => updateMilestone(milestone.id, 'markupPercent', e.target.value)}
+                  type="text"
+                  inputMode="decimal"
+                  value={milestone.markupPercent ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    updateMilestone(milestone.id, 'markupPercent', v === '' ? '' : (parseFloat(v) || 0))
+                  }}
                   placeholder="0"
                   className="w-full pr-8 pl-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  step="1"
-                  min="0"
                   disabled={milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
@@ -161,13 +158,14 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
                 <input
-                  type="number"
-                  value={milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? milestone.flatPrice : customerPrice.toFixed(2)}
-                  onChange={(e) => updateMilestone(milestone.id, 'flatPrice', e.target.value)}
+                  type="text"
+                  inputMode="decimal"
+                  value={priceEditingValue !== undefined ? priceEditingValue : priceDisplayValue}
+                  onFocus={onPriceFocus}
+                  onChange={(e) => onPriceChange(e.target.value)}
+                  onBlur={(e) => onPriceBlur(e.target.value)}
                   placeholder="0.00"
                   className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  step="0.01"
-                  min="0"
                 />
               </div>
               {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
@@ -247,7 +245,7 @@ const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateSc
 }
 
 // Sortable table row for milestones (desktop) - defined outside to prevent recreation on render
-const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilestone, updateMilestone, formatCurrency, calculatedFeePrice }) => {
+const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilestone, updateMilestone, formatCurrency, getMilestonePrice, calculatedFeePrice, priceEditingValue, priceDisplayValue, onPriceFocus, onPriceChange, onPriceBlur }) => {
   const {
     attributes,
     listeners,
@@ -265,18 +263,7 @@ const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilest
 
   const isFeeMilestone = milestone.milestoneType === 'initial_fee' || milestone.milestoneType === 'final_inspection'
   const cost = milestone.cost || 0
-  
-  // For fee milestones, use the calculated fee price; otherwise use markup calculation
-  let customerPrice
-  if (isFeeMilestone) {
-    customerPrice = milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''
-      ? parseFloat(milestone.flatPrice) || 0
-      : calculatedFeePrice || 0
-  } else {
-    customerPrice = milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''
-      ? parseFloat(milestone.flatPrice) || 0
-      : cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100)
-  }
+  const customerPrice = getMilestonePrice ? getMilestonePrice(milestone) : (isFeeMilestone ? (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? parseFloat(milestone.flatPrice) || 0 : calculatedFeePrice || 0) : (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? parseFloat(milestone.flatPrice) || 0 : cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100)))
 
   return (
     <tr
@@ -309,13 +296,15 @@ const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilest
         ) : (
           <div className="relative inline-flex items-center">
             <input
-              type="number"
-              value={milestone.markupPercent || ''}
-              onChange={(e) => updateMilestone(milestone.id, 'markupPercent', e.target.value)}
+              type="text"
+              inputMode="decimal"
+              value={milestone.markupPercent ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                updateMilestone(milestone.id, 'markupPercent', v === '' ? '' : (parseFloat(v) || 0))
+              }}
               placeholder="0"
-              className="w-20 pr-7 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-              step="1"
-              min="0"
+              className="w-28 pr-7 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
               disabled={milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== ''}
             />
             <span className="absolute right-3 text-gray-500">%</span>
@@ -327,12 +316,13 @@ const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilest
           <div className="relative inline-flex items-center">
             <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
             <input
-              type="number"
-              value={milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' ? milestone.flatPrice : customerPrice.toFixed(2)}
-              onChange={(e) => updateMilestone(milestone.id, 'flatPrice', e.target.value)}
+              type="text"
+              inputMode="decimal"
+              value={priceEditingValue !== undefined ? priceEditingValue : priceDisplayValue}
+              onFocus={onPriceFocus}
+              onChange={(e) => onPriceChange(e.target.value)}
+              onBlur={(e) => onPriceBlur(e.target.value)}
               className="w-28 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              step="0.01"
-              min="0"
             />
           </div>
           {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
@@ -430,6 +420,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const { supabase, user } = useAuth()
   const [activeTab, setActiveTab] = useState('scope') // 'scope' or 'milestones'
   const [milestones, setMilestones] = useState([])
+  const [priceInputByMilestoneId, setPriceInputByMilestoneId] = useState({}) // raw string while editing price
   const [scopeOfWork, setScopeOfWork] = useState([])
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -527,7 +518,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       })
     }
 
-    return total
+    return roundTo2(total)
   }
 
   const totalCost = calculateTotalCost()
@@ -648,15 +639,15 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
     // Load milestones
     if (savedMilestones && savedMilestones.length > 0) {
-      // Convert saved milestones to our new format with cost and markupPercent
+      // Convert saved milestones to our new format with cost and markupPercent (costs/prices rounded to 2 decimals)
       const loadedMilestones = savedMilestones.map((m, idx) => {
-        const cost = m.cost ?? calculateMilestoneCost(m.milestone_type, m.subcontractor_fee_id, m.additional_expense_id)
+        const rawCost = m.cost ?? calculateMilestoneCost(m.milestone_type, m.subcontractor_fee_id, m.additional_expense_id)
         return {
           id: `milestone-${idx + 1}`,
           name: m.name || '',
-          cost: cost,
-          markupPercent: m.markup_percent ?? defaultMarkup,
-          flatPrice: m.flat_price ?? null,
+          cost: roundTo2(rawCost),
+          markupPercent: roundTo2(m.markup_percent ?? defaultMarkup),
+          flatPrice: m.flat_price != null && m.flat_price !== '' ? roundTo2(m.flat_price) : null,
           milestoneType: m.milestone_type || 'custom',
           subcontractorFeeId: m.subcontractor_fee_id || null,
           additionalExpenseId: m.additional_expense_id || null,
@@ -665,9 +656,24 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       setMilestones(loadedMilestones)
       setNextMilestoneId(loadedMilestones.length + 1)
     } else {
-      // Set default milestones for new documents using company defaults
+      // Set default milestones for new documents using company defaults. Min/max apply only to initial values.
       const docType = contractData.documentType || 'contract'
       const company = contractData.company || {}
+      const parseMinVal = (val) => { if (val == null || val === '') return null; const n = parseFloat(val); return Number.isNaN(n) ? null : n }
+      const parseMaxVal = (val) => { if (val == null || val === '') return null; const n = parseFloat(val); return Number.isNaN(n) ? null : n }
+      const getCategoryMinMaxForType = (milestoneType) => {
+        if (milestoneType === 'subcontractor') return { min: parseMinVal(company.default_subcontractor_fee_min), max: parseMaxVal(company.default_subcontractor_fee_max) }
+        if (milestoneType === 'equipment_materials') return { min: parseMinVal(company.default_equipment_materials_fee_min), max: parseMaxVal(company.default_equipment_materials_fee_max) }
+        if (milestoneType === 'additional') return { min: parseMinVal(company.default_additional_expenses_fee_min), max: parseMaxVal(company.default_additional_expenses_fee_max) }
+        return { min: null, max: null }
+      }
+      const applyInitialMinMax = (cost, markupPercent, min, max) => {
+        if (cost <= 0) return markupPercent
+        let price = cost * (1 + (markupPercent || 0) / 100)
+        if (min != null && price < min) price = min
+        if (max != null && price > max) price = max
+        return roundTo2(((price - cost) / cost) * 100)
+      }
       
       // Get auto-include preferences (default to true if not set)
       const autoIncludeInitial = company.auto_include_initial_payment !== false
@@ -678,6 +684,9 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       
       const defaultMilestones = []
       let milestoneId = 1
+      const subcontractorMarkup = company.default_subcontractor_markup_percent ?? defaultMarkup
+      const equipmentMaterialsMarkup = company.default_equipment_materials_markup_percent ?? defaultMarkup
+      const additionalExpensesMarkup = company.default_additional_expenses_markup_percent ?? defaultMarkup
 
       // Start with initial fee (no cost, just markup-based fee) - if enabled
       if (autoIncludeInitial) {
@@ -692,16 +701,17 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         milestoneId++
       }
 
-      // Add individual milestone for each subcontractor fee - if enabled
+      // Add individual milestone for each subcontractor fee - if enabled (min/max applied to initial only)
       if (autoIncludeSubcontractor && expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
+        const { min, max } = getCategoryMinMaxForType('subcontractor')
         expenses.subcontractorFees.forEach((fee) => {
           const jobDesc = fee.job_description || 'Work'
-          const cost = parseFloat(fee.flat_fee || fee.expected_value || 0)
+          const cost = roundTo2(parseFloat(fee.flat_fee || fee.expected_value || 0))
           defaultMilestones.push({
             id: `milestone-${milestoneId}`,
             name: `${jobDesc}`,
-            cost: cost,
-            markupPercent: defaultMarkup,
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, subcontractorMarkup, min, max) : subcontractorMarkup,
             flatPrice: null,
             milestoneType: 'subcontractor',
             subcontractorFeeId: fee.id || null,
@@ -710,7 +720,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         })
       }
 
-      // Add single combined milestone for Equipment & Materials - if enabled
+      // Add single combined milestone for Equipment & Materials - if enabled (min/max applied to initial only)
       if (autoIncludeEquipmentMaterials) {
         const hasEquipment = expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0
         const hasMaterials = expenses.materials && expenses.materials.length > 0
@@ -726,11 +736,13 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
               equipmentMaterialsCost += parseFloat(mat.actual_price || mat.expected_price || 0)
             })
           }
+          const cost = roundTo2(equipmentMaterialsCost)
+          const { min, max } = getCategoryMinMaxForType('equipment_materials')
           defaultMilestones.push({
             id: `milestone-${milestoneId}`,
             name: 'Equipment & Materials',
-            cost: equipmentMaterialsCost,
-            markupPercent: defaultMarkup,
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, equipmentMaterialsMarkup, min, max) : equipmentMaterialsMarkup,
             flatPrice: null,
             milestoneType: 'equipment_materials',
           })
@@ -738,16 +750,17 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         }
       }
 
-      // Add individual milestone for each additional expense - if enabled
+      // Add individual milestone for each additional expense - if enabled (min/max applied to initial only)
       if (autoIncludeAdditional && expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
+        const { min, max } = getCategoryMinMaxForType('additional')
         expenses.additionalExpenses.forEach((exp) => {
           const description = exp.description || 'Additional Service'
-          const cost = parseFloat(exp.amount || exp.expected_value || 0)
+          const cost = roundTo2(parseFloat(exp.amount || exp.expected_value || 0))
           defaultMilestones.push({
             id: `milestone-${milestoneId}`,
             name: description,
-            cost: cost,
-            markupPercent: defaultMarkup,
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, additionalExpensesMarkup, min, max) : additionalExpensesMarkup,
             flatPrice: null,
             milestoneType: 'additional',
             additionalExpenseId: exp.id || null,
@@ -859,15 +872,31 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     setMilestones(prev => prev.filter(m => m.id !== id))
   }
 
-  // Update a milestone
-  const updateMilestone = (id, field, value) => {
-    setMilestones(prev => prev.map(m => 
-      m.id === id ? { ...m, [field]: value } : m
-    ))
+  // Update a milestone: updateMilestone(id, field, value) or updateMilestone(id, { field1: value1, ... })
+  const updateMilestone = (id, fieldOrUpdates, value) => {
+    setMilestones(prev => prev.map(m => {
+      if (m.id !== id) return m
+      if (typeof fieldOrUpdates === 'object' && fieldOrUpdates !== null && value === undefined) {
+        return { ...m, ...fieldOrUpdates }
+      }
+      return { ...m, [fieldOrUpdates]: value }
+    }))
+  }
+
+  // Parse optional min/max from company. Returns null when not set; otherwise the number (0 is valid for min).
+  const parseMin = (val) => {
+    if (val == null || val === '') return null
+    const n = parseFloat(val)
+    return Number.isNaN(n) ? null : n
+  }
+  const parseMax = (val) => {
+    if (val == null || val === '') return null
+    const n = parseFloat(val)
+    return Number.isNaN(n) ? null : n
   }
 
   // Calculate fee price for initial/final milestones based on company settings
-  // Uses the sum of milestone costs (before markup) as the base
+  // Uses the sum of milestone costs (before markup) as the base. Min/max are applied to the result.
   const calculateFeePrice = (milestoneType) => {
     const company = contractData?.company || {}
     
@@ -881,44 +910,84 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     
     if (milestoneType === 'initial_fee') {
       const percent = parseFloat(company.default_initial_fee_percent) || 20
-      const min = parseFloat(company.default_initial_fee_min) || 0
-      const max = parseFloat(company.default_initial_fee_max) || Infinity
+      const min = parseMin(company.default_initial_fee_min)
+      const max = parseMax(company.default_initial_fee_max)
       
       let amount = (milestoneCostTotal * percent) / 100
-      if (min > 0 && amount < min) amount = min
-      if (max < Infinity && amount > max) amount = max
-      return amount
+      if (min != null && amount < min) amount = min
+      if (max != null && amount > max) amount = max
+      return roundTo2(amount)
     }
     
     if (milestoneType === 'final_inspection') {
       const percent = parseFloat(company.default_final_fee_percent) || 80
-      const min = parseFloat(company.default_final_fee_min) || 0
-      const max = parseFloat(company.default_final_fee_max) || Infinity
+      const min = parseMin(company.default_final_fee_min)
+      const max = parseMax(company.default_final_fee_max)
       
       let amount = (milestoneCostTotal * percent) / 100
-      if (min > 0 && amount < min) amount = min
-      if (max < Infinity && amount > max) amount = max
-      return amount
+      if (min != null && amount < min) amount = min
+      if (max != null && amount > max) amount = max
+      return roundTo2(amount)
     }
     
     return 0
   }
 
-  // Calculate customer price for a milestone
+  // Calculate customer price for a milestone (always rounded to 2 decimals).
+  // Min/max are only used when building default milestones; after that price = cost * (1 + markup/100).
   const getMilestonePrice = (milestone) => {
     // If flat price is set, use it
     if (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '') {
-      return parseFloat(milestone.flatPrice) || 0
+      return roundTo2(parseFloat(milestone.flatPrice) || 0)
     }
     
-    // For fee milestones, use the calculated fee price
+    // For fee milestones, use the calculated fee price (min/max applied inside calculateFeePrice)
     if (milestone.milestoneType === 'initial_fee' || milestone.milestoneType === 'final_inspection') {
       return calculateFeePrice(milestone.milestoneType)
     }
     
-    // For regular milestones, use cost + markup
+    // For cost-based milestones: price = cost * (1 + markup/100), no clamping
     const cost = milestone.cost || 0
-    return cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100)
+    const amount = cost * (1 + (parseFloat(milestone.markupPercent) || 0) / 100)
+    return roundTo2(amount)
+  }
+
+  // Price input: show raw string while editing so user can type "100." or "100.5"; commit on blur
+  const getPriceDisplayValue = (milestone) => {
+    if (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '') return String(milestone.flatPrice)
+    return getMilestonePrice(milestone).toFixed(2)
+  }
+  const handlePriceFocus = (milestoneId) => {
+    const m = milestones.find(x => x.id === milestoneId)
+    if (!m) return
+    setPriceInputByMilestoneId(prev => ({ ...prev, [milestoneId]: getPriceDisplayValue(m) }))
+  }
+  const handlePriceChange = (milestoneId, raw) => {
+    setPriceInputByMilestoneId(prev => ({ ...prev, [milestoneId]: raw }))
+    // Update markup in real time when not using flat price (same as price changes when markup changes)
+    const m = milestones.find(x => x.id === milestoneId)
+    if (!m) return
+    const isFlat = m.flatPrice !== null && m.flatPrice !== undefined && m.flatPrice !== ''
+    if (!isFlat) {
+      const num = raw === '' ? 0 : parseFloat(raw) || 0
+      const cost = m.cost || 0
+      const newMarkup = cost > 0 ? roundTo2(((num - cost) / cost) * 100) : (m.markupPercent ?? 0)
+      updateMilestone(milestoneId, { markupPercent: newMarkup, flatPrice: null })
+    }
+  }
+  const handlePriceBlur = (milestoneId, raw) => {
+    const m = milestones.find(x => x.id === milestoneId)
+    setPriceInputByMilestoneId(prev => { const next = { ...prev }; delete next[milestoneId]; return next })
+    if (!m) return
+    const isFlat = m.flatPrice !== null && m.flatPrice !== undefined && m.flatPrice !== ''
+    const num = raw === '' ? (isFlat ? '' : 0) : (parseFloat(raw) || (isFlat ? '' : 0))
+    if (isFlat) {
+      updateMilestone(milestoneId, 'flatPrice', num)
+    } else {
+      const cost = m.cost || 0
+      const newMarkup = cost > 0 ? roundTo2(((num - cost) / cost) * 100) : (m.markupPercent ?? 0)
+      updateMilestone(milestoneId, { markupPercent: newMarkup, flatPrice: null })
+    }
   }
 
   // ==================== SCOPE OF WORK FUNCTIONS ====================
@@ -946,10 +1015,10 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     ))
   }
 
-  // Calculate totals
-  const totalMilestoneCost = milestones.reduce((sum, m) => sum + (m.cost || 0), 0)
-  const customerTotal = milestones.reduce((sum, m) => sum + getMilestonePrice(m), 0)
-  const profit = customerTotal - totalCost
+  // Calculate totals (costs and prices rounded to 2 decimals)
+  const totalMilestoneCost = roundTo2(milestones.reduce((sum, m) => sum + (m.cost || 0), 0))
+  const customerTotal = roundTo2(milestones.reduce((sum, m) => sum + getMilestonePrice(m), 0))
+  const profit = roundTo2(customerTotal - totalCost)
   const profitMargin = customerTotal > 0 ? (profit / customerTotal) * 100 : 0
   const markupPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0
 
@@ -969,19 +1038,23 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
     const docType = contractData.documentType || 'contract'
 
-    const milestonesToSave = milestones.map((m, index) => ({
-      name: m.name || `Milestone ${index + 1}`,
-      milestone_type: m.milestoneType || 'custom',
-      cost: m.cost || 0,
-      markup_percent: m.markupPercent || 0,
-      flat_price: m.flatPrice || null,
-      customer_price: getMilestonePrice(m),
-      subcontractor_fee_id: m.subcontractorFeeId || null,
-      additional_expense_id: m.additionalExpenseId || null,
-    }))
+    const milestonesToSave = milestones.map((m, index) => {
+      const cost = roundTo2(typeof m.cost === 'number' && !Number.isNaN(m.cost) ? m.cost : (Number(m.cost) || 0))
+      const price = getMilestonePrice(m)
+      return {
+        name: m.name || `Milestone ${index + 1}`,
+        milestone_type: m.milestoneType || 'custom',
+        cost,
+        markup_percent: roundTo2(parseFloat(m.markupPercent) || 0),
+        flat_price: m.flatPrice ?? null,
+        customer_price: price,
+        subcontractor_fee_id: m.subcontractorFeeId ?? null,
+        additional_expense_id: m.additionalExpenseId ?? null,
+      }
+    })
 
-    // Calculate the actual total (sum of milestone amounts)
-    const actualTotalPrice = milestonesToSave.reduce((sum, m) => sum + m.customer_price, 0)
+    // Calculate the actual total (sum of milestone amounts, rounded to 2 decimals)
+    const actualTotalPrice = roundTo2(milestonesToSave.reduce((sum, m) => sum + m.customer_price, 0))
 
     const response = await axios.put(
       `/api/projects/${contractData.project.id}/milestones`,
@@ -1010,10 +1083,10 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     const docType = contractData.documentType || 'contract'
 
     const scopeToSave = scopeOfWork
-      .filter(item => item.title.trim()) // Only save items with a title
+      .filter(item => item.title != null && String(item.title).trim() !== '') // Only save items with a title
       .map(item => ({
-        title: item.title,
-        description: item.description || '',
+        title: String(item.title).trim(),
+        description: item.description != null ? String(item.description) : '',
       }))
 
     const response = await axios.put(
@@ -1081,8 +1154,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           description: item.description || '',
         }))
 
-      // Calculate the actual grand total (sum of all milestone amounts)
-      const actualGrandTotal = customerPaymentSchedule.reduce((sum, item) => sum + item.amount, 0)
+      // Calculate the actual grand total (sum of all milestone amounts, rounded to 2 decimals)
+      const actualGrandTotal = roundTo2(customerPaymentSchedule.reduce((sum, item) => sum + item.amount, 0))
 
       // Create modified contract data with customer prices and scope of work
       const modifiedContractData = {
@@ -1618,7 +1691,12 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                         removeMilestone={removeMilestone}
                         updateMilestone={updateMilestone}
                         formatCurrency={formatCurrency}
-                        calculatedFeePrice={calculateFeePrice(milestone.milestoneType)}
+                        getMilestonePrice={getMilestonePrice}
+                        priceEditingValue={priceInputByMilestoneId[milestone.id]}
+                        priceDisplayValue={getPriceDisplayValue(milestone)}
+                        onPriceFocus={() => handlePriceFocus(milestone.id)}
+                        onPriceChange={(raw) => handlePriceChange(milestone.id, raw)}
+                        onPriceBlur={(raw) => handlePriceBlur(milestone.id, raw)}
                       />
                     ))}
                     
@@ -1672,7 +1750,13 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                             removeMilestone={removeMilestone}
                             updateMilestone={updateMilestone}
                             formatCurrency={formatCurrency}
+                            getMilestonePrice={getMilestonePrice}
                             calculatedFeePrice={calculateFeePrice(milestone.milestoneType)}
+                            priceEditingValue={priceInputByMilestoneId[milestone.id]}
+                            priceDisplayValue={getPriceDisplayValue(milestone)}
+                            onPriceFocus={() => handlePriceFocus(milestone.id)}
+                            onPriceChange={(raw) => handlePriceChange(milestone.id, raw)}
+                            onPriceBlur={(raw) => handlePriceBlur(milestone.id, raw)}
                           />
                         ))}
                         {/* Add Milestone Row */}
