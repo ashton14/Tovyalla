@@ -34,8 +34,8 @@ function Employees() {
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
   const [currentUserEmployee, setCurrentUserEmployee] = useState(null)
   
-  // Check if current user is admin or manager (can modify user types, roles, active status)
-  const canModifyPrivileges = currentUserEmployee?.user_type === 'admin' || currentUserEmployee?.user_type === 'manager'
+  // Check if current user is admin, manager, or owner (can modify user types, roles, active status)
+  const canModifyPrivileges = currentUserEmployee?.user_type === 'admin' || currentUserEmployee?.user_type === 'manager' || currentUserEmployee?.user_type === 'owner'
 
   // Form state
   const [formData, setFormData] = useState({

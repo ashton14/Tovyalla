@@ -456,11 +456,8 @@ app.post('/api/billing/complete-registration', async (req, res) => {
         company_id: companyId,
         name: employeeName,
         email_address: email.toLowerCase(),
-        user_type: 'owner',
+        user_type: 'admin',
         current: true,
-        is_project_manager: true,
-        is_sales_person: true,
-        is_foreman: false,
       },
     ]);
 
@@ -644,7 +641,7 @@ app.post('/api/auth/update-last-logon', async (req, res) => {
 });
 
 // Complete registration for new company (called after Stripe checkout + password setup)
-// Creates company and first employee with user_type: admin, user_role: owner
+// Creates company and first employee with user_type: admin
 app.post('/api/billing/complete-registration', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -677,7 +674,7 @@ app.post('/api/billing/complete-registration', async (req, res) => {
       return res.json({ success: true, employee: existingEmployee, alreadyExists: true });
     }
 
-    // Create first employee: user_type admin, user_role owner (company already created by Stripe flow)
+    // Create first employee: user_type admin (company already created by Stripe flow)
     const { data: employee, error: empError } = await supabase
       .from('employees')
       .insert([{
@@ -685,7 +682,6 @@ app.post('/api/billing/complete-registration', async (req, res) => {
         name: ownerName,
         email_address: userEmail.toLowerCase(),
         user_type: 'admin',
-        user_role: 'owner',
         current: true,
       }])
       .select()
@@ -744,14 +740,14 @@ app.get('/api/whitelist', async (req, res) => {
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    // Only admin and manager can add/remove; check for canManage flag in response
+    // Only admin, manager, and owner can add/remove; check for canManage flag in response
     const { data: currentEmployee } = await supabase
       .from('employees')
       .select('user_type')
       .eq('company_id', companyID)
       .eq('email_address', user.email?.toLowerCase())
       .maybeSingle();
-    const canManage = currentEmployee?.user_type === 'admin' || currentEmployee?.user_type === 'manager';
+    const canManage = currentEmployee?.user_type === 'admin' || currentEmployee?.user_type === 'manager' || currentEmployee?.user_type === 'owner';
 
     const { data, error } = await supabase
       .from('company_whitelist')
@@ -790,15 +786,15 @@ app.post('/api/whitelist', async (req, res) => {
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    // Only admin and manager can add to whitelist
+    // Only admin, manager, and owner can add to whitelist
     const { data: currentEmployee } = await supabase
       .from('employees')
       .select('user_type')
       .eq('company_id', companyID)
       .eq('email_address', user.email?.toLowerCase())
       .maybeSingle();
-    if (currentEmployee?.user_type !== 'admin' && currentEmployee?.user_type !== 'manager') {
-      return res.status(403).json({ error: 'Only admins and managers can add emails to the whitelist' });
+    if (currentEmployee?.user_type !== 'admin' && currentEmployee?.user_type !== 'manager' && currentEmployee?.user_type !== 'owner') {
+      return res.status(403).json({ error: 'Only admins, managers, and owners can add emails to the whitelist' });
     }
 
     const { email } = req.body;
@@ -867,14 +863,14 @@ app.delete('/api/whitelist/:id', async (req, res) => {
       return res.status(400).json({ error: 'User does not have a company ID' });
     }
 
-    // Only admin and manager can remove from whitelist
+    // Only admin, manager, and owner can remove from whitelist
     const { data: currentEmployee } = await supabase
       .from('employees')
       .select('user_type')
       .eq('company_id', companyID)
       .eq('email_address', user.email?.toLowerCase())
       .maybeSingle();
-    if (currentEmployee?.user_type !== 'admin' && currentEmployee?.user_type !== 'manager') {
+    if (currentEmployee?.user_type !== 'admin' && currentEmployee?.user_type !== 'manager' && currentEmployee?.user_type !== 'owner') {
       return res.status(403).json({ error: 'Only admins and managers can remove emails from the whitelist' });
     }
 
