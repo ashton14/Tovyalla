@@ -45,10 +45,12 @@ export const whitelistPostValidation = [
 ];
 
 // --- Company (optional fields; validate types when present) ---
-const optionalEmail = () => body('email').optional({ values: 'null' }).isEmail().withMessage('Invalid email format');
-const optionalUrl = () => body('website').optional({ values: 'null' }).trim().isLength({ max: 2000 }).withMessage('Website URL is too long');
-const optionalPercent = (field) => body(field).optional({ values: 'null' }).isFloat({ min: 0, max: 100 }).withMessage(`${field} must be between 0 and 100`);
-const optionalNonNegative = (field) => body(field).optional({ values: 'null' }).isFloat({ min: 0 }).withMessage(`${field} must be a non-negative number`);
+// Settings sends '' for unset numeric fields; sanitize to undefined first so optional() skips validation (0 is valid)
+const emptyStrToUndefined = (v) => (v === '' ? undefined : v);
+const optionalEmail = () => body('email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).isEmail().withMessage('Invalid email format');
+const optionalUrl = () => body('website').trim().customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).isLength({ max: 2000 }).withMessage('Website URL is too long');
+const optionalPercent = (field) => body(field).customSanitizer(emptyStrToUndefined).optional().isFloat({ min: 0, max: 100 }).withMessage(`${field} must be between 0 and 100`);
+const optionalNonNegative = (field) => body(field).customSanitizer(emptyStrToUndefined).optional().isFloat({ min: 0 }).withMessage(`${field} must be a non-negative number`);
 const optionalBool = (field) => body(field).optional({ values: 'null' }).isBoolean().withMessage(`${field} must be true or false`);
 export const companyPutValidation = [
   body('company_name').optional().isLength({ max: 500 }).withMessage('Company name is too long'),

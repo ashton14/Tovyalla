@@ -94,8 +94,8 @@ if (stripeWebhookSecret && stripe) {
               stripe_subscription_id: stripeSubscriptionId,
               subscription_status: 'active',
               subscription_plan: 'business',
-              default_initial_fee_percent: 20,
-              default_final_fee_percent: 80,
+              default_initial_fee_percent: 10,
+              default_final_fee_percent: 10,
               auto_include_initial_payment: true,
               auto_include_final_payment: true,
               auto_include_subcontractor: true,
@@ -397,8 +397,8 @@ app.post('/api/billing/complete-registration', completeRegistrationValidation, h
           stripe_subscription_id: stripeSubscriptionId,
           subscription_status: 'active',
           subscription_plan: 'business',
-          default_initial_fee_percent: 20,
-          default_final_fee_percent: 80,
+          default_initial_fee_percent: 10,
+          default_final_fee_percent: 10,
           auto_include_initial_payment: true,
           auto_include_final_payment: true,
           auto_include_subcontractor: true,
@@ -492,6 +492,95 @@ app.post('/api/billing/complete-registration', completeRegistrationValidation, h
   } catch (error) {
     console.error('Complete registration error:', error);
     res.status(500).json({ error: error.message || 'Registration failed' });
+  }
+});
+
+// Get subscription info and invoices for the current company
+app.get('/api/billing/subscription', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const companyID = user.user_metadata?.companyID;
+    if (!companyID) {
+      return res.status(400).json({ error: 'No company associated with this account' });
+    }
+
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status, subscription_plan')
+      .eq('company_id', companyID)
+      .single();
+
+    if (companyError || !company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    const result = {
+      subscription: {
+        status: company.subscription_status || null,
+        plan: company.subscription_plan || null,
+        currentPeriodEnd: null,
+      },
+      invoices: [],
+      has_more: false,
+    };
+
+    if (!stripe) {
+      return res.json(result);
+    }
+
+    const subId = typeof company.stripe_subscription_id === 'string' && company.stripe_subscription_id.startsWith('sub_')
+      ? company.stripe_subscription_id
+      : null;
+
+    if (subId) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(subId);
+        result.subscription.currentPeriodEnd = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : null;
+      } catch (err) {
+        console.error('Stripe subscription retrieve error:', err.message);
+      }
+
+      try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 24, 100);
+        const startingAfter = req.query.starting_after || undefined;
+        const listOptions = {
+          subscription: subId,
+          limit,
+          ...(startingAfter && { starting_after: startingAfter }),
+        };
+        const { data: invoices, has_more } = await stripe.invoices.list(listOptions);
+        // Stripe returns newest first by default; ensure descending by date
+        const mapped = (invoices || []).map((inv) => ({
+          id: inv.id,
+          number: inv.number || inv.id,
+          date: inv.created ? new Date(inv.created * 1000).toISOString() : null,
+          amount_paid: inv.amount_paid != null ? inv.amount_paid / 100 : null,
+          status: inv.status,
+          invoice_pdf: inv.invoice_pdf || null,
+          hosted_invoice_url: inv.hosted_invoice_url || null,
+        }));
+        result.invoices = mapped.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        result.has_more = !!has_more;
+      } catch (err) {
+        console.error('Stripe invoices list error:', err.message);
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Get subscription error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -1062,8 +1151,8 @@ app.put('/api/company', companyPutValidation, handleValidationErrors, async (req
             website: website || null,
             license_numbers: license_numbers || [],
             terms_of_service: terms_of_service || null,
-            default_initial_fee_percent: default_initial_fee_percent ?? 20,
-            default_final_fee_percent: default_final_fee_percent ?? 80,
+            default_initial_fee_percent: default_initial_fee_percent ?? 10,
+            default_final_fee_percent: default_final_fee_percent ?? 10,
             default_initial_fee_min: default_initial_fee_min || null,
             default_initial_fee_max: default_initial_fee_max || null,
             default_final_fee_min: default_final_fee_min || null,

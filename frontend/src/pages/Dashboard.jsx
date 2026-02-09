@@ -20,12 +20,13 @@ import Employees from '../components/Employees'
 import Calendar from '../components/Calendar'
 import Goals from '../components/Goals'
 import Settings from '../components/Settings'
+import Subscription from '../components/Subscription'
 import Messages from '../components/Messages'
 import { useEmployees, useProjects, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
 
 const CHART_METRICS = [
-  { value: 'value', label: 'Total Value', color: '#0ea5e9', format: 'currency' },
-  { value: 'revenue', label: 'Total Revenue', color: '#3b82f6', format: 'currency' },
+  { value: 'value', label: 'Value', color: '#0ea5e9', format: 'currency' },
+  { value: 'revenue', label: 'Revenue', color: '#3b82f6', format: 'currency' },
   { value: 'profit', label: 'Profit', color: '#22c55e', format: 'currency' },
   { value: 'leads', label: 'Leads', color: '#f59e0b', format: 'number' },
   { value: 'customersSigned', label: 'Customers Signed', color: '#06b6d4', format: 'number' },
@@ -86,7 +87,7 @@ function Dashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const section = urlParams.get('section')
-    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'messages', 'settings'].includes(section)) {
+    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'messages', 'subscription', 'settings'].includes(section)) {
       setActiveSection(section)
       // Clean up URL
       const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString().replace(/section=[^&]*&?/g, '').replace(/&$/, '') : '')
@@ -304,6 +305,21 @@ function Dashboard() {
           {/* Divider */}
           <div className="my-1.5 border-t border-gray-200 dark:border-gray-700"></div>
 
+          <button
+            onClick={() => handleNavClick('subscription')}
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
+              activeSection === 'subscription'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <span className="font-medium flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              Subscription
+            </span>
+          </button>
           <button
             onClick={() => handleNavClick('settings')}
             className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
@@ -579,6 +595,7 @@ function Dashboard() {
           {activeSection === 'calendar' && <Calendar />}
           {activeSection === 'goals' && <Goals />}
           {activeSection === 'messages' && <Messages />}
+          {activeSection === 'subscription' && <Subscription />}
           {activeSection === 'settings' && <Settings />}
         </div>
       </main>

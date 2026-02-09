@@ -793,6 +793,7 @@ function ProjectExpenses({ project, onClose }) {
                     date_added: new Date().toISOString().split('T')[0],
                     status: 'incomplete',
                     notes: '',
+                    job_description: '',
                   })
                 }}
                 className="px-3 py-2 text-xs font-medium text-pool-blue bg-pool-light hover:bg-pool-blue hover:text-white rounded-lg transition-colors flex items-center justify-center gap-1"
@@ -809,10 +810,11 @@ function ProjectExpenses({ project, onClose }) {
                   setMaterialForm({
                     inventory_id: '',
                     quantity: '',
-                    unit_cost: '',
-                    expected_value: '',
-                    date_used: new Date().toISOString().split('T')[0],
+                    date_ordered: new Date().toISOString().split('T')[0],
+                    date_received: '',
                     status: 'incomplete',
+                    expected_price: '',
+                    actual_price: '',
                     notes: '',
                   })
                 }}
@@ -882,6 +884,7 @@ function ProjectExpenses({ project, onClose }) {
                     date_added: new Date().toISOString().split('T')[0],
                     status: 'incomplete',
                     notes: '',
+                    job_description: '',
                   })
                 }}
                 className="text-sm font-medium text-pool-blue hover:text-pool-dark flex items-center gap-1"
@@ -898,10 +901,11 @@ function ProjectExpenses({ project, onClose }) {
                   setMaterialForm({
                     inventory_id: '',
                     quantity: '',
-                    unit_cost: '',
-                    expected_value: '',
-                    date_used: new Date().toISOString().split('T')[0],
+                    date_ordered: new Date().toISOString().split('T')[0],
+                    date_received: '',
                     status: 'incomplete',
+                    expected_price: '',
+                    actual_price: '',
                     notes: '',
                   })
                 }}
@@ -1439,13 +1443,20 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={materialForm.quantity}
-                        onChange={(e) => handleMaterialQuantityChange(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={materialForm.quantity}
+                          onChange={(e) => handleMaterialQuantityChange(e.target.value)}
+                          className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        {materialForm.inventory_id && (
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {inventory.find((i) => i.id === materialForm.inventory_id)?.unit || ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -1710,14 +1721,21 @@ function ProjectExpenses({ project, onClose }) {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={equipmentForm.quantity}
-                        onChange={(e) => handleEquipmentQuantityChange(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          value={equipmentForm.quantity}
+                          onChange={(e) => handleEquipmentQuantityChange(e.target.value)}
+                          className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        {equipmentForm.inventory_id && (
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {inventory.find((i) => i.id === equipmentForm.inventory_id)?.unit || ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
