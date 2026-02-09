@@ -1220,6 +1220,12 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       formData.append('file', file)
       formData.append('name', uploadDocName.trim())
       formData.append('document_type', uploadDocType)
+      if (contractData.documentNumber != null && contractData.documentNumber !== '') {
+        formData.append('document_number', String(contractData.documentNumber))
+      }
+      if (contractData.documentDate) {
+        formData.append('document_date', contractData.documentDate)
+      }
 
       const response = await fetch(
         `/api/documents/projects/${contractData.project.id}/upload`,

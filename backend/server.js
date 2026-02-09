@@ -3507,20 +3507,10 @@ app.post('/api/projects/:id/contract', async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch company info' });
     }
 
-    // Get the next document number from the company
+    // Return current next document number (only incremented when document is actually generated/uploaded)
     const documentNumber = company.next_document_number || 1;
     const documentDate = new Date().toISOString().split('T')[0];
     const formattedNumber = String(documentNumber).padStart(5, '0');
-
-    // Increment the company's document number for next time
-    const { error: updateError } = await supabase
-      .from('companies')
-      .update({ next_document_number: documentNumber + 1 })
-      .eq('company_id', companyID);
-
-    if (updateError) {
-      console.error('Error updating document number:', updateError);
-    }
 
     // Create document type labels for the name
     const typeLabels = {
@@ -5048,7 +5038,7 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
     }
 
     const { entityType, entityId } = req.params;
-    const { name, document_type = 'other' } = req.body;
+    const { name, document_type = 'other', document_number: bodyDocNumber, document_date: bodyDocDate } = req.body;
     const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
     
     if (!validEntityTypes.includes(entityType)) {
@@ -5095,25 +5085,37 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
     if (entityType === 'projects') {
       const validDocTypes = ['contract', 'proposal', 'change_order', 'other'];
       const docType = validDocTypes.includes(document_type) ? document_type : 'other';
-      
+      const docNumber = bodyDocNumber != null && bodyDocNumber !== '' ? parseInt(bodyDocNumber, 10) : null;
+      const docDate = bodyDocDate && String(bodyDocDate).trim() ? String(bodyDocDate).trim().split('T')[0] : null;
+
+      const insertPayload = {
+        company_id: companyID,
+        project_id: entityId,
+        name: name || req.file.originalname,
+        document_type: docType,
+        file_name: req.file.originalname,
+        file_path: storagePath,
+        file_size: req.file.size,
+        mime_type: req.file.mimetype,
+      };
+      if (docNumber != null && !Number.isNaN(docNumber)) insertPayload.document_number = docNumber;
+      if (docDate) insertPayload.document_date = docDate;
+
       const { data: docRecord, error: docError } = await supabase
         .from('project_documents')
-        .insert([{
-          company_id: companyID,
-          project_id: entityId,
-          name: name || req.file.originalname,
-          document_type: docType,
-          file_name: req.file.originalname,
-          file_path: storagePath,
-          file_size: req.file.size,
-          mime_type: req.file.mimetype,
-        }])
+        .insert([insertPayload])
         .select()
         .single();
 
       if (docError) {
         console.error('Error saving document metadata:', docError);
         // Don't fail the upload, just log the error
+      } else if (docNumber != null && !Number.isNaN(docNumber)) {
+        // Document was actually generated with this number: increment company counter
+        await supabase
+          .from('companies')
+          .update({ next_document_number: docNumber + 1 })
+          .eq('company_id', companyID);
       }
 
       return res.json({ 
