@@ -10,6 +10,27 @@ import { dirname, join } from 'path';
 import * as esignaturesService from './services/esignatures.js';
 import * as googleCalendarService from './services/googleCalendar.js';
 import * as smsService from './services/infobip.js';
+import {
+  handleValidationErrors,
+  loginValidation,
+  registerValidation,
+  createCheckoutSessionValidation,
+  completeRegistrationValidation,
+  whitelistPostValidation,
+  companyPutValidation,
+  customerPostValidation,
+  customerPutValidation,
+  employeePostValidation,
+  employeePutValidation,
+  projectPostValidation,
+  projectPutValidation,
+  inventoryPostValidation,
+  inventoryPutValidation,
+  subcontractorPostValidation,
+  subcontractorPutValidation,
+  goalPostValidation,
+  goalPutValidation,
+} from './validation.js';
 
 // Get the directory of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -141,15 +162,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // Login endpoint
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req, res) => {
   try {
     const { companyID, username, password } = req.body;
-
-    if (!companyID || !username || !password) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: companyID, username, and password are required' 
-      });
-    }
 
     // Attempt to sign in with Supabase Auth
     // Note: Supabase Auth uses email by default, so username should be an email
@@ -199,21 +214,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Register endpoint - requires company to exist and email to be whitelisted
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', registerValidation, handleValidationErrors, async (req, res) => {
   try {
     const { companyID, email, password, name } = req.body;
-
-    if (!companyID || !email || !password) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: companyID, email, and password are required' 
-      });
-    }
-
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ 
-        error: 'Name is required' 
-      });
-    }
 
     // First, check if the company ID exists in the companies table
     const { data: company, error: companyError } = await supabase
@@ -297,22 +300,13 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Create Stripe Checkout Session for new company signup (Business Plan $299/mo)
-app.post('/api/billing/create-checkout-session', async (req, res) => {
+app.post('/api/billing/create-checkout-session', createCheckoutSessionValidation, handleValidationErrors, async (req, res) => {
   try {
     if (!stripe || !stripePriceId) {
       return res.status(503).json({ error: 'Stripe billing is not configured' });
     }
 
     const { companyName, ownerName, email } = req.body;
-    if (!companyName?.trim() || !ownerName?.trim() || !email?.trim()) {
-      return res.status(400).json({ error: 'Company name, your name, and email are required' });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
-    }
-
     const companyId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -352,20 +346,13 @@ app.post('/api/billing/create-checkout-session', async (req, res) => {
 });
 
 // Complete registration after successful Stripe payment
-app.post('/api/billing/complete-registration', async (req, res) => {
+app.post('/api/billing/complete-registration', completeRegistrationValidation, handleValidationErrors, async (req, res) => {
   try {
     if (!stripe || !supabaseUrl || !supabaseServiceKey) {
       return res.status(503).json({ error: 'Billing or auth is not configured' });
     }
 
     const { session_id: sessionId, password } = req.body;
-    if (!sessionId || !password) {
-      return res.status(400).json({ error: 'Session ID and password are required' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
-    }
-
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['subscription'],
     });
@@ -812,7 +799,7 @@ app.get('/api/whitelist', async (req, res) => {
 });
 
 // Add email to whitelist
-app.post('/api/whitelist', async (req, res) => {
+app.post('/api/whitelist', whitelistPostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -843,15 +830,6 @@ app.post('/api/whitelist', async (req, res) => {
     }
 
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
 
     // Check if email already exists in whitelist
     const { data: existing, error: checkError } = await supabase
@@ -1002,7 +980,7 @@ app.get('/api/company', async (req, res) => {
 });
 
 // Update company information
-app.put('/api/company', async (req, res) => {
+app.put('/api/company', companyPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -1464,10 +1442,6 @@ app.post('/api/customers', async (req, res) => {
       estimated_value,
     } = req.body;
 
-    if (!first_name || !last_name) {
-      return res.status(400).json({ error: 'First name and last name are required' });
-    }
-
     const initialStatus = pipeline_status || 'lead';
 
     const { data, error } = await supabase
@@ -1516,7 +1490,7 @@ app.post('/api/customers', async (req, res) => {
 });
 
 // Update a customer
-app.put('/api/customers/:id', async (req, res) => {
+app.put('/api/customers/:id', customerPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -2225,7 +2199,7 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 // Create a new project
-app.post('/api/projects', async (req, res) => {
+app.post('/api/projects', projectPostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -2258,10 +2232,6 @@ app.post('/api/projects', async (req, res) => {
       project_manager,
       notes,
     } = req.body;
-
-    if (!project_type || !pool_or_spa) {
-      return res.status(400).json({ error: 'Project type and pool/spa selection are required' });
-    }
 
     const initialStatus = status || 'proposal_sent';
 
@@ -2309,7 +2279,7 @@ app.post('/api/projects', async (req, res) => {
 });
 
 // Update a project
-app.put('/api/projects/:id', async (req, res) => {
+app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4101,7 +4071,7 @@ app.get('/api/inventory/:id', async (req, res) => {
 });
 
 // Create a new inventory item
-app.post('/api/inventory', async (req, res) => {
+app.post('/api/inventory', inventoryPostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4130,10 +4100,6 @@ app.post('/api/inventory', async (req, res) => {
       unit_price,
       type,
     } = req.body;
-
-    if (!name || !unit) {
-      return res.status(400).json({ error: 'Name and unit are required' });
-    }
 
     const { data, error } = await supabase
       .from('inventory')
@@ -4165,7 +4131,7 @@ app.post('/api/inventory', async (req, res) => {
 });
 
 // Update an inventory item
-app.put('/api/inventory/:id', async (req, res) => {
+app.put('/api/inventory/:id', inventoryPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4366,7 +4332,7 @@ app.get('/api/subcontractors/:id', async (req, res) => {
 });
 
 // Create a new subcontractor
-app.post('/api/subcontractors', async (req, res) => {
+app.post('/api/subcontractors', subcontractorPostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4394,10 +4360,6 @@ app.post('/api/subcontractors', async (req, res) => {
       coi_documents,
       notes,
     } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
 
     const { data, error } = await supabase
       .from('subcontractors')
@@ -4428,7 +4390,7 @@ app.post('/api/subcontractors', async (req, res) => {
 });
 
 // Update a subcontractor
-app.put('/api/subcontractors/:id', async (req, res) => {
+app.put('/api/subcontractors/:id', subcontractorPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4629,7 +4591,7 @@ app.get('/api/employees/:id', async (req, res) => {
 });
 
 // Create a new employee
-app.post('/api/employees', async (req, res) => {
+app.post('/api/employees', employeePostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -4661,10 +4623,6 @@ app.post('/api/employees', async (req, res) => {
       registered_time_zone,
       color,
     } = req.body;
-
-    if (!name || !email_address) {
-      return res.status(400).json({ error: 'Name and email address are required' });
-    }
 
     // Try to find existing auth user by email to link employee
     let userId = null;
@@ -4719,7 +4677,7 @@ app.post('/api/employees', async (req, res) => {
 });
 
 // Update an employee
-app.put('/api/employees/:id', async (req, res) => {
+app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -6081,7 +6039,7 @@ app.get('/api/goals', async (req, res) => {
 });
 
 // Create a new goal
-app.post('/api/goals', async (req, res) => {
+app.post('/api/goals', goalPostValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -6101,10 +6059,6 @@ app.post('/api/goals', async (req, res) => {
     }
 
     const { goal_name, data_point_type, target_value, start_date, target_date } = req.body;
-
-    if (!goal_name || !data_point_type || target_value === undefined) {
-      return res.status(400).json({ error: 'Missing required fields: goal_name, data_point_type, and target_value are required' });
-    }
 
     const insertData = {
       company_id: companyID,
@@ -6140,7 +6094,7 @@ app.post('/api/goals', async (req, res) => {
 });
 
 // Update a goal
-app.put('/api/goals/:id', async (req, res) => {
+app.put('/api/goals/:id', goalPutValidation, handleValidationErrors, async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
