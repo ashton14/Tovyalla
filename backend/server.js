@@ -49,7 +49,9 @@ if (stripeWebhookSecret && stripe) {
         const companyName = metadata.company_name || null;
         const email = metadata.email;
         const stripeCustomerId = session.customer;
-        const stripeSubscriptionId = session.subscription;
+        const stripeSubscriptionId = typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription?.id;
 
         if (!companyId || !email) {
           console.error('Webhook: missing company_id or email in metadata');
@@ -389,13 +391,23 @@ app.post('/api/billing/complete-registration', async (req, res) => {
       .eq('company_id', companyId)
       .single();
 
-    if (!existingCompany) {
+    const stripeSubscriptionId = typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id;
+
+    if (existingCompany && stripeSubscriptionId) {
+      await supabase.from('companies').update({
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: stripeSubscriptionId,
+        subscription_status: 'active',
+      }).eq('company_id', companyId);
+    } else if (!existingCompany) {
       await supabase.from('companies').insert([
         {
           company_id: companyId,
           company_name: companyName,
           stripe_customer_id: session.customer,
-          stripe_subscription_id: session.subscription,
+          stripe_subscription_id: stripeSubscriptionId,
           subscription_status: 'active',
           subscription_plan: 'business',
           default_initial_fee_percent: 20,
@@ -442,6 +454,12 @@ app.post('/api/billing/complete-registration', async (req, res) => {
       }
       throw authError;
     }
+
+    // Set subscription purchaser on company (for record; webhook may have created company without it)
+    await supabase
+      .from('companies')
+      .update({ subscription_purchased_by_user_id: authData.user.id })
+      .eq('company_id', companyId);
 
     // Mark whitelist as registered
     await supabase
@@ -508,6 +526,18 @@ app.post('/api/billing/cancel-subscription', async (req, res) => {
       return res.status(400).json({ error: 'No company associated with this account' });
     }
 
+    // Only admins can cancel the subscription and delete the company
+    const { data: currentEmployee } = await supabase
+      .from('employees')
+      .select('user_type')
+      .eq('company_id', companyID)
+      .eq('email_address', user.email?.toLowerCase())
+      .maybeSingle();
+
+    if (currentEmployee?.user_type !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can cancel the subscription and delete the company.' });
+    }
+
     // Get company with stripe_subscription_id
     const { data: company, error: companyError } = await supabase
       .from('companies')
@@ -519,13 +549,25 @@ app.post('/api/billing/cancel-subscription', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Cancel Stripe subscription if it exists
-    if (stripe && company.stripe_subscription_id) {
+    // Cancel Stripe subscription if it exists (must be a subscription id string, e.g. sub_xxx)
+    const subId = typeof company.stripe_subscription_id === 'string' && company.stripe_subscription_id.startsWith('sub_')
+      ? company.stripe_subscription_id
+      : null;
+    if (company.stripe_subscription_id && !subId) {
+      console.error('Invalid stripe_subscription_id in DB:', company.stripe_subscription_id);
+      return res.status(502).json({
+        error: 'Subscription could not be canceled in Stripe (invalid subscription reference). Please contact support.',
+      });
+    }
+    if (stripe && subId) {
       try {
-        await stripe.subscriptions.cancel(company.stripe_subscription_id);
+        await stripe.subscriptions.cancel(subId);
       } catch (stripeErr) {
-        console.error('Stripe cancel error:', stripeErr.message);
-        // Continue - we'll still delete the company and user
+        console.error('Stripe cancel error:', stripeErr.message, stripeErr);
+        return res.status(502).json({
+          error: 'Subscription could not be canceled in Stripe. Please try again or contact support.',
+          details: stripeErr.message,
+        });
       }
     }
 
@@ -943,8 +985,16 @@ app.get('/api/company', async (req, res) => {
       return res.status(500).json({ error: companyError.message });
     }
 
-    // If company doesn't exist, return empty object
-    res.json({ company: company || null });
+    // Only admins can cancel subscription; expose flag for Settings
+    const { data: currentEmployee } = await supabase
+      .from('employees')
+      .select('user_type')
+      .eq('company_id', companyID)
+      .eq('email_address', user.email?.toLowerCase())
+      .maybeSingle();
+    const can_cancel_subscription = currentEmployee?.user_type === 'admin';
+
+    res.json({ company: company || null, can_cancel_subscription });
   } catch (error) {
     console.error('Get company error:', error);
     res.status(500).json({ error: 'Internal server error' });

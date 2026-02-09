@@ -45,6 +45,7 @@ function Settings() {
   const [saveMessage, setSaveMessage] = useState('')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [canCancelSubscription, setCanCancelSubscription] = useState(false)
   // Which defaults modal is open: 'initial_fee' | 'final_fee' | 'subcontractor' | 'equipment_materials' | 'additional_expenses' | null
   const [defaultsModalKey, setDefaultsModalKey] = useState(null)
 
@@ -59,6 +60,7 @@ function Settings() {
           headers: { Authorization: `Bearer ${token}` }
         })
         
+        setCanCancelSubscription(response.data.can_cancel_subscription === true)
         if (response.data.company) {
           const company = response.data.company
           setDocPrefs({
@@ -468,18 +470,22 @@ function Settings() {
           Danger Zone
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Permanently cancel your subscription and delete all company data. This cannot be undone.
+          {canCancelSubscription
+            ? 'Permanently cancel your subscription and delete all company data. This cannot be undone.'
+            : 'Only admins can cancel the subscription and delete the company.'}
         </p>
-        <button
-          onClick={() => setShowCancelModal(true)}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors"
-        >
-          Cancel Subscription
-        </button>
+        {canCancelSubscription && (
+          <button
+            onClick={() => setShowCancelModal(true)}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors"
+          >
+            Cancel Subscription
+          </button>
+        )}
       </div>
 
       {/* Cancel Confirmation Modal */}
-      {showCancelModal && (
+      {showCancelModal && canCancelSubscription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
