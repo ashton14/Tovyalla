@@ -146,19 +146,31 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
 
-      // Verify companyID
-      const userCompanyID = data.user?.user_metadata?.companyID
-      if (userCompanyID !== companyID) {
+      // Verify user is an employee of this company and set current company context (multi-company)
+      const verifyRes = await fetch('/api/auth/verify-company', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ companyID }),
+      })
+      const verifyResult = await verifyRes.json().catch(() => ({}))
+      if (!verifyRes.ok) {
         await supabase.auth.signOut()
-        throw new Error('Invalid company ID')
+        throw new Error(verifyResult.error || 'You are not an employee of this company.')
       }
+      // Refresh session so JWT has updated companyID
+      const { data: refreshData } = await supabase.auth.refreshSession()
+      const session = refreshData?.session ?? data.session
+      const userData = refreshData?.user ?? data.user
 
       // Check if employee is active via backend (bypasses RLS)
       try {
         const checkResponse = await fetch('/api/auth/check-active', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${data.session.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
         })
@@ -179,7 +191,6 @@ export const AuthProvider = ({ children }) => {
 
       // Update last logon timestamp
       try {
-        const session = data.session
         if (session?.access_token) {
           await fetch('/api/auth/update-last-logon', {
             method: 'POST',
@@ -194,7 +205,7 @@ export const AuthProvider = ({ children }) => {
         console.error('Error updating last logon:', logonError)
       }
 
-      return { user: data.user, session: data.session }
+      return { user: userData, session }
     } catch (error) {
       throw error
     }
@@ -221,16 +232,22 @@ export const AuthProvider = ({ children }) => {
         throw new Error(result.error || 'Registration failed')
       }
 
-      // If registration was successful, the backend returns user data
-      // But we need to sign in to get a session
-      // Note: If email confirmation is enabled in Supabase, user might need to confirm first
+      // If backend returned a session (e.g. existing user joining a second company), use it and refresh so JWT has updated companyID
+      if (result.session) {
+        await supabase.auth.setSession(result.session)
+        const { data: refreshData } = await supabase.auth.refreshSession()
+        const session = refreshData?.session ?? result.session
+        const userData = refreshData?.user ?? result.user
+        return { user: userData, session }
+      }
+
+      // New user: sign in to get a session (email confirmation may be required)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
-        // If sign in fails, it might be because email confirmation is required
         if (error.message.includes('Email not confirmed')) {
           throw new Error('Please check your email and confirm your account before signing in.')
         }

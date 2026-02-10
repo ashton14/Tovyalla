@@ -178,13 +178,7 @@ app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req,
       return res.status(401).json({ error: error.message });
     }
 
-    // Verify companyID matches user metadata
-    const userCompanyID = data.user?.user_metadata?.companyID;
-    if (userCompanyID !== companyID) {
-      return res.status(403).json({ error: 'Invalid company ID' });
-    }
-
-    // Check if employee is active (current = true)
+    // Allow login if user is an employee of this company (multi-company support)
     const { data: employee } = await supabase
       .from('employees')
       .select('current')
@@ -192,16 +186,20 @@ app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req,
       .eq('company_id', companyID)
       .single();
 
-    // If employee exists and is marked as inactive, reject login
-    if (employee && employee.current === false) {
-      // Sign out the user since they authenticated but shouldn't have access
+    if (!employee) {
+      return res.status(403).json({ error: 'You are not an employee of this company.' });
+    }
+    if (employee.current === false) {
       await supabase.auth.signOut();
-      return res.status(403).json({ 
-        error: 'Your account has been deactivated. Please contact an administrator.' 
+      return res.status(403).json({
+        error: 'Your account has been deactivated. Please contact an administrator.',
       });
     }
 
-    // Update employee last_logon timestamp (handled by separate endpoint called from frontend)
+    // Set current company context so API calls use this company
+    await supabase.auth.admin.updateUserById(data.user.id, {
+      user_metadata: { ...data.user.user_metadata, companyID },
+    });
 
     res.json({
       user: data.user,
@@ -216,26 +214,40 @@ app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req,
 // Register endpoint - requires company to exist and email to be whitelisted
 app.post('/api/auth/register', registerValidation, handleValidationErrors, async (req, res) => {
   try {
-    const { companyID, email, password, name } = req.body;
+    const { companyID: rawCompanyID, email, password, name } = req.body;
+    const companyID = typeof rawCompanyID === 'string' ? rawCompanyID.trim() : '';
 
-    // First, check if the company ID exists in the companies table
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .select('company_id')
-      .eq('company_id', companyID)
-      .single();
-
-    if (companyError || !company) {
-      return res.status(403).json({ 
-        error: 'Invalid Company ID. Please contact your administrator to get the correct Company ID.' 
+    if (!companyID) {
+      return res.status(403).json({
+        error: 'Invalid Company ID. Please contact your administrator to get the correct Company ID.',
       });
     }
+
+    // Look up company (case-insensitive) so "ABC" and "abc" both work
+    const { data: companyList, error: companyError } = await supabase
+      .from('companies')
+      .select('company_id')
+      .ilike('company_id', companyID)
+      .limit(1);
+    const company = companyList?.[0];
+
+    if (companyError || !company) {
+      if (companyError) {
+        console.error('Register company lookup failed:', companyError.message, 'code:', companyError.code);
+      }
+      return res.status(403).json({
+        error: 'Invalid Company ID. Please contact your administrator to get the correct Company ID.',
+      });
+    }
+
+    // Use the canonical company_id from the DB for the rest of the flow
+    const canonicalCompanyID = company.company_id;
 
     // Company exists - check if email is whitelisted
     const { data: whitelistData, error: whitelistError } = await supabase
       .from('company_whitelist')
       .select('*')
-      .eq('company_id', companyID)
+      .eq('company_id', canonicalCompanyID)
       .eq('email', email.toLowerCase())
       .single();
 
@@ -259,35 +271,121 @@ app.post('/api/auth/register', registerValidation, handleValidationErrors, async
       password,
       options: {
         data: {
-          companyID: companyID,
+          companyID: canonicalCompanyID,
         },
         emailRedirectTo: `${frontendUrl}/login`,
       },
     });
 
+    const isExistingUser =
+      (error && /already|already registered|already exists/i.test(error.message)) ||
+      (!error && data?.user && (!data.user.identities || data.user.identities.length === 0));
+
+    if (isExistingUser) {
+      // User already has an auth account (e.g. from another company) - sign in and add them to this company
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        return res.status(400).json({
+          error: 'This email is already in use. Use your existing account password to join this company.',
+        });
+      }
+      const existingUser = signInData.user;
+
+      // Create employee record for this company (user_id links to auth.users for cascade delete)
+      let insertErr = (await supabase
+        .from('employees')
+        .insert([{
+          company_id: canonicalCompanyID,
+          name: name.trim(),
+          email_address: email.toLowerCase(),
+          user_id: existingUser.id,
+          user_type: 'employee',
+          user_role: null,
+          current: true,
+        }])).error;
+      if (insertErr && insertErr.code === '42501') {
+        // Permission denied for table users: FK check can't read auth.users. Retry without user_id so registration succeeds.
+        console.warn('Run migration 037_grant_auth_users_for_employees_fk.sql so employee.user_id can be set. Creating employee without user_id.');
+        insertErr = (await supabase
+          .from('employees')
+          .insert([{
+            company_id: canonicalCompanyID,
+            name: name.trim(),
+            email_address: email.toLowerCase(),
+            user_id: null,
+            user_type: 'employee',
+            user_role: null,
+            current: true,
+          }])).error;
+      }
+      if (insertErr) {
+        console.error('Error creating employee for second company:', insertErr);
+        return res.status(500).json({ error: 'Failed to add you to this company. Please try again.' });
+      }
+
+      // Mark whitelist entry as used for this company
+      await supabase
+        .from('company_whitelist')
+        .update({ registered: true, registered_at: new Date().toISOString() })
+        .eq('company_id', canonicalCompanyID)
+        .eq('email', email.toLowerCase());
+
+      // Set current company context so they land in this company
+      await supabase.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: { ...existingUser.user_metadata, companyID: canonicalCompanyID },
+      });
+
+      return res.json({
+        user: signInData.user,
+        session: signInData.session,
+        companyID: canonicalCompanyID,
+      });
+    }
+
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    // Mark whitelist entry as used
+    // New user - mark whitelist entry as used
     await supabase
       .from('company_whitelist')
       .update({ registered: true, registered_at: new Date().toISOString() })
-      .eq('company_id', companyID)
+      .eq('company_id', canonicalCompanyID)
       .eq('email', email.toLowerCase());
 
-    // Create employee record for whitelist user: user_type employee, no role (name from register form)
-    await supabase
+    // Create employee record for whitelist user (user_id links to auth.users for cascade delete)
+    let newUserInsertErr = (await supabase
       .from('employees')
       .insert([{
-        company_id: companyID,
+        company_id: canonicalCompanyID,
         name: name.trim(),
         email_address: email.toLowerCase(),
         user_id: data.user.id,
         user_type: 'employee',
         user_role: null,
         current: true,
-      }]);
+      }])).error;
+    if (newUserInsertErr && newUserInsertErr.code === '42501') {
+      console.warn('Run migration 037_grant_auth_users_for_employees_fk.sql so employee.user_id can be set. Creating employee without user_id.');
+      newUserInsertErr = (await supabase
+        .from('employees')
+        .insert([{
+          company_id: canonicalCompanyID,
+          name: name.trim(),
+          email_address: email.toLowerCase(),
+          user_id: null,
+          user_type: 'employee',
+          user_role: null,
+          current: true,
+        }])).error;
+    }
+    if (newUserInsertErr) {
+      console.error('Error creating employee on registration:', newUserInsertErr);
+      return res.status(500).json({ error: 'Registration succeeded but we could not add you to the company. Please contact support.' });
+    }
 
     res.json({
       user: data.user,
@@ -657,6 +755,91 @@ app.post('/api/billing/cancel-subscription', async (req, res) => {
   } catch (error) {
     console.error('Cancel subscription error:', error);
     res.status(500).json({ error: error.message || 'Failed to cancel subscription' });
+  }
+});
+
+// Verify user is an employee of the given company and set current company context (multi-company login)
+app.post('/api/auth/verify-company', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { companyID } = req.body || {};
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    if (!companyID || typeof companyID !== 'string' || !companyID.trim()) {
+      return res.status(400).json({ error: 'Company ID is required' });
+    }
+    const cid = companyID.trim();
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) return res.status(401).json({ error: 'Invalid token' });
+    const userEmail = user.email?.toLowerCase();
+    if (!userEmail) return res.status(403).json({ error: 'No email on account.' });
+
+    let employee = (await supabase
+      .from('employees')
+      .select('current')
+      .eq('email_address', userEmail)
+      .eq('company_id', cid)
+      .single()).data;
+
+    // If no employee row but email is on this company's whitelist, create employee so they can join via login
+    if (!employee) {
+      const { data: whitelistRow } = await supabase
+        .from('company_whitelist')
+        .select('email')
+        .eq('company_id', cid)
+        .eq('email', userEmail)
+        .single();
+      if (!whitelistRow) {
+        return res.status(403).json({ error: 'You are not an employee of this company.' });
+      }
+      const displayName = user.user_metadata?.name || (user.email && user.email.split('@')[0]) || 'Employee';
+      let insertErr = (await supabase
+        .from('employees')
+        .insert([{
+          company_id: cid,
+          name: displayName,
+          email_address: userEmail,
+          user_id: user.id,
+          user_type: 'employee',
+          user_role: null,
+          current: true,
+        }])).error;
+      if (insertErr && insertErr.code === '42501') {
+        console.warn('Run migration 037_grant_auth_users_for_employees_fk.sql so employee.user_id can be set. Creating employee without user_id.');
+        insertErr = (await supabase
+          .from('employees')
+          .insert([{
+            company_id: cid,
+            name: displayName,
+            email_address: userEmail,
+            user_id: null,
+            user_type: 'employee',
+            user_role: null,
+            current: true,
+          }])).error;
+      }
+      if (insertErr) {
+        console.error('Error creating employee from whitelist on login:', insertErr);
+        return res.status(500).json({ error: 'Could not add you to this company. Please try registering for this company first.' });
+      }
+      await supabase
+        .from('company_whitelist')
+        .update({ registered: true, registered_at: new Date().toISOString() })
+        .eq('company_id', cid)
+        .eq('email', userEmail);
+      employee = { current: true };
+    }
+
+    if (employee.current === false) {
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact an administrator.' });
+    }
+
+    await supabase.auth.admin.updateUserById(user.id, {
+      user_metadata: { ...user.user_metadata, companyID: cid },
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Error in verify-company:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
