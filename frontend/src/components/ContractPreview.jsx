@@ -417,7 +417,7 @@ const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateSco
 }
 
 function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded }) {
-  const { supabase, user } = useAuth()
+  const { supabase, user, currentCompanyID, getAuthHeaders } = useAuth()
   const [activeTab, setActiveTab] = useState('scope') // 'scope' or 'milestones'
   const [milestones, setMilestones] = useState([])
   const [priceInputByMilestoneId, setPriceInputByMilestoneId] = useState({}) // raw string while editing price
@@ -1064,9 +1064,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         customer_price: actualTotalPrice, // Save actual total with min/max applied to project
       },
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       }
     )
 
@@ -1096,9 +1094,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         document_type: docType,
       },
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       }
     )
 
@@ -1206,9 +1202,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         throw new Error('Not authenticated')
       }
 
-      const companyID = user?.user_metadata?.companyID
-      if (!companyID) {
-        throw new Error('No company ID found')
+      if (!currentCompanyID) {
+        throw new Error('No company selected. Please log in with a company.')
       }
 
       // Create a File object from the blob
@@ -1233,6 +1228,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'X-Company-ID': currentCompanyID,
           },
           body: formData,
         }
@@ -1303,7 +1299,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       if (!token) return
 
       const response = await axios.get('/api/projects', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(token),
       })
 
       // Filter out the current project
@@ -1335,7 +1331,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       const scopeResponses = await Promise.all(
         documentTypes.map((docType) =>
           axios.get(`/api/projects/${projectId}/scope-of-work?document_type=${docType}`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: getAuthHeaders(token),
           }).catch(() => ({ data: { scopeOfWork: [] } }))
         )
       )
@@ -1356,7 +1352,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       const milestoneResponses = await Promise.all(
         documentTypes.map((docType) =>
           axios.get(`/api/projects/${projectId}/milestones?document_type=${docType}`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: getAuthHeaders(token),
           }).catch(() => ({ data: { milestones: [] } }))
         )
       )

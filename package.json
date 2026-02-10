@@ -4,8 +4,8 @@
   "description": "CRM system for pool construction company",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd backend && node server.js",
+    "dev": "concurrently -n server,client \"npm run server\" \"npm run client\"",
+    "server": "node backend/server.js",
     "client": "cd frontend && npm run dev",
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },

@@ -36,7 +36,7 @@ const CHART_METRICS = [
 ]
 
 function Dashboard() {
-  const { user, logout, loading } = useAuth()
+  const { user, currentCompanyID, logout, loading } = useAuth()
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState('overview')
   const [timePeriod, setTimePeriod] = useState('total')
@@ -343,8 +343,8 @@ function Dashboard() {
           <div className="mb-2">
             <p className="text-[10px] lg:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Logged in as</p>
             <p className="text-xs lg:text-sm font-medium text-gray-900 dark:text-white truncate">{user.email}</p>
-            {user.user_metadata?.companyID && (
-              <p className="text-[10px] lg:text-xs text-gray-500 dark:text-gray-400">{user.user_metadata.companyID}</p>
+            {currentCompanyID && (
+              <p className="text-[10px] lg:text-xs text-gray-500 dark:text-gray-400">{currentCompanyID}</p>
             )}
           </div>
           <button

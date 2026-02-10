@@ -6,7 +6,7 @@ import ContractPreview from './ContractPreview'
 import SendEmailModal from './SendEmailModal'
 
 function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClose }) {
-  const { user, supabase } = useAuth()
+  const { user, supabase, currentCompanyID, getAuthHeaders } = useAuth()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -53,9 +53,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       }
 
       const response = await axios.get(`/api/documents/${entityType}/${entityId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
       setDocuments(response.data.documents || [])
     } catch (err) {
@@ -131,9 +129,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         `/api/projects/${entityId}/contract`,
         { document_type: 'contract' },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -167,9 +163,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         `/api/projects/${entityId}/contract`,
         { document_type: 'proposal' },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -203,9 +197,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         `/api/projects/${entityId}/contract`,
         { document_type: 'change_order' },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -264,10 +256,8 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         throw new Error('Not authenticated')
       }
 
-      const companyID = user?.user_metadata?.companyID
-
-      if (!companyID) {
-        throw new Error('No company ID found')
+      if (!currentCompanyID) {
+        throw new Error('No company selected. Please log in with a company.')
       }
 
       // Use FormData for multipart/form-data upload
@@ -282,7 +272,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type - browser will set it with boundary for FormData
+            'X-Company-ID': currentCompanyID,
           },
           body: formData,
         }
@@ -323,9 +313,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       const response = await axios.get(
         `/api/documents/${entityType}/${entityId}/${fileName}/download`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -364,9 +352,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       const response = await axios.get(
         downloadUrl,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -420,9 +406,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
         `/api/documents/${entityType}/${entityId}/${selectedDocumentForNotes.id}/notes`,
         { notes: documentNotes },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -459,9 +443,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       }
 
       await axios.delete(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
 
       setSuccess('Document deleted successfully!')
@@ -489,9 +471,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       const response = await axios.get(
         `/api/documents/${entityType}/${entityId}/${fileName}/download`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 
@@ -536,9 +516,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
             `/api/esign/sync/${doc.id}`,
             {},
             {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+              headers: getAuthHeaders(token),
             }
           )
 
@@ -600,9 +578,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
           status: editForm.status,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 

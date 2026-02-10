@@ -5,16 +5,15 @@ import { useTheme } from '../context/ThemeContext'
 import axios from 'axios'
 
 function Settings() {
-  const { user, supabase, logout } = useAuth()
+  const { user, currentCompanyID, supabase, logout, getAuthHeaders } = useAuth()
   const navigate = useNavigate()
   const { theme, toggleTheme, isDark } = useTheme()
   
-  // Get auth token helper - memoized to prevent useEffect re-runs
-  const getAuthToken = useCallback(async () => {
-    if (!supabase) return null
+  const getAuthHeadersAsync = useCallback(async () => {
+    if (!supabase) return {}
     const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
-  }, [supabase])
+    return getAuthHeaders(session?.access_token) || {}
+  }, [supabase, getAuthHeaders])
   
   // Document preferences state
   const [docPrefs, setDocPrefs] = useState({
@@ -50,11 +49,11 @@ function Settings() {
   useEffect(() => {
     const fetchCompanySettings = async () => {
       try {
-        const token = await getAuthToken()
-        if (!token) return
+        const headers = await getAuthHeadersAsync()
+        if (!headers.Authorization) return
         
         const response = await axios.get('/api/company', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers,
         })
         
         if (response.data.company) {
@@ -91,18 +90,18 @@ function Settings() {
     }
     
     fetchCompanySettings()
-  }, [getAuthToken])
+  }, [getAuthHeadersAsync])
 
   // Save document preferences
   const saveDocPrefs = async () => {
     setSaving(true)
     setSaveMessage('')
     try {
-      const token = await getAuthToken()
-      if (!token) return
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) return
       
       const { data } = await axios.put('/api/company', docPrefs, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers,
       })
 
       if (data.company) {
@@ -450,7 +449,7 @@ function Settings() {
                 Company ID
               </p>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {user.user_metadata?.companyID || 'N/A'}
+                {currentCompanyID || 'N/A'}
               </p>
             </div>
             <div>

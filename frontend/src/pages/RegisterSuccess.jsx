@@ -11,7 +11,7 @@ function RegisterSuccess() {
   const [loading, setLoading] = useState(false)
   const [companyId, setCompanyId] = useState(null)
   const [success, setSuccess] = useState(false)
-  const { supabase } = useAuth()
+  const { supabase, setCurrentCompanyID } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -60,6 +60,7 @@ function RegisterSuccess() {
       }
 
       setCompanyId(data.companyId)
+      if (data.companyId && setCurrentCompanyID) setCurrentCompanyID(data.companyId)
 
       // Sign in with Supabase
       if (supabase) {

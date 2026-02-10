@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
 function CompanyInfo() {
-  const { user, supabase } = useAuth()
+  const { user, currentCompanyID, supabase, getAuthHeaders } = useAuth()
   const [company, setCompany] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -34,29 +34,24 @@ function CompanyInfo() {
   
   const [newLicense, setNewLicense] = useState('')
 
-  // Get auth token
-  const getAuthToken = async () => {
-    if (!supabase) return null
+  const getAuthHeadersAsync = async () => {
+    if (!supabase) return {}
     const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
+    return getAuthHeaders(session?.access_token) || {}
   }
 
   // Fetch company info
   const fetchCompany = async () => {
-    if (!user?.user_metadata?.companyID || !supabase) return
+    if (!currentCompanyID || !supabase) return
 
     setLoading(true)
     setError('')
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/company', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       })
 
       const companyData = response.data.company
@@ -104,17 +99,15 @@ function CompanyInfo() {
     setSuccess('')
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(
         '/api/company',
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...headers,
           },
         }
       )
@@ -203,8 +196,8 @@ function CompanyInfo() {
     setSuccess('')
 
     try {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       // Convert file to base64
       const reader = new FileReader()
@@ -221,7 +214,7 @@ function CompanyInfo() {
             },
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                ...headers,
               },
             }
           )
@@ -260,12 +253,12 @@ function CompanyInfo() {
     setSuccess('')
 
     try {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.delete('/api/company/logo', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...headers,
         },
       })
 
@@ -280,7 +273,7 @@ function CompanyInfo() {
     }
   }
 
-  if (!user?.user_metadata?.companyID) {
+  if (!currentCompanyID) {
     return null
   }
 
@@ -410,7 +403,7 @@ function CompanyInfo() {
                   Company ID
                 </p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {user.user_metadata.companyID}
+                  {currentCompanyID}
                 </p>
               </div>
               <div>

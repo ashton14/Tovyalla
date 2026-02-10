@@ -11,6 +11,7 @@ if (supabaseUrl && supabaseAnonKey) {
 }
 
 const AuthContext = createContext(null)
+const CURRENT_COMPANY_KEY = 'tovyalla_current_company_id'
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
@@ -25,9 +26,25 @@ const INACTIVITY_TIMEOUT = 6 * 60 * 60 * 1000
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
+  const [currentCompanyID, setCurrentCompanyIDState] = useState(() => {
+    try {
+      return localStorage.getItem(CURRENT_COMPANY_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [inactivityMessage, setInactivityMessage] = useState('')
   const inactivityTimerRef = useRef(null)
+
+  const setCurrentCompanyID = useCallback((id) => {
+    const value = typeof id === 'string' ? id : ''
+    setCurrentCompanyIDState(value)
+    try {
+      if (value) localStorage.setItem(CURRENT_COMPANY_KEY, value)
+      else localStorage.removeItem(CURRENT_COMPANY_KEY)
+    } catch {}
+  }, [])
 
   // Function to handle logout due to inactivity
   const logoutDueToInactivity = useCallback(async () => {
@@ -83,52 +100,22 @@ export const AuthProvider = ({ children }) => {
   }, [user, resetInactivityTimer])
 
   useEffect(() => {
-    // Helper function to update last logon
-    const updateLastLogon = async (session) => {
-      if (session?.access_token) {
-        try {
-          await fetch('/api/auth/update-last-logon', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          })
-        } catch (error) {
-          // Don't fail if last_logon update fails
-          console.error('Error updating last logon:', error)
-        }
-      }
-    }
-
-    // Check active sessions and sets the user
     if (supabase && supabaseUrl && supabaseAnonKey) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null)
-        // Update last logon when session is restored (e.g., page refresh)
-        if (session) {
-          updateLastLogon(session)
-        }
+        const stored = localStorage.getItem(CURRENT_COMPANY_KEY)
+        if (stored) setCurrentCompanyIDState(stored)
         setLoading(false)
       }).catch((error) => {
         console.error('Error getting session:', error)
         setLoading(false)
       })
 
-      // Listen for changes on auth state
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         setUser(session?.user ?? null)
-        // Update last logon on SIGNED_IN event
-        if (event === 'SIGNED_IN' && session) {
-          updateLastLogon(session)
-        }
       })
-
       return () => subscription.unsubscribe()
     } else {
-      // If Supabase is not configured, just set loading to false
       setLoading(false)
     }
   }, [])
@@ -160,10 +147,9 @@ export const AuthProvider = ({ children }) => {
         await supabase.auth.signOut()
         throw new Error(verifyResult.error || 'You are not an employee of this company.')
       }
-      // Refresh session so JWT has updated companyID
-      const { data: refreshData } = await supabase.auth.refreshSession()
-      const session = refreshData?.session ?? data.session
-      const userData = refreshData?.user ?? data.user
+      const session = data.session
+      const userData = data.user
+      if (verifyResult.companyID) setCurrentCompanyID(verifyResult.companyID)
 
       // Check if employee is active via backend (bypasses RLS)
       try {
@@ -172,6 +158,7 @@ export const AuthProvider = ({ children }) => {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
+            'X-Company-ID': verifyResult.companyID || currentCompanyID || '',
           },
         })
         const checkResult = await checkResponse.json()
@@ -190,22 +177,23 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Update last logon timestamp
+      const cid = verifyResult.companyID || currentCompanyID
       try {
-        if (session?.access_token) {
+        if (session?.access_token && cid) {
           await fetch('/api/auth/update-last-logon', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
+              'X-Company-ID': cid,
             },
           })
         }
       } catch (logonError) {
-        // Don't fail login if last_logon update fails
         console.error('Error updating last logon:', logonError)
       }
 
-      return { user: userData, session }
+      return { user: userData, session, companyID: cid }
     } catch (error) {
       throw error
     }
@@ -232,16 +220,12 @@ export const AuthProvider = ({ children }) => {
         throw new Error(result.error || 'Registration failed')
       }
 
-      // If backend returned a session (e.g. existing user joining a second company), use it and refresh so JWT has updated companyID
       if (result.session) {
         await supabase.auth.setSession(result.session)
-        const { data: refreshData } = await supabase.auth.refreshSession()
-        const session = refreshData?.session ?? result.session
-        const userData = refreshData?.user ?? result.user
-        return { user: userData, session }
+        if (result.companyID) setCurrentCompanyID(result.companyID)
+        return { user: result.user, session: result.session, companyID: result.companyID }
       }
 
-      // New user: sign in to get a session (email confirmation may be required)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -249,12 +233,13 @@ export const AuthProvider = ({ children }) => {
 
       if (error) {
         if (error.message.includes('Email not confirmed')) {
-          throw new Error('Please check your email and confirm your account before signing in.')
+          throw new Error('Verify your email address then log in with your company ID')
         }
         throw error
       }
 
-      return { user: data.user, session: data.session }
+      if (result.companyID) setCurrentCompanyID(result.companyID)
+      return { user: data.user, session: data.session, companyID: result.companyID }
     } catch (error) {
       throw error
     }
@@ -265,7 +250,17 @@ export const AuthProvider = ({ children }) => {
       await supabase.auth.signOut()
     }
     setUser(null)
+    setCurrentCompanyID('')
   }
+
+  const getAuthHeaders = useCallback((token) => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(currentCompanyID && { 'X-Company-ID': currentCompanyID }),
+    }
+    return headers
+  }, [currentCompanyID])
 
   const clearInactivityMessage = () => {
     setInactivityMessage('')
@@ -273,6 +268,9 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    currentCompanyID,
+    setCurrentCompanyID,
+    getAuthHeaders,
     login,
     register,
     logout,

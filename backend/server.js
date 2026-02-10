@@ -156,6 +156,31 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl || '', supabaseServiceKey || '');
 
+/**
+ * Resolve authenticated user and company from request.
+ * Company is taken from X-Company-ID header (not from user_metadata).
+ * Validates that the user has an active employee record for that company.
+ * Returns { user, companyID } or { error, status }.
+ */
+async function getAuthUserAndCompany(req) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return { error: 'Not authenticated', status: 401 };
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !user) return { error: 'Invalid token', status: 401 };
+  const raw = req.headers['x-company-id'];
+  const companyID = typeof raw === 'string' ? raw.trim() : '';
+  if (!companyID) return { error: 'Company context required. Send X-Company-ID header.', status: 400 };
+  const { data: emp } = await supabase
+    .from('employees')
+    .select('current')
+    .eq('email_address', user.email?.toLowerCase())
+    .eq('company_id', companyID)
+    .maybeSingle();
+  if (!emp) return { error: 'You do not have access to this company.', status: 403 };
+  if (emp.current === false) return { error: 'Your account has been deactivated. Please contact an administrator.', status: 403 };
+  return { user, companyID };
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Tovyalla CRM API is running' });
@@ -178,16 +203,52 @@ app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req,
       return res.status(401).json({ error: error.message });
     }
 
-    // Allow login if user is an employee of this company (multi-company support)
-    const { data: employee } = await supabase
+    // Allow login if user is on this company's whitelist (create employee if first time for this company)
+    const cid = typeof companyID === 'string' ? companyID.trim() : '';
+    if (!cid) return res.status(400).json({ error: 'Company ID is required' });
+    let employee = (await supabase
       .from('employees')
       .select('current')
       .eq('email_address', username.toLowerCase())
-      .eq('company_id', companyID)
-      .single();
-
+      .eq('company_id', cid)
+      .single()).data;
     if (!employee) {
-      return res.status(403).json({ error: 'You are not an employee of this company.' });
+      const { data: whitelistRow } = await supabase
+        .from('company_whitelist')
+        .select('email')
+        .eq('company_id', cid)
+        .eq('email', username.toLowerCase())
+        .single();
+      if (!whitelistRow) {
+        return res.status(403).json({ error: 'You are not an employee of this company.' });
+      }
+      const displayName = data.user.user_metadata?.name || (data.user.email && data.user.email.split('@')[0]) || 'Employee';
+      let insertErr = (await supabase.from('employees').insert([{
+        company_id: cid,
+        name: displayName,
+        email_address: username.toLowerCase(),
+        user_id: data.user.id,
+        user_type: 'employee',
+        user_role: null,
+        current: true,
+      }])).error;
+      if (insertErr && insertErr.code === '42501') {
+        insertErr = (await supabase.from('employees').insert([{
+          company_id: cid,
+          name: displayName,
+          email_address: username.toLowerCase(),
+          user_id: null,
+          user_type: 'employee',
+          user_role: null,
+          current: true,
+        }])).error;
+      }
+      if (insertErr) {
+        console.error('Login: error creating employee from whitelist', insertErr);
+        return res.status(500).json({ error: 'Could not add you to this company. Please try again.' });
+      }
+      await supabase.from('company_whitelist').update({ registered: true, registered_at: new Date().toISOString() }).eq('company_id', cid).eq('email', username.toLowerCase());
+      employee = { current: true };
     }
     if (employee.current === false) {
       await supabase.auth.signOut();
@@ -196,14 +257,10 @@ app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req,
       });
     }
 
-    // Set current company context so API calls use this company
-    await supabase.auth.admin.updateUserById(data.user.id, {
-      user_metadata: { ...data.user.user_metadata, companyID },
-    });
-
     res.json({
       user: data.user,
       session: data.session,
+      companyID: cid,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -226,7 +283,7 @@ app.post('/api/auth/register', registerValidation, handleValidationErrors, async
     // Look up company (case-insensitive) so "ABC" and "abc" both work
     const { data: companyList, error: companyError } = await supabase
       .from('companies')
-      .select('company_id')
+      .select('company_id, company_name')
       .ilike('company_id', companyID)
       .limit(1);
     const company = companyList?.[0];
@@ -270,9 +327,6 @@ app.post('/api/auth/register', registerValidation, handleValidationErrors, async
       email,
       password,
       options: {
-        data: {
-          companyID: canonicalCompanyID,
-        },
         emailRedirectTo: `${frontendUrl}/login`,
       },
     });
@@ -333,10 +387,21 @@ app.post('/api/auth/register', registerValidation, handleValidationErrors, async
         .eq('company_id', canonicalCompanyID)
         .eq('email', email.toLowerCase());
 
-      // Set current company context so they land in this company
-      await supabase.auth.admin.updateUserById(existingUser.id, {
-        user_metadata: { ...existingUser.user_metadata, companyID: canonicalCompanyID },
-      });
+      // Send welcome email with company ID (whitelist signup - existing user joining company)
+      try {
+        const emailService = await import('./services/email.js');
+        await emailService.sendRegistrationWelcome({
+          to: email.toLowerCase(),
+          companyId: canonicalCompanyID,
+          companyName: company?.company_name || null,
+          ownerName: name?.trim() || null,
+        });
+      } catch (emailErr) {
+        if (emailErr?.code !== 'ERR_MODULE_NOT_FOUND') {
+          const msg = emailErr?.message || emailErr?.text || emailErr?.statusText || (typeof emailErr === 'object' ? JSON.stringify(emailErr) : String(emailErr));
+          console.error('Registration welcome email failed (whitelist existing user):', msg || 'Unknown error');
+        }
+      }
 
       return res.json({
         user: signInData.user,
@@ -387,9 +452,26 @@ app.post('/api/auth/register', registerValidation, handleValidationErrors, async
       return res.status(500).json({ error: 'Registration succeeded but we could not add you to the company. Please contact support.' });
     }
 
+    // Send welcome email with company ID (whitelist signup - new user)
+    try {
+      const emailService = await import('./services/email.js');
+      await emailService.sendRegistrationWelcome({
+        to: email.toLowerCase(),
+        companyId: canonicalCompanyID,
+        companyName: company?.company_name || null,
+        ownerName: name?.trim() || null,
+      });
+    } catch (emailErr) {
+      if (emailErr?.code !== 'ERR_MODULE_NOT_FOUND') {
+        const msg = emailErr?.message || emailErr?.text || emailErr?.statusText || (typeof emailErr === 'object' ? JSON.stringify(emailErr) : String(emailErr));
+        console.error('Registration welcome email failed (whitelist new user):', msg || 'Unknown error');
+      }
+    }
+
     res.json({
       user: data.user,
       session: data.session,
+      companyID: canonicalCompanyID,
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -438,8 +520,17 @@ app.post('/api/billing/create-checkout-session', createCheckoutSessionValidation
 
     res.json({ url: session.url, companyId });
   } catch (error) {
-    console.error('Create checkout session error:', error);
-    res.status(500).json({ error: error.message || 'Failed to create checkout session' });
+    console.error('Create checkout session error:', error?.message || error);
+    console.error('Stripe error code:', error?.code, 'type:', error?.type);
+    let message = error?.message || error?.type || 'Failed to create checkout session';
+    if (error?.code === 'invalid_api_key') {
+      message = 'Invalid Stripe secret key. Check STRIPE_SECRET_KEY in .env (use sk_test_... or sk_live_...).';
+    } else if (error?.code === 'resource_missing' && error?.param === 'price') {
+      message = 'Stripe price not found. Set STRIPE_PRICE_ID in .env to a Price ID from Stripe Dashboard (e.g. price_1xxx).';
+    } else if (!error?.message || error.message === 'Failed to create checkout session') {
+      message = 'Stripe error. Check STRIPE_SECRET_KEY and STRIPE_PRICE_ID in .env. See backend terminal for details.';
+    }
+    res.status(500).json({ error: message });
   }
 });
 
@@ -524,26 +615,30 @@ app.post('/api/billing/complete-registration', completeRegistrationValidation, h
       ]);
     }
 
-    // Create Supabase auth user
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email.toLowerCase(),
-      password,
-      email_confirm: true,
-      user_metadata: { companyID: companyId },
-    });
+    const emailLower = email.toLowerCase();
+    let authUserId;
 
-    if (authError) {
-      if (authError.message?.includes('already been registered') || authError.message?.includes('already exists')) {
-        return res.status(400).json({ error: 'This email is already registered. Please log in instead.' });
-      }
-      throw authError;
+    // Check if user already exists (e.g. adding second company) so we don't rely on createUser error message
+    const { data: listData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const existingUserByEmail = (listData?.users || []).find((u) => (u.email || '').toLowerCase() === emailLower);
+
+    if (existingUserByEmail) {
+      authUserId = existingUserByEmail.id;
+    } else {
+      // Create new auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: emailLower,
+        password,
+        email_confirm: true,
+      });
+      if (authError) throw authError;
+      authUserId = authData.user.id;
     }
 
     // Set subscription purchaser on company (for record; webhook may have created company without it)
     await supabase
       .from('companies')
-      .update({ subscription_purchased_by_user_id: authData.user.id })
+      .update({ subscription_purchased_by_user_id: authUserId })
       .eq('company_id', companyId);
 
     // Mark whitelist as registered
@@ -551,26 +646,37 @@ app.post('/api/billing/complete-registration', completeRegistrationValidation, h
       .from('company_whitelist')
       .update({ registered: true, registered_at: new Date().toISOString() })
       .eq('company_id', companyId)
-      .eq('email', email.toLowerCase());
+      .eq('email', emailLower);
 
-    // Create employee record
+    // Create employee record (skip if already exists for this company+email)
     const employeeName = ownerName || companyName || email.split('@')[0];
-    await supabase.from('employees').insert([
-      {
-        company_id: companyId,
-        name: employeeName,
-        email_address: email.toLowerCase(),
-        user_id: authData.user.id,
-        user_type: 'admin',
-        current: true,
-      },
-    ]);
+    const { data: existingEmp } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('email_address', emailLower)
+      .maybeSingle();
+    if (!existingEmp) {
+      const { error: empInsertError } = await supabase.from('employees').insert([
+        {
+          company_id: companyId,
+          name: employeeName,
+          email_address: emailLower,
+          user_id: authUserId,
+          user_type: 'admin',
+          current: true,
+        },
+      ]);
+      if (empInsertError) {
+        console.error('Employee insert error (complete-registration):', empInsertError);
+      }
+    }
 
-    // Send welcome email with Company ID (non-blocking; registration succeeds even if email fails)
+    // Send welcome email with Company ID (same for new and existing users adding a company)
     try {
       const emailService = await import('./services/email.js');
       await emailService.sendRegistrationWelcome({
-        to: email.toLowerCase(),
+        to: emailLower,
         companyId,
         companyName: companyName || null,
         ownerName: ownerName || null,
@@ -584,32 +690,27 @@ app.post('/api/billing/complete-registration', completeRegistrationValidation, h
 
     res.json({
       success: true,
-      email: email.toLowerCase(),
+      email: emailLower,
       companyId,
     });
   } catch (error) {
-    console.error('Complete registration error:', error);
-    res.status(500).json({ error: error.message || 'Registration failed' });
+    console.error('Complete registration error:', error?.message || error);
+    if (error?.code) console.error('Complete registration error code:', error.code);
+    const message = error?.message || 'Registration failed';
+    // If Supabase/DB error suggests trigger or public.users, hint at running migration 040
+    const hint = (message.includes('Database error') && message.toLowerCase().includes('user'))
+      ? ' Run migration 040_fix_handle_new_user_after_company_id_removed.sql in Supabase SQL Editor if you use a trigger that syncs auth.users to public.users.'
+      : '';
+    res.status(500).json({ error: message + hint });
   }
 });
 
 // Get subscription info and invoices for the current company
 app.get('/api/billing/subscription', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'No company associated with this account' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
@@ -682,23 +783,12 @@ app.get('/api/billing/subscription', async (req, res) => {
   }
 });
 
-// Cancel subscription and delete company + user
+// Cancel subscription and delete company (user account is kept; they can sign in to other companies)
 app.post('/api/billing/cancel-subscription', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'No company associated with this account' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Only admins can cancel the subscription and delete the company
     const { data: currentEmployee } = await supabase
@@ -745,11 +835,8 @@ app.post('/api/billing/cancel-subscription', async (req, res) => {
       }
     }
 
-    // Delete company (cascade will remove employees, projects, etc.)
+    // Delete company (cascade will remove employees, projects, etc.). User account is not deleted.
     await supabase.from('companies').delete().eq('company_id', companyID);
-
-    // Delete auth user
-    await supabase.auth.admin.deleteUser(user.id);
 
     res.json({ success: true });
   } catch (error) {
@@ -833,38 +920,24 @@ app.post('/api/auth/verify-company', async (req, res) => {
       return res.status(403).json({ error: 'Your account has been deactivated. Please contact an administrator.' });
     }
 
-    await supabase.auth.admin.updateUserById(user.id, {
-      user_metadata: { ...user.user_metadata, companyID: cid },
-    });
-    return res.json({ ok: true });
+    return res.json({ ok: true, companyID: cid });
   } catch (err) {
     console.error('Error in verify-company:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Check if employee is active
+// Check if employee is active (X-Company-ID optional; if missing, returns active: true)
 app.post('/api/auth/check-active', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
+    const headerCompanyID = (req.headers['x-company-id'] || '').trim();
+    if (!headerCompanyID) return res.json({ active: true });
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
     const userEmail = user.email;
-
-    if (!companyID || !userEmail) {
-      // If missing data, allow access (don't block)
-      return res.json({ active: true });
-    }
+    if (!userEmail) return res.json({ active: true });
 
     const { data: employee, error: empError } = await supabase
       .from('employees')
@@ -896,22 +969,9 @@ app.post('/api/auth/check-active', async (req, res) => {
 // Update last logon timestamp
 app.post('/api/auth/update-last-logon', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const userEmail = user.email;
     if (!userEmail) {
@@ -943,65 +1003,6 @@ app.post('/api/auth/update-last-logon', async (req, res) => {
   }
 });
 
-// Complete registration for new company (called after Stripe checkout + password setup)
-// Creates company and first employee with user_type: admin
-app.post('/api/billing/complete-registration', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    const userEmail = user.email;
-    if (!companyID || !userEmail) {
-      return res.status(400).json({ error: 'User does not have a company ID or email' });
-    }
-
-    const ownerName = req.body.ownerName || user.user_metadata?.owner_name || userEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Owner';
-
-    // Check if employee already exists (idempotent - e.g. user refreshed page)
-    const { data: existingEmployee } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('company_id', companyID)
-      .eq('email_address', userEmail.toLowerCase())
-      .maybeSingle();
-
-    if (existingEmployee) {
-      return res.json({ success: true, employee: existingEmployee, alreadyExists: true });
-    }
-
-    // Create first employee: user_type admin (company already created by Stripe flow)
-    const { data: employee, error: empError } = await supabase
-      .from('employees')
-      .insert([{
-        company_id: companyID,
-        name: ownerName,
-        email_address: userEmail.toLowerCase(),
-        user_id: user.id,
-        user_type: 'admin',
-        current: true,
-      }])
-      .select()
-      .single();
-
-    if (empError) {
-      return res.status(500).json({ error: empError.message });
-    }
-
-    res.json({ success: true, employee });
-  } catch (error) {
-    console.error('Complete registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // Protected route example
 app.get('/api/user', async (req, res) => {
   try {
@@ -1027,22 +1028,9 @@ app.get('/api/user', async (req, res) => {
 // Get whitelist for a company
 app.get('/api/whitelist', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Only admin, manager, and owner can add/remove; check for canManage flag in response
     const { data: currentEmployee } = await supabase
@@ -1073,22 +1061,9 @@ app.get('/api/whitelist', async (req, res) => {
 // Add email to whitelist
 app.post('/api/whitelist', whitelistPostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Only admin, manager, and owner can add to whitelist
     const { data: currentEmployee } = await supabase
@@ -1141,22 +1116,9 @@ app.post('/api/whitelist', whitelistPostValidation, handleValidationErrors, asyn
 // Remove email from whitelist
 app.delete('/api/whitelist/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Only admin, manager, and owner can remove from whitelist
     const { data: currentEmployee } = await supabase
@@ -1206,22 +1168,9 @@ app.delete('/api/whitelist/:id', async (req, res) => {
 // Get company information
 app.get('/api/company', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Get company info
     const { data: company, error: companyError } = await supabase
@@ -1254,22 +1203,9 @@ app.get('/api/company', async (req, res) => {
 // Update company information
 app.put('/api/company', companyPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       company_name,
@@ -1432,22 +1368,9 @@ app.put('/api/company', companyPutValidation, handleValidationErrors, async (req
 // Upload company logo
 app.post('/api/company/logo', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { file_data, file_name, content_type } = req.body;
 
@@ -1546,22 +1469,9 @@ app.post('/api/company/logo', async (req, res) => {
 // Delete company logo
 app.delete('/api/company/logo', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Get current logo URL
     const { data: company } = await supabase
@@ -1603,22 +1513,9 @@ app.delete('/api/company/logo', async (req, res) => {
 // Get all customers for a company
 app.get('/api/customers', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data, error } = await supabase
       .from('customers')
@@ -1640,22 +1537,9 @@ app.get('/api/customers', async (req, res) => {
 // Get a single customer
 app.get('/api/customers/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -1680,22 +1564,9 @@ app.get('/api/customers/:id', async (req, res) => {
 // Create a new customer
 app.post('/api/customers', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       first_name,
@@ -1764,22 +1635,9 @@ app.post('/api/customers', async (req, res) => {
 // Update a customer
 app.put('/api/customers/:id', customerPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const {
@@ -1867,22 +1725,9 @@ app.put('/api/customers/:id', customerPutValidation, handleValidationErrors, asy
 // Delete a customer
 app.delete('/api/customers/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -1918,22 +1763,9 @@ app.delete('/api/customers/:id', async (req, res) => {
 // Get all projects for a company
 app.get('/api/projects', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data, error } = await supabase
       .from('projects')
@@ -1965,22 +1797,9 @@ app.get('/api/projects', async (req, res) => {
 // IMPORTANT: This must be BEFORE /api/projects/:id route
 app.get('/api/projects/statistics', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { period = 'total' } = req.query; // day, week, month, 6mo, year, total
 
@@ -2163,22 +1982,9 @@ app.get('/api/projects/statistics', async (req, res) => {
 // Get monthly statistics for dashboard chart
 app.get('/api/projects/monthly-statistics', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { year = new Date().getFullYear() } = req.query;
     const yearNum = parseInt(year);
@@ -2424,22 +2230,9 @@ app.get('/api/projects/monthly-statistics', async (req, res) => {
 // Get a single project
 app.get('/api/projects/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -2473,22 +2266,9 @@ app.get('/api/projects/:id', async (req, res) => {
 // Create a new project
 app.post('/api/projects', projectPostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       project_name,
@@ -2553,22 +2333,9 @@ app.post('/api/projects', projectPostValidation, handleValidationErrors, async (
 // Update a project
 app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const {
@@ -2652,22 +2419,9 @@ app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async
 // Delete a project
 app.delete('/api/projects/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -2705,22 +2459,9 @@ app.delete('/api/projects/:id', async (req, res) => {
 // Get all expenses for a project with calculations
 app.get('/api/projects/:id/expenses', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -2874,22 +2615,9 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
 // Add subcontractor fee
 app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { subcontractor_id, flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
@@ -2946,22 +2674,9 @@ app.post('/api/projects/:id/expenses/subcontractor-fees', async (req, res) => {
 // NOTE: This route MUST be before the /:feeId route to avoid matching 'batch-update-prices' as a feeId
 app.put('/api/projects/:id/expenses/subcontractor-fees/batch-update-prices', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { prices } = req.body; // Array of { id, customer_price }
@@ -2996,22 +2711,9 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/batch-update-prices', asy
 // Update subcontractor fee
 app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, feeId } = req.params;
     const { flat_fee, expected_value, date_added, status, notes, job_description } = req.body;
@@ -3067,22 +2769,9 @@ app.put('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res)
 // Delete subcontractor fee
 app.delete('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, feeId } = req.params;
 
@@ -3118,22 +2807,9 @@ app.delete('/api/projects/:id/expenses/subcontractor-fees/:feeId', async (req, r
 // Add material
 app.post('/api/projects/:id/expenses/materials', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { inventory_id, quantity, date_ordered, date_received, status, expected_price, actual_price, notes } = req.body;
@@ -3191,22 +2867,9 @@ app.post('/api/projects/:id/expenses/materials', async (req, res) => {
 // Update material
 app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, materialId } = req.params;
     const { inventory_id, quantity, date_ordered, date_received, status, expected_price, actual_price, notes } = req.body;
@@ -3265,22 +2928,9 @@ app.put('/api/projects/:id/expenses/materials/:materialId', async (req, res) => 
 // Delete material
 app.delete('/api/projects/:id/expenses/materials/:materialId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, materialId } = req.params;
 
@@ -3316,22 +2966,9 @@ app.delete('/api/projects/:id/expenses/materials/:materialId', async (req, res) 
 // Add additional expense
 app.post('/api/projects/:id/expenses/additional', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
@@ -3381,22 +3018,9 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
 // Update additional expense
 app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, expenseId } = req.params;
     const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
@@ -3447,22 +3071,9 @@ app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => 
 // Delete additional expense
 app.delete('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, expenseId } = req.params;
 
@@ -3500,22 +3111,9 @@ app.delete('/api/projects/:id/expenses/additional/:expenseId', async (req, res) 
 // Add equipment expense
 app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { inventory_id, expected_price, actual_price, quantity, date_ordered, date_received, status, notes } = req.body;
@@ -3580,22 +3178,9 @@ app.post('/api/projects/:id/expenses/equipment', async (req, res) => {
 // Update equipment expense
 app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, equipmentId } = req.params;
     const { inventory_id, expected_price, actual_price, quantity, date_ordered, date_received, status, notes } = req.body;
@@ -3666,22 +3251,9 @@ app.put('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) =>
 // Delete equipment expense
 app.delete('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id, equipmentId } = req.params;
 
@@ -3720,22 +3292,9 @@ app.delete('/api/projects/:id/expenses/equipment/:equipmentId', async (req, res)
 // Generate a document (contract/proposal/change_order) for a project
 app.post('/api/projects/:id/contract', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { document_type = 'contract' } = req.body; // 'contract', 'proposal', or 'change_order'
@@ -3925,22 +3484,9 @@ app.post('/api/projects/:id/contract', async (req, res) => {
 // Get milestones for a project (optionally filtered by document type)
 app.get('/api/projects/:id/milestones', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { document_type } = req.query; // Optional filter by document type
@@ -3984,22 +3530,9 @@ app.get('/api/projects/:id/milestones', async (req, res) => {
 // Save/update milestones for a project (batch operation)
 app.put('/api/projects/:id/milestones', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { milestones, document_type, customer_price } = req.body;
@@ -4110,22 +3643,9 @@ app.put('/api/projects/:id/milestones', async (req, res) => {
 // Get scope of work items for a project (optionally filtered by document type)
 app.get('/api/projects/:id/scope-of-work', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { document_type } = req.query; // Optional filter by document type
@@ -4169,22 +3689,9 @@ app.get('/api/projects/:id/scope-of-work', async (req, res) => {
 // Save/update scope of work items for a project (batch operation)
 app.put('/api/projects/:id/scope-of-work', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { scopeOfWork, document_type } = req.body;
@@ -4258,22 +3765,9 @@ app.put('/api/projects/:id/scope-of-work', async (req, res) => {
 // Get all inventory items for a company
 app.get('/api/inventory', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data, error } = await supabase
       .from('inventory')
@@ -4295,22 +3789,9 @@ app.get('/api/inventory', async (req, res) => {
 // Get a single inventory item
 app.get('/api/inventory/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -4335,22 +3816,9 @@ app.get('/api/inventory/:id', async (req, res) => {
 // Create a new inventory item
 app.post('/api/inventory', inventoryPostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       name,
@@ -4395,22 +3863,9 @@ app.post('/api/inventory', inventoryPostValidation, handleValidationErrors, asyn
 // Update an inventory item
 app.put('/api/inventory/:id', inventoryPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const {
@@ -4468,22 +3923,9 @@ app.put('/api/inventory/:id', inventoryPutValidation, handleValidationErrors, as
 // Delete an inventory item
 app.delete('/api/inventory/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -4519,22 +3961,9 @@ app.delete('/api/inventory/:id', async (req, res) => {
 // Get all subcontractors for a company
 app.get('/api/subcontractors', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data, error } = await supabase
       .from('subcontractors')
@@ -4556,22 +3985,9 @@ app.get('/api/subcontractors', async (req, res) => {
 // Get a single subcontractor
 app.get('/api/subcontractors/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -4596,22 +4012,9 @@ app.get('/api/subcontractors/:id', async (req, res) => {
 // Create a new subcontractor
 app.post('/api/subcontractors', subcontractorPostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       name,
@@ -4654,22 +4057,9 @@ app.post('/api/subcontractors', subcontractorPostValidation, handleValidationErr
 // Update a subcontractor
 app.put('/api/subcontractors/:id', subcontractorPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const {
@@ -4725,22 +4115,9 @@ app.put('/api/subcontractors/:id', subcontractorPutValidation, handleValidationE
 // Delete a subcontractor
 app.delete('/api/subcontractors/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -4778,22 +4155,9 @@ app.delete('/api/subcontractors/:id', async (req, res) => {
 // Get all employees for a company
 app.get('/api/employees', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { data, error } = await supabase
       .from('employees')
@@ -4815,22 +4179,9 @@ app.get('/api/employees', async (req, res) => {
 // Get a single employee
 app.get('/api/employees/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -4855,22 +4206,9 @@ app.get('/api/employees/:id', async (req, res) => {
 // Create a new employee
 app.post('/api/employees', employeePostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const {
       name,
@@ -4941,22 +4279,9 @@ app.post('/api/employees', employeePostValidation, handleValidationErrors, async
 // Update an employee
 app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -5033,22 +4358,9 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
 // Delete an employee
 app.delete('/api/employees/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -5086,22 +4398,9 @@ app.delete('/api/employees/:id', async (req, res) => {
 // List documents for an entity
 app.get('/api/documents/:entityType/:entityId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { entityType, entityId } = req.params;
     const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
@@ -5291,23 +4590,9 @@ app.get('/api/documents/:entityType/:entityId', async (req, res) => {
 // This endpoint accepts file uploads via multipart/form-data and uses the service role key to bypass RLS
 app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    // Verify user authentication
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { entityType, entityId } = req.params;
     const { name, document_type = 'other', document_number: bodyDocNumber, document_date: bodyDocDate } = req.body;
@@ -5512,22 +4797,9 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
 // Update document notes
 app.put('/api/documents/:entityType/:entityId/:documentId/notes', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { entityType, entityId, documentId } = req.params;
     const { notes } = req.body;
@@ -5660,22 +4932,9 @@ app.put('/api/documents/:entityType/:entityId/:documentId/notes', async (req, re
 // Update document metadata (for project documents)
 app.put('/api/documents/projects/:projectId/:documentId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { projectId, documentId } = req.params;
     const { name, document_type, status } = req.body;
@@ -5733,22 +4992,9 @@ app.put('/api/documents/projects/:projectId/:documentId', async (req, res) => {
 // Delete document
 app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { entityType, entityId, fileName } = req.params;
     const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
@@ -5857,22 +5103,9 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
 // Get document download URL by document ID (uses stored file_path)
 app.get('/api/documents/by-id/:documentId/download', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { documentId } = req.params;
 
@@ -5912,22 +5145,9 @@ app.get('/api/documents/by-id/:documentId/download', async (req, res) => {
 // Get document download URL
 app.get('/api/documents/:entityType/:entityId/:fileName/download', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { entityType, entityId, fileName } = req.params;
     const validEntityTypes = ['customers', 'projects', 'inventory', 'subcontractors', 'employees'];
@@ -6248,22 +5468,9 @@ app.get('/api/goals/data-points', async (req, res) => {
 // Get all goals for a company
 app.get('/api/goals', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Get all goals for this company
     const { data: goals, error: goalsError } = await supabase
@@ -6315,22 +5522,9 @@ app.get('/api/goals', async (req, res) => {
 // Create a new goal
 app.post('/api/goals', goalPostValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { goal_name, data_point_type, target_value, start_date, target_date } = req.body;
 
@@ -6370,22 +5564,9 @@ app.post('/api/goals', goalPostValidation, handleValidationErrors, async (req, r
 // Update a goal
 app.put('/api/goals/:id', goalPutValidation, handleValidationErrors, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
     const { goal_name, data_point_type, target_value, start_date, target_date } = req.body;
@@ -6436,22 +5617,9 @@ app.put('/api/goals/:id', goalPutValidation, handleValidationErrors, async (req,
 // Delete a goal
 app.delete('/api/goals/:id', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -6488,22 +5656,9 @@ app.delete('/api/goals/:id', async (req, res) => {
 // Send document via eSignatures.com for e-signature
 app.post('/api/esign/send', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { documentUrl, documentName, recipientEmail, recipientName, subject, message, documentId } = req.body;
 
@@ -7144,22 +6299,9 @@ app.post('/api/google/calendar/disconnect', async (req, res) => {
 // Get all conversations (messages grouped by customer/phone)
 app.get('/api/messages', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     // Get all messages for the company, ordered by created_at descending
     const { data: messages, error } = await supabase
@@ -7215,22 +6357,9 @@ app.get('/api/messages', async (req, res) => {
 // Get unread message count
 app.get('/api/messages/unread-count', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { count, error } = await supabase
       .from('sms_messages')
@@ -7253,22 +6382,9 @@ app.get('/api/messages/unread-count', async (req, res) => {
 // Get conversation with a specific customer
 app.get('/api/messages/conversation/:customerId', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { customerId } = req.params;
 
@@ -7309,22 +6425,9 @@ app.get('/api/messages/conversation/:customerId', async (req, res) => {
 // Send a new SMS message
 app.post('/api/messages', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { customer_id, phone_number, message_body } = req.body;
 
@@ -7403,22 +6506,9 @@ app.post('/api/messages', async (req, res) => {
 // Mark a single message as read
 app.patch('/api/messages/:id/read', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { id } = req.params;
 
@@ -7448,22 +6538,9 @@ app.patch('/api/messages/:id/read', async (req, res) => {
 // Mark all messages in a conversation as read
 app.patch('/api/messages/mark-all-read', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const companyID = user.user_metadata?.companyID;
-    if (!companyID) {
-      return res.status(400).json({ error: 'User does not have a company ID' });
-    }
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { user, companyID } = auth;
 
     const { customer_id, phone_number } = req.body;
 
@@ -7606,5 +6683,5 @@ app.get('/api/twilio/status', async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  // Server started
+  console.log(`Backend listening on http://localhost:${PORT}`);
 });

@@ -75,7 +75,12 @@ function Register() {
         navigate('/dashboard')
       }, 1500)
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.')
+      const verifyEmailMsg = 'Verify your email address then log in with your company ID'
+      if (err.message === verifyEmailMsg) {
+        setSuccess(verifyEmailMsg)
+      } else {
+        setError(err.message || 'Registration failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -115,10 +120,22 @@ function Register() {
           email: newCompanyEmail.trim(),
         }),
       })
-      const data = await response.json()
+      let text = await response.text()
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
+      let data = {}
+      if (text) {
+        try {
+          data = JSON.parse(text)
+        } catch {
+          setBillingError('Invalid response from server. Make sure the backend is running (npm run dev from project root).')
+          setBillingLoading(false)
+          return
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout session')
+        const msg = data.error || (response.status === 503 ? 'Stripe is not configured. Add STRIPE_SECRET_KEY and STRIPE_PRICE_ID in .env.' : `Checkout failed (${response.status}). Check the backend terminal for the error.`)
+        throw new Error(msg)
       }
 
       if (data.url) {

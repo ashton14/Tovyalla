@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
 function EmailWhitelist() {
-  const { user, supabase } = useAuth()
+  const { user, currentCompanyID, supabase, getAuthHeaders } = useAuth()
   const [email, setEmail] = useState('')
   const [whitelist, setWhitelist] = useState([])
   const [canManage, setCanManage] = useState(false)
@@ -12,28 +12,21 @@ function EmailWhitelist() {
   const [loading, setLoading] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
 
-  const companyID = user?.user_metadata?.companyID
-
-  // Get auth token for API calls
-  const getAuthToken = async () => {
-    if (!supabase) return null
+  const getAuthHeadersAsync = async () => {
+    if (!supabase) return {}
     const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
+    return getAuthHeaders(session?.access_token) || {}
   }
 
   // Fetch whitelist
   const fetchWhitelist = async () => {
     setLoadingList(true)
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/whitelist', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       })
 
       setWhitelist(response.data.whitelist || [])
@@ -47,10 +40,10 @@ function EmailWhitelist() {
   }
 
   useEffect(() => {
-    if (user && companyID) {
+    if (user && currentCompanyID) {
       fetchWhitelist()
     }
-  }, [user, companyID])
+  }, [user, currentCompanyID])
 
   const handleAddEmail = async (e) => {
     e.preventDefault()
@@ -73,17 +66,15 @@ function EmailWhitelist() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.post(
         '/api/whitelist',
         { email: email.trim() },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...headers,
           },
         }
       )
@@ -104,14 +95,12 @@ function EmailWhitelist() {
     }
 
     try {
-      const token = await getAuthToken()
-      if (!token) {
-        throw new Error('Not authenticated')
-      }
+      const headers = await getAuthHeadersAsync()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/whitelist/${id}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...headers,
         },
       })
 
@@ -128,7 +117,7 @@ function EmailWhitelist() {
         Email Whitelist Management
       </h3>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        Manage which email addresses can register with your Company ID ({companyID}). 
+        Manage which email addresses can register with your Company ID ({currentCompanyID}). 
         Only emails on this list will be able to create accounts for your company.
       </p>
 
@@ -246,7 +235,7 @@ function EmailWhitelist() {
       <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           <strong>Note:</strong> Users with whitelisted emails can register at the registration page 
-          using your Company ID ({companyID}). They will not be able to register if their email is not on this list.
+          using your Company ID ({currentCompanyID}). They will not be able to register if their email is not on this list.
         </p>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
 function Subscription() {
-  const { user, logout, supabase } = useAuth()
+  const { user, logout, supabase, getAuthHeaders } = useAuth()
   const navigate = useNavigate()
   const getAuthToken = useCallback(async () => {
     if (!supabase) return null
@@ -28,8 +28,8 @@ function Subscription() {
         const token = await getAuthToken()
         if (!token) return
         const [companyRes, billingRes] = await Promise.all([
-          axios.get('/api/company', { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get('/api/billing/subscription', { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { subscription: {}, invoices: [] } })),
+          axios.get('/api/company', { headers: getAuthHeaders(token) }),
+          axios.get('/api/billing/subscription', { headers: getAuthHeaders(token) }).catch(() => ({ data: { subscription: {}, invoices: [] } })),
         ])
         setCanCancelSubscription(companyRes.data.can_cancel_subscription === true)
         if (billingRes.data.subscription) setSubscription(billingRes.data.subscription)
@@ -51,7 +51,7 @@ function Subscription() {
       const token = await getAuthToken()
       if (!token) return
       await axios.post('/api/billing/cancel-subscription', {}, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(token),
       })
       await logout()
       navigate('/')
@@ -86,7 +86,7 @@ function Subscription() {
       if (!token) return
       const lastId = invoices[invoices.length - 1]?.id
       const { data } = await axios.get('/api/billing/subscription', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(token),
         params: { starting_after: lastId },
       })
       if (Array.isArray(data.invoices) && data.invoices.length > 0) {

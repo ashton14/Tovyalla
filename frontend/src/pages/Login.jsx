@@ -29,7 +29,7 @@ function Login() {
   }, [])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, loading: authLoading, inactivityMessage, clearInactivityMessage } = useAuth()
+  const { login, setCurrentCompanyID, loading: authLoading, inactivityMessage, clearInactivityMessage } = useAuth()
   const navigate = useNavigate()
   
   // Show inactivity message if user was auto-logged out
@@ -62,7 +62,8 @@ function Login() {
     }
 
     try {
-      await login(companyID, username, password)
+      const result = await login(companyID, username, password)
+      if (result?.companyID) setCurrentCompanyID(result.companyID)
       if (rememberMe) {
         localStorage.setItem(REMEMBER_KEY, JSON.stringify({ companyID: companyID.trim(), username: username.trim(), password }))
       } else {

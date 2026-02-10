@@ -2,38 +2,35 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 
-// Custom hook to get auth token
-const useAuthToken = () => {
-  const { supabase } = useAuth()
-
-  const getAuthToken = async () => {
-    if (!supabase) return null
+// Returns async function that resolves to { Authorization, 'X-Company-ID' } for API calls
+const useAuthHeaders = () => {
+  const { supabase, getAuthHeaders } = useAuth()
+  return async () => {
+    if (!supabase) return {}
     const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
+    return getAuthHeaders(session?.access_token) || {}
   }
-
-  return getAuthToken
 }
 
 // ============================================
 // CUSTOMERS
 // ============================================
 export const useCustomers = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['customers'],
+    queryKey: ['customers', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/customers', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.customers || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   })
@@ -41,15 +38,15 @@ export const useCustomers = () => {
 
 export const useCreateCustomer = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (customerData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/customers', customerData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -61,15 +58,15 @@ export const useCreateCustomer = () => {
 
 export const useUpdateCustomer = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/customers/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -81,15 +78,15 @@ export const useUpdateCustomer = () => {
 
 export const useDeleteCustomer = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/customers/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -102,21 +99,21 @@ export const useDeleteCustomer = () => {
 // PROJECTS
 // ============================================
 export const useProjects = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/projects', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.projects || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -124,15 +121,15 @@ export const useProjects = () => {
 
 export const useCreateProject = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (projectData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/projects', projectData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -145,15 +142,15 @@ export const useCreateProject = () => {
 
 export const useUpdateProject = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/projects/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -166,15 +163,15 @@ export const useUpdateProject = () => {
 
 export const useDeleteProject = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/projects/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -188,21 +185,21 @@ export const useDeleteProject = () => {
 // INVENTORY
 // ============================================
 export const useInventory = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['inventory'],
+    queryKey: ['inventory', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/inventory', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.materials || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -210,15 +207,15 @@ export const useInventory = () => {
 
 export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (itemData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/inventory', itemData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -230,15 +227,15 @@ export const useCreateInventoryItem = () => {
 
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/inventory/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -250,15 +247,15 @@ export const useUpdateInventoryItem = () => {
 
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/inventory/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -271,21 +268,21 @@ export const useDeleteInventoryItem = () => {
 // EMPLOYEES
 // ============================================
 export const useEmployees = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['employees'],
+    queryKey: ['employees', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/employees', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.employees || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -293,15 +290,15 @@ export const useEmployees = () => {
 
 export const useCreateEmployee = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (employeeData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/employees', employeeData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -313,15 +310,15 @@ export const useCreateEmployee = () => {
 
 export const useUpdateEmployee = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/employees/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -333,15 +330,15 @@ export const useUpdateEmployee = () => {
 
 export const useDeleteEmployee = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -354,21 +351,21 @@ export const useDeleteEmployee = () => {
 // SUBCONTRACTORS
 // ============================================
 export const useSubcontractors = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['subcontractors'],
+    queryKey: ['subcontractors', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/subcontractors', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.subcontractors || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -376,15 +373,15 @@ export const useSubcontractors = () => {
 
 export const useCreateSubcontractor = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (subcontractorData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/subcontractors', subcontractorData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -396,15 +393,15 @@ export const useCreateSubcontractor = () => {
 
 export const useUpdateSubcontractor = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/subcontractors/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -416,15 +413,15 @@ export const useUpdateSubcontractor = () => {
 
 export const useDeleteSubcontractor = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/subcontractors/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -437,42 +434,42 @@ export const useDeleteSubcontractor = () => {
 // GOALS
 // ============================================
 export const useGoals = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['goals'],
+    queryKey: ['goals', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/goals', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.goals || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
 }
 
 export const useGoalDataPoints = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['goalDataPoints'],
+    queryKey: ['goalDataPoints', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/goals/data-points', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.dataPoints || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 30 * 60 * 1000, // Data points rarely change
     gcTime: 60 * 60 * 1000,
   })
@@ -480,15 +477,15 @@ export const useGoalDataPoints = () => {
 
 export const useCreateGoal = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (goalData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/goals', goalData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -500,15 +497,15 @@ export const useCreateGoal = () => {
 
 export const useUpdateGoal = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put(`/api/goals/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -520,15 +517,15 @@ export const useUpdateGoal = () => {
 
 export const useDeleteGoal = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/goals/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -541,22 +538,22 @@ export const useDeleteGoal = () => {
 // STATISTICS (Dashboard)
 // ============================================
 export const useStatistics = (period = 'total') => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['statistics', period],
+    queryKey: ['statistics', currentCompanyID, period],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/projects/statistics', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         params: { period },
       })
       return response.data
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -564,22 +561,22 @@ export const useStatistics = (period = 'total') => {
 
 // Monthly statistics for charts
 export const useMonthlyStatistics = (year) => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['monthlyStatistics', year],
+    queryKey: ['monthlyStatistics', currentCompanyID, year],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/projects/monthly-statistics', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         params: { year },
       })
       return response.data
     },
-    enabled: !!user && !!year,
+    enabled: !!user && !!currentCompanyID && !!year,
     staleTime: 10 * 60 * 1000, // 10 minutes - monthly data doesn't change often
     gcTime: 60 * 60 * 1000,
   })
@@ -589,21 +586,21 @@ export const useMonthlyStatistics = (year) => {
 // COMPANY INFO
 // ============================================
 export const useCompanyInfo = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['companyInfo'],
+    queryKey: ['companyInfo', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/company', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.company || null
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 10 * 60 * 1000, // Company info rarely changes
     gcTime: 60 * 60 * 1000,
   })
@@ -611,15 +608,15 @@ export const useCompanyInfo = () => {
 
 export const useUpdateCompanyInfo = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (companyData) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.put('/api/company', companyData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -633,21 +630,21 @@ export const useUpdateCompanyInfo = () => {
 // EMAIL WHITELIST
 // ============================================
 export const useEmailWhitelist = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['emailWhitelist'],
+    queryKey: ['emailWhitelist', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/whitelist', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.whitelist || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
@@ -655,15 +652,15 @@ export const useEmailWhitelist = () => {
 
 export const useAddToWhitelist = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (email) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/whitelist', { email }, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -675,15 +672,15 @@ export const useAddToWhitelist = () => {
 
 export const useRemoveFromWhitelist = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (id) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       await axios.delete(`/api/whitelist/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
     },
     onSuccess: () => {
@@ -698,21 +695,21 @@ export const useRemoveFromWhitelist = () => {
 
 // Get all conversations (messages grouped by customer/phone)
 export const useMessages = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['messages'],
+    queryKey: ['messages', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/messages', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.conversations || []
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 30 * 1000, // Data is fresh for 30 seconds (messages are more time-sensitive)
     gcTime: 5 * 60 * 1000,
   })
@@ -720,21 +717,21 @@ export const useMessages = () => {
 
 // Get conversation with a specific customer
 export const useConversation = (customerId) => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['conversation', customerId],
+    queryKey: ['conversation', currentCompanyID, customerId],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get(`/api/messages/conversation/${customerId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
-    enabled: !!user && !!customerId,
+    enabled: !!user && !!currentCompanyID && !!customerId,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   })
@@ -742,21 +739,21 @@ export const useConversation = (customerId) => {
 
 // Get unread message count (polls every 30 seconds)
 export const useUnreadMessageCount = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['unreadMessageCount'],
+    queryKey: ['unreadMessageCount', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/messages/unread-count', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data.unread_count || 0
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 15 * 1000, // Consider stale after 15 seconds
     gcTime: 5 * 60 * 1000,
     refetchInterval: 30 * 1000, // Poll every 30 seconds
@@ -766,19 +763,19 @@ export const useUnreadMessageCount = () => {
 // Send a new SMS message
 export const useSendMessage = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ customer_id, phone_number, message_body }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.post('/api/messages', {
         customer_id,
         phone_number,
         message_body,
       }, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -794,15 +791,15 @@ export const useSendMessage = () => {
 // Mark a single message as read
 export const useMarkMessageRead = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async (messageId) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.patch(`/api/messages/${messageId}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -816,18 +813,18 @@ export const useMarkMessageRead = () => {
 // Mark all messages in a conversation as read
 export const useMarkAllMessagesRead = () => {
   const queryClient = useQueryClient()
-  const getAuthToken = useAuthToken()
+  const getAuthHeaders = useAuthHeaders()
 
   return useMutation({
     mutationFn: async ({ customer_id, phone_number }) => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.patch('/api/messages/mark-all-read', {
         customer_id,
         phone_number,
       }, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
@@ -843,21 +840,21 @@ export const useMarkAllMessagesRead = () => {
 
 // Get SMS service (Infobip) configuration status
 export const useSmsStatus = () => {
-  const getAuthToken = useAuthToken()
-  const { user } = useAuth()
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
 
   return useQuery({
-    queryKey: ['smsStatus'],
+    queryKey: ['smsStatus', currentCompanyID],
     queryFn: async () => {
-      const token = await getAuthToken()
-      if (!token) throw new Error('Not authenticated')
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
 
       const response = await axios.get('/api/sms/status', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       return response.data
     },
-    enabled: !!user,
+    enabled: !!user && !!currentCompanyID,
     staleTime: 10 * 60 * 1000, // Configuration rarely changes
     gcTime: 30 * 60 * 1000,
   })

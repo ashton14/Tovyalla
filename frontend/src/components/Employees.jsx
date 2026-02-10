@@ -19,7 +19,7 @@ const USER_ROLES = [
 ]
 
 function Employees() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   const [activeTab, setActiveTab] = useState('employees')
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
@@ -66,9 +66,7 @@ function Employees() {
       }
 
       const response = await axios.get('/api/employees', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
 
       const employeesList = response.data.employees || []
@@ -123,16 +121,12 @@ function Employees() {
 
       if (editingEmployee) {
         await axios.put(`/api/employees/${editingEmployee.id}`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         })
         setSuccess('Employee updated successfully!')
       } else {
         await axios.post('/api/employees', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         })
         setSuccess('Employee added successfully!')
       }
@@ -159,9 +153,7 @@ function Employees() {
       }
 
       await axios.delete(`/api/employees/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
 
       setSuccess('Employee deleted successfully!')

@@ -4,7 +4,7 @@ import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
 
 function Subcontractors() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   const [subcontractors, setSubcontractors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -48,9 +48,7 @@ function Subcontractors() {
       }
 
       const response = await axios.get('/api/subcontractors', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
 
       setSubcontractors(response.data.subcontractors || [])
@@ -88,16 +86,12 @@ function Subcontractors() {
 
       if (editingSubcontractor) {
         await axios.put(`/api/subcontractors/${editingSubcontractor.id}`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         })
         setSuccess('Subcontractor updated successfully!')
       } else {
         await axios.post('/api/subcontractors', payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         })
         setSuccess('Subcontractor added successfully!')
       }
@@ -124,9 +118,7 @@ function Subcontractors() {
       }
 
       await axios.delete(`/api/subcontractors/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
       })
 
       setSuccess('Subcontractor deleted successfully!')
@@ -401,9 +393,7 @@ function Subcontractors() {
 
         try {
           await axios.post('/api/subcontractors', subcontractorData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: getAuthHeaders(token),
           })
           successCount++
           setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
