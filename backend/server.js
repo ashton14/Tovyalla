@@ -5235,13 +5235,13 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
       // Get projects marked as sold or complete from status history (consistent with dashboard)
       let soldQuery = supabase
         .from('project_status_history')
-        .select('project_id, projects!inner(id, est_value)')
+        .select('project_id, projects!inner(id, est_value, closing_price)')
         .eq('company_id', companyID)
         .eq('status', 'sold');
 
       let completeQuery = supabase
         .from('project_status_history')
-        .select('project_id, projects!inner(id, est_value)')
+        .select('project_id, projects!inner(id, est_value, closing_price)')
         .eq('company_id', companyID)
         .eq('status', 'complete');
 
@@ -5273,23 +5273,25 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
         processedProjectIds.add(record.project_id);
 
         const estValue = parseFloat(record.projects?.est_value || 0);
+        const closingPrice = parseFloat(record.projects?.closing_price || 0);
 
-        // Get revenue from milestones (customer_price) - same as dashboard
-        const { data: milestones } = await supabase
-          .from('milestones')
-          .select('customer_price')
-          .eq('project_id', record.project_id);
-
-        // Calculate revenue from milestones
+        // Revenue: closing_price > milestones > est_value (same as dashboard)
         let projectRevenue = 0;
-        if (milestones) {
-          milestones.forEach((milestone) => {
-            projectRevenue += parseFloat(milestone.customer_price || 0);
-          });
-        }
-        // If no milestones, fall back to est_value (same as dashboard)
-        if (projectRevenue === 0) {
-          projectRevenue = estValue;
+        if (closingPrice > 0) {
+          projectRevenue = closingPrice;
+        } else {
+          const { data: milestones } = await supabase
+            .from('milestones')
+            .select('customer_price')
+            .eq('project_id', record.project_id);
+          if (milestones) {
+            milestones.forEach((milestone) => {
+              projectRevenue += parseFloat(milestone.customer_price || 0);
+            });
+          }
+          if (projectRevenue === 0) {
+            projectRevenue = estValue;
+          }
         }
         totalRevenue += projectRevenue;
 
@@ -5394,37 +5396,40 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
     }
 
     case 'leads': {
-      let customersQuery = supabase
-        .from('customers')
-        .select('id, created_at')
+      // Use customer_status_history for consistency with dashboard (leads who became leads on or after startDate)
+      let leadsQuery = supabase
+        .from('customer_status_history')
+        .select('customer_id')
         .eq('company_id', companyID)
-        .eq('pipeline_status', 'lead');
+        .eq('status', 'lead');
 
       if (startDate) {
-        customersQuery = customersQuery.gte('created_at', startDate.toISOString());
+        leadsQuery = leadsQuery.gte('changed_at', startDate.toISOString());
       }
 
-      const { data: leads, error: leadsError } = await customersQuery;
+      const { data: leadsHistory, error: leadsError } = await leadsQuery;
       if (leadsError) return 0;
 
-      return (leads || []).length;
+      const uniqueLeads = new Set((leadsHistory || []).map((h) => h.customer_id));
+      return uniqueLeads.size;
     }
 
     case 'projects_sold': {
-      let projectsQuery = supabase
-        .from('projects')
-        .select('id, status, created_at')
+      let soldQuery = supabase
+        .from('project_status_history')
+        .select('project_id')
         .eq('company_id', companyID)
         .eq('status', 'sold');
 
       if (startDate) {
-        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+        soldQuery = soldQuery.gte('changed_at', startDate.toISOString());
       }
 
-      const { data: projects, error: projectsError } = await projectsQuery;
-      if (projectsError) return 0;
+      const { data: soldHistory, error: soldError } = await soldQuery;
+      if (soldError) return 0;
 
-      return (projects || []).length;
+      const uniqueIds = new Set((soldHistory || []).map((h) => h.project_id));
+      return uniqueIds.size;
     }
 
     case 'total_customers': {
@@ -5461,20 +5466,21 @@ async function calculateDataPointValue(dataPointType, companyID, startDate) {
     }
 
     case 'completed_projects': {
-      let projectsQuery = supabase
-        .from('projects')
-        .select('id, status, created_at')
+      let completeQuery = supabase
+        .from('project_status_history')
+        .select('project_id')
         .eq('company_id', companyID)
-        .eq('status', 'completed');
+        .eq('status', 'complete');
 
       if (startDate) {
-        projectsQuery = projectsQuery.gte('created_at', startDate.toISOString());
+        completeQuery = completeQuery.gte('changed_at', startDate.toISOString());
       }
 
-      const { data: projects, error: projectsError } = await projectsQuery;
-      if (projectsError) return 0;
+      const { data: completeHistory, error: completeError } = await completeQuery;
+      if (completeError) return 0;
 
-      return (projects || []).length;
+      const uniqueIds = new Set((completeHistory || []).map((h) => h.project_id));
+      return uniqueIds.size;
     }
 
     default:
