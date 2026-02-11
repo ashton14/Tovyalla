@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import EmailWhitelist from './EmailWhitelist'
 import DocumentsModal from './DocumentsModal'
+import { formatPhoneInput } from '../utils/phoneFormat'
 
 const USER_TYPES = [
   { value: 'admin', label: 'Admin' },
@@ -192,7 +193,7 @@ function Employees() {
       user_type: employee.user_type || 'employee',
       user_roles: rolesArray,
       email_address: employee.email_address || '',
-      phone: employee.phone || '',
+      phone: formatPhoneInput(employee.phone || ''),
       current: employee.current || false,
       registered_time_zone: employee.registered_time_zone || '',
       color: employee.color || '#0ea5e9',
@@ -407,7 +408,7 @@ function Employees() {
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, phone: formatPhoneInput(e.target.value) })}
                         placeholder="(555) 555-5555"
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />

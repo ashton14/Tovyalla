@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
 import AddressAutocomplete from './AddressAutocomplete'
+import { formatPhoneInput } from '../utils/phoneFormat'
 import {
   useCustomers,
   useCreateCustomer,
@@ -152,7 +153,7 @@ function Customers() {
       first_name: customer.first_name || '',
       last_name: customer.last_name || '',
       email: customer.email || '',
-      phone: customer.phone || '',
+      phone: formatPhoneInput(customer.phone || ''),
       address_line1: customer.address_line1 || '',
       address_line2: customer.address_line2 || '',
       city: customer.city || '',
@@ -690,7 +691,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, phone: formatPhoneInput(e.target.value) })}
                         placeholder="(555) 555-5555"
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />

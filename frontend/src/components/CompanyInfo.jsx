@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import { formatPhoneInput } from '../utils/phoneFormat'
 
 function CompanyInfo() {
   const { user, currentCompanyID, supabase, getAuthHeaders } = useAuth()
@@ -66,7 +67,7 @@ function CompanyInfo() {
           state: companyData.state || '',
           zip_code: companyData.zip_code || '',
           country: companyData.country || 'USA',
-          phone: companyData.phone || '',
+          phone: formatPhoneInput(companyData.phone || ''),
           website: companyData.website || '',
           license_numbers: companyData.license_numbers || [],
           terms_of_service: companyData.terms_of_service || '',
@@ -137,7 +138,7 @@ function CompanyInfo() {
         state: company.state || '',
         zip_code: company.zip_code || '',
         country: company.country || 'USA',
-        phone: company.phone || '',
+        phone: formatPhoneInput(company.phone || ''),
         website: company.website || '',
         license_numbers: company.license_numbers || [],
         terms_of_service: company.terms_of_service || '',
@@ -524,7 +525,7 @@ function CompanyInfo() {
                     <input
                       type="tel"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: formatPhoneInput(e.target.value) })}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="(555) 555-5555"
                     />

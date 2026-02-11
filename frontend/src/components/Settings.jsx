@@ -42,8 +42,7 @@ function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
-  // Which defaults modal is open: 'initial_fee' | 'final_fee' | 'subcontractor' | 'equipment_materials' | 'additional_expenses' | null
-  const [defaultsModalKey, setDefaultsModalKey] = useState(null)
+  const [initialDocPrefs, setInitialDocPrefs] = useState(null)
 
   // Fetch company settings on mount
   useEffect(() => {
@@ -58,9 +57,9 @@ function Settings() {
         
         if (response.data.company) {
           const company = response.data.company
-          setDocPrefs({
-            default_initial_fee_percent: company.default_initial_fee_percent ?? 10,
-            default_final_fee_percent: company.default_final_fee_percent ?? 10,
+          const prefs = {
+            default_initial_fee_percent: company.default_initial_fee_percent ?? '',
+            default_final_fee_percent: company.default_final_fee_percent ?? '',
             default_initial_fee_min: company.default_initial_fee_min ?? '',
             default_initial_fee_max: company.default_initial_fee_max ?? '',
             default_final_fee_min: company.default_final_fee_min ?? '',
@@ -80,7 +79,9 @@ function Settings() {
             auto_include_subcontractor: company.auto_include_subcontractor ?? true,
             auto_include_equipment_materials: company.auto_include_equipment_materials ?? true,
             auto_include_additional_expenses: company.auto_include_additional_expenses ?? true,
-          })
+          }
+          setDocPrefs(prefs)
+          setInitialDocPrefs(prefs)
         }
       } catch (error) {
         console.error('Error fetching company settings:', error)
@@ -106,9 +107,9 @@ function Settings() {
 
       if (data.company) {
         const c = data.company
-        setDocPrefs({
-          default_initial_fee_percent: c.default_initial_fee_percent ?? 10,
-          default_final_fee_percent: c.default_final_fee_percent ?? 10,
+        const prefs = {
+          default_initial_fee_percent: c.default_initial_fee_percent ?? '',
+          default_final_fee_percent: c.default_final_fee_percent ?? '',
           default_initial_fee_min: c.default_initial_fee_min ?? '',
           default_initial_fee_max: c.default_initial_fee_max ?? '',
           default_final_fee_min: c.default_final_fee_min ?? '',
@@ -128,7 +129,9 @@ function Settings() {
           auto_include_subcontractor: c.auto_include_subcontractor ?? true,
           auto_include_equipment_materials: c.auto_include_equipment_materials ?? true,
           auto_include_additional_expenses: c.auto_include_additional_expenses ?? true,
-        })
+        }
+        setDocPrefs(prefs)
+        setInitialDocPrefs(prefs)
       }
       
       setSaveMessage('Settings saved successfully!')
@@ -139,6 +142,8 @@ function Settings() {
       setSaving(false)
     }
   }
+
+  const hasChanges = initialDocPrefs && JSON.stringify(docPrefs) !== JSON.stringify(initialDocPrefs)
 
   if (!user) {
     return null
@@ -205,7 +210,7 @@ function Settings() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Auto-Include Options - each row has a "Set defaults" button */}
+            {/* Auto-Include Options with inline markup/min/max inputs */}
             <div>
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5 text-pool-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -214,23 +219,32 @@ function Settings() {
                 Auto-Include in Documents
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                Select which items to auto-include. Use <strong>Set defaults</strong> to configure default fee/markup %, min, and max for each.
+                Select which items to auto-include and configure default fee/markup %, min, and max for each.
               </p>
               <div className="space-y-3">
+                {/* Column headers */}
+                <div className="flex items-center justify-between gap-4 px-3 min-h-[24px]">
+                  <div className="flex-1" />
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="w-14 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Markup %</span>
+                    <span className="w-16 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Min</span>
+                    <span className="w-16 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Max</span>
+                  </div>
+                </div>
                 {[
-                  { key: 'initial_fee', label: 'Initial Payment', desc: 'Include initial fee milestone in payment schedule', prefKey: 'auto_include_initial_payment' },
-                  { key: 'final_fee', label: 'Final Payment', desc: 'Include final inspection milestone in payment schedule', prefKey: 'auto_include_final_payment' },
-                  { key: 'subcontractor', label: 'Subcontractor Work', desc: 'Include subcontractor fees in scope and milestones', prefKey: 'auto_include_subcontractor' },
-                  { key: 'equipment_materials', label: 'Equipment & Materials', desc: 'Include equipment and materials in scope and milestones', prefKey: 'auto_include_equipment_materials' },
-                  { key: 'additional_expenses', label: 'Additional Expenses', desc: 'Include additional project expenses in scope and milestones', prefKey: 'auto_include_additional_expenses' },
-                ].map(({ key, label, desc, prefKey }) => (
+                  { key: 'initial_fee', label: 'Initial Payment', desc: 'Include initial fee milestone in payment schedule', prefKey: 'auto_include_initial_payment', feeType: 'fee', percentKey: 'default_initial_fee_percent', minKey: 'default_initial_fee_min', maxKey: 'default_initial_fee_max' },
+                  { key: 'final_fee', label: 'Final Payment', desc: 'Include final inspection milestone in payment schedule', prefKey: 'auto_include_final_payment', feeType: 'fee', percentKey: 'default_final_fee_percent', minKey: 'default_final_fee_min', maxKey: 'default_final_fee_max' },
+                  { key: 'subcontractor', label: 'Subcontractor Work', desc: 'Include subcontractor fees in scope and milestones', prefKey: 'auto_include_subcontractor', feeType: 'markup', percentKey: 'default_subcontractor_markup_percent', minKey: 'default_subcontractor_fee_min', maxKey: 'default_subcontractor_fee_max' },
+                  { key: 'equipment_materials', label: 'Equipment & Materials', desc: 'Include equipment and materials in scope and milestones', prefKey: 'auto_include_equipment_materials', feeType: 'markup', percentKey: 'default_equipment_materials_markup_percent', minKey: 'default_equipment_materials_fee_min', maxKey: 'default_equipment_materials_fee_max' },
+                  { key: 'additional_expenses', label: 'Additional Expenses', desc: 'Include additional project expenses in scope and milestones', prefKey: 'auto_include_additional_expenses', feeType: 'markup', percentKey: 'default_additional_expenses_markup_percent', minKey: 'default_additional_expenses_fee_min', maxKey: 'default_additional_expenses_fee_max' },
+                ].map(({ key, label, desc, prefKey, feeType, percentKey, minKey, maxKey }) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    className="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[52px]"
                   >
                     <div
                       onClick={() => setDocPrefs(prev => ({ ...prev, [prefKey]: !prev[prefKey] }))}
-                      className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
+                      className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                     >
                       <div className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${docPrefs[prefKey] ? 'bg-pool-blue border-pool-blue' : 'border-gray-300 dark:border-gray-500'}`}>
                         {docPrefs[prefKey] && (
@@ -240,175 +254,59 @@ function Settings() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <span className="font-medium text-gray-900 dark:text-white">{label}</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
+                        <span className="font-medium text-gray-900 dark:text-white text-sm">{label}</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{desc}</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setDefaultsModalKey(key); }}
-                      className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-pool-blue hover:bg-pool-light dark:hover:bg-pool-blue/20 rounded-md transition-colors"
-                    >
-                      Set defaults
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                      <div className="relative w-14">
+                        <input
+                          type="number"
+                          value={docPrefs[percentKey] ?? ''}
+                          onChange={(e) => setDocPrefs(prev => ({ ...prev, [percentKey]: e.target.value === '' ? '' : (parseFloat(e.target.value) || 0) }))}
+                          min={0}
+                          max={feeType === 'fee' ? 100 : undefined}
+                          step={1}
+                          placeholder="-"
+                          className="w-full px-2 py-1.5 pr-6 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+                      </div>
+                      <div className="relative w-16">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                        <input
+                          type="number"
+                          value={docPrefs[minKey] ?? ''}
+                          onChange={(e) => setDocPrefs(prev => ({ ...prev, [minKey]: e.target.value }))}
+                          min={0}
+                          step={0.01}
+                          placeholder="-"
+                          className="w-full pl-5 pr-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                      <div className="relative w-16">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">$</span>
+                        <input
+                          type="number"
+                          value={docPrefs[maxKey] ?? ''}
+                          onChange={(e) => setDocPrefs(prev => ({ ...prev, [maxKey]: e.target.value }))}
+                          min={0}
+                          step={0.01}
+                          placeholder="-"
+                          className="w-full pl-5 pr-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Defaults modal for the selected category */}
-            {defaultsModalKey && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDefaultsModalKey(null)}>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    {defaultsModalKey === 'initial_fee' && 'Initial Payment defaults'}
-                    {defaultsModalKey === 'final_fee' && 'Final Payment defaults'}
-                    {defaultsModalKey === 'subcontractor' && 'Subcontractor Work defaults'}
-                    {defaultsModalKey === 'equipment_materials' && 'Equipment & Materials defaults'}
-                    {defaultsModalKey === 'additional_expenses' && 'Additional Expenses defaults'}
-                  </h4>
-                  <div className="space-y-4">
-                    {(['initial_fee', 'final_fee'].includes(defaultsModalKey)) ? (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fee %</label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={defaultsModalKey === 'initial_fee' ? docPrefs.default_initial_fee_percent : docPrefs.default_final_fee_percent}
-                              onChange={(e) => setDocPrefs(prev => ({
-                                ...prev,
-                                [defaultsModalKey === 'initial_fee' ? 'default_initial_fee_percent' : 'default_final_fee_percent']: parseFloat(e.target.value) || 0
-                              }))}
-                              min={0}
-                              max={100}
-                              step={1}
-                              className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min ($)</label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                              <input
-                                type="number"
-                                value={defaultsModalKey === 'initial_fee' ? docPrefs.default_initial_fee_min : docPrefs.default_final_fee_min}
-                                onChange={(e) => setDocPrefs(prev => ({
-                                  ...prev,
-                                  [defaultsModalKey === 'initial_fee' ? 'default_initial_fee_min' : 'default_final_fee_min']: e.target.value
-                                }))}
-                                min={0}
-                                step={0.01}
-                                placeholder="No min"
-                                className="w-full pl-7 pr-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max ($)</label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                              <input
-                                type="number"
-                                value={defaultsModalKey === 'initial_fee' ? docPrefs.default_initial_fee_max : docPrefs.default_final_fee_max}
-                                onChange={(e) => setDocPrefs(prev => ({
-                                  ...prev,
-                                  [defaultsModalKey === 'initial_fee' ? 'default_initial_fee_max' : 'default_final_fee_max']: e.target.value
-                                }))}
-                                min={0}
-                                step={0.01}
-                                placeholder="No max"
-                                className="w-full pl-7 pr-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Markup %</label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={docPrefs[`default_${defaultsModalKey}_markup_percent`] ?? ''}
-                              onChange={(e) => setDocPrefs(prev => ({ ...prev, [`default_${defaultsModalKey}_markup_percent`]: e.target.value === '' ? '' : parseFloat(e.target.value) }))}
-                              min={0}
-                              step={1}
-                              placeholder="0"
-                              className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">Leave blank for 0%</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min ($)</label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                              <input
-                                type="number"
-                                value={docPrefs[`default_${defaultsModalKey}_fee_min`] ?? ''}
-                                onChange={(e) => setDocPrefs(prev => ({ ...prev, [`default_${defaultsModalKey}_fee_min`]: e.target.value }))}
-                                min={0}
-                                step={0.01}
-                                placeholder="No min"
-                                className="w-full pl-7 pr-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max ($)</label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                              <input
-                                type="number"
-                                value={docPrefs[`default_${defaultsModalKey}_fee_max`] ?? ''}
-                                onChange={(e) => setDocPrefs(prev => ({ ...prev, [`default_${defaultsModalKey}_fee_max`]: e.target.value }))}
-                                min={0}
-                                step={0.01}
-                                placeholder="No max"
-                                className="w-full pl-7 pr-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex gap-2 mt-5">
-                    <button
-                      type="button"
-                      onClick={() => setDefaultsModalKey(null)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await saveDocPrefs()
-                        setDefaultsModalKey(null)
-                      }}
-                      disabled={saving}
-                      className="flex-1 px-3 py-2 bg-pool-blue hover:bg-pool-dark text-white font-medium rounded-md disabled:opacity-50"
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Save Button */}
             <div className="flex items-center gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={saveDocPrefs}
-                disabled={saving}
+                disabled={saving || !hasChanges}
                 className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-medium rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? (

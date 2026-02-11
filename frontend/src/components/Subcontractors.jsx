@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import DocumentsModal from './DocumentsModal'
+import { formatPhoneInput } from '../utils/phoneFormat'
 
 function Subcontractors() {
   const { user, supabase, getAuthHeaders } = useAuth()
@@ -141,7 +142,7 @@ function Subcontractors() {
     setFormData({
       name: subcontractor.name || '',
       primary_contact_name: subcontractor.primary_contact_name || '',
-      primary_contact_phone: subcontractor.primary_contact_phone || '',
+      primary_contact_phone: formatPhoneInput(subcontractor.primary_contact_phone || ''),
       primary_contact_email: subcontractor.primary_contact_email || '',
       coi_expiration: formatDateForInput(subcontractor.coi_expiration) || '',
       notes: subcontractor.notes || '',
@@ -678,7 +679,7 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                       <input
                         type="tel"
                         value={formData.primary_contact_phone}
-                        onChange={(e) => setFormData({ ...formData, primary_contact_phone: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, primary_contact_phone: formatPhoneInput(e.target.value) })}
                         placeholder="(555) 555-5555"
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />

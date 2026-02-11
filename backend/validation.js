@@ -45,12 +45,13 @@ export const whitelistPostValidation = [
 ];
 
 // --- Company (optional fields; validate types when present) ---
-// Settings sends '' for unset numeric fields; sanitize to undefined first so optional() skips validation (0 is valid)
+// Settings sends '' for unset numeric fields; sanitize to null so we can save null to DB (undefined would drop the field)
 const emptyStrToUndefined = (v) => (v === '' ? undefined : v);
+const emptyStrToNull = (v) => (v === '' ? null : v);
 const optionalEmail = () => body('email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).isEmail().withMessage('Invalid email format');
 const optionalUrl = () => body('website').trim().customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).isLength({ max: 2000 }).withMessage('Website URL is too long');
-const optionalPercent = (field) => body(field).customSanitizer(emptyStrToUndefined).optional().isFloat({ min: 0, max: 100 }).withMessage(`${field} must be between 0 and 100`);
-const optionalNonNegative = (field) => body(field).customSanitizer(emptyStrToUndefined).optional().isFloat({ min: 0 }).withMessage(`${field} must be a non-negative number`);
+const optionalPercent = (field) => body(field).customSanitizer(emptyStrToNull).optional({ values: 'null' }).isFloat({ min: 0, max: 100 }).withMessage(`${field} must be between 0 and 100`);
+const optionalNonNegative = (field) => body(field).customSanitizer(emptyStrToNull).optional({ values: 'null' }).isFloat({ min: 0 }).withMessage(`${field} must be a non-negative number`);
 const optionalBool = (field) => body(field).optional({ values: 'null' }).isBoolean().withMessage(`${field} must be true or false`);
 export const companyPutValidation = [
   body('company_name').optional().isLength({ max: 500 }).withMessage('Company name is too long'),
@@ -84,7 +85,7 @@ const maxStr = (len = 1000) => ({ max: len });
 export const customerPostValidation = [
   body('first_name').trim().notEmpty().withMessage('First name is required').isLength(maxStr(255)),
   body('last_name').trim().notEmpty().withMessage('Last name is required').isLength(maxStr(255)),
-  body('email').optional({ values: 'null' }).trim().isEmail().withMessage('Invalid email format'),
+  body('email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).trim().isEmail().withMessage('Invalid email format'),
   body('phone').optional({ values: 'null' }).trim().isLength(maxStr(50)),
   body('pipeline_status').optional().trim().isLength(maxStr(100)),
   body('estimated_value').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Estimated value must be non-negative'),
@@ -92,7 +93,7 @@ export const customerPostValidation = [
 export const customerPutValidation = [
   body('first_name').optional().trim().notEmpty().withMessage('First name cannot be empty').isLength(maxStr(255)),
   body('last_name').optional().trim().notEmpty().withMessage('Last name cannot be empty').isLength(maxStr(255)),
-  body('email').optional({ values: 'null' }).trim().isEmail().withMessage('Invalid email format'),
+  body('email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).trim().isEmail().withMessage('Invalid email format'),
   body('phone').optional({ values: 'null' }).trim().isLength(maxStr(50)),
   body('pipeline_status').optional().trim().isLength(maxStr(100)),
   body('estimated_value').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Estimated value must be non-negative'),

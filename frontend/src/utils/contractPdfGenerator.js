@@ -337,6 +337,14 @@ export const generateContractPdf = async (contractData) => {
         margin: [0, 0, 0, 20],
       } : { text: 'No customer assigned to this project.', style: 'note', margin: [0, 0, 0, 20] },
       
+      // ================== DESCRIPTION OF WORK ==================
+      { text: 'DESCRIPTION OF WORK', style: 'sectionHeader' },
+      project.accessories_features && project.accessories_features.trim() ? {
+        text: project.accessories_features.trim(),
+        style: 'paragraph',
+        margin: [0, 0, 0, 20],
+      } : { text: 'No description provided.', style: 'note', margin: [0, 0, 0, 20] },
+      
       // ================== SCOPE OF WORK ==================
       { text: 'SCOPE OF WORK', style: 'sectionHeader' },
       { text: 'The Contractor agrees to perform the following work:', style: 'paragraph' },

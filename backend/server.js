@@ -1320,13 +1320,13 @@ app.put('/api/company', companyPutValidation, handleValidationErrors, async (req
       if (body.license_numbers !== undefined) updatePayload.license_numbers = body.license_numbers;
       if (body.terms_of_service !== undefined) updatePayload.terms_of_service = body.terms_of_service;
 
-      if (body.default_initial_fee_percent !== undefined) updatePayload.default_initial_fee_percent = parseFloat(body.default_initial_fee_percent) || 0;
-      if (body.default_final_fee_percent !== undefined) updatePayload.default_final_fee_percent = parseFloat(body.default_final_fee_percent) || 0;
+      if (body.default_initial_fee_percent !== undefined) updatePayload.default_initial_fee_percent = (body.default_initial_fee_percent === '' || body.default_initial_fee_percent === null || body.default_initial_fee_percent === undefined) ? null : (parseFloat(body.default_initial_fee_percent) || 0);
+      if (body.default_final_fee_percent !== undefined) updatePayload.default_final_fee_percent = (body.default_final_fee_percent === '' || body.default_final_fee_percent === null || body.default_final_fee_percent === undefined) ? null : (parseFloat(body.default_final_fee_percent) || 0);
       if (body.default_initial_fee_min !== undefined) updatePayload.default_initial_fee_min = optionalNum(body.default_initial_fee_min);
       if (body.default_initial_fee_max !== undefined) updatePayload.default_initial_fee_max = optionalNum(body.default_initial_fee_max);
       if (body.default_final_fee_min !== undefined) updatePayload.default_final_fee_min = optionalNum(body.default_final_fee_min);
       if (body.default_final_fee_max !== undefined) updatePayload.default_final_fee_max = optionalNum(body.default_final_fee_max);
-      if (body.default_markup_percent !== undefined) updatePayload.default_markup_percent = parseFloat(body.default_markup_percent) ?? 30;
+      if (body.default_markup_percent !== undefined) updatePayload.default_markup_percent = (body.default_markup_percent === '' || body.default_markup_percent === null) ? null : (parseFloat(body.default_markup_percent) ?? 30);
 
       if (body.default_subcontractor_markup_percent !== undefined) updatePayload.default_subcontractor_markup_percent = (body.default_subcontractor_markup_percent === '' || body.default_subcontractor_markup_percent === null) ? null : parseFloat(body.default_subcontractor_markup_percent);
       if (body.default_subcontractor_fee_min !== undefined) updatePayload.default_subcontractor_fee_min = (body.default_subcontractor_fee_min === '' || body.default_subcontractor_fee_min === null) ? null : parseFloat(body.default_subcontractor_fee_min);
