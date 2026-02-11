@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const RADAR_API_BASE = 'https://api.radar.io/v1'
 const DEBOUNCE_MS = 500
 
+// Debug: check if Radar key is available (embedded at build time)
+console.log('Radar key configured:', !!import.meta.env.VITE_RADAR_PUBLISHABLE_KEY)
+
 /**
  * AddressAutocomplete - A reusable address autocomplete component using Radar API
  * 
