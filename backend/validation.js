@@ -111,6 +111,7 @@ export const employeePostValidation = [
   body('is_foreman').optional().isBoolean(),
   body('color').optional({ values: 'null' }).trim().isLength(maxStr(50)),
   body('date_of_birth').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('Date of birth must be YYYY-MM-DD'),
+  body('sms_opt_in').optional().isBoolean(),
 ];
 export const employeePutValidation = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength(maxStr(255)),
@@ -119,6 +120,7 @@ export const employeePutValidation = [
   body('current').optional().isBoolean(),
   body('color').optional({ values: 'null' }).trim().isLength(maxStr(50)),
   body('date_of_birth').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('Date of birth must be YYYY-MM-DD'),
+  body('sms_opt_in').optional().isBoolean(),
 ];
 
 // --- Projects ---

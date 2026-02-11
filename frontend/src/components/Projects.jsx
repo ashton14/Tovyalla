@@ -65,6 +65,12 @@ function Projects() {
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
+  const emptyProjectForm = {
+    project_name: '', customer_id: '', address: '', project_type: 'residential', pool_or_spa: 'pool',
+    sq_feet: '', status: 'proposal_sent', accessories_features: '', est_value: '', closing_price: '',
+    project_manager: '', notes: '',
+  }
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     project_name: '',
     customer_id: '',
@@ -86,6 +92,8 @@ function Projects() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || null
   }
+
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -135,7 +143,7 @@ function Projects() {
   // Handle edit
   const handleEdit = (project) => {
     setEditingProject(project)
-    setFormData({
+    const data = {
       project_name: project.project_name || '',
       customer_id: project.customer_id || '',
       address: project.address || '',
@@ -148,26 +156,16 @@ function Projects() {
       closing_price: project.closing_price || '',
       project_manager: project.project_manager || '',
       notes: project.notes || '',
-    })
+    }
+    setFormData(data)
+    setInitialFormData(data)
     setShowForm(true)
   }
 
   // Reset form
   const resetForm = () => {
-    setFormData({
-      project_name: '',
-      customer_id: '',
-      address: '',
-      project_type: 'residential',
-      pool_or_spa: 'pool',
-      sq_feet: '',
-      status: 'proposal_sent',
-      accessories_features: '',
-      est_value: '',
-      closing_price: '',
-      project_manager: '',
-      notes: '',
-    })
+    setFormData(emptyProjectForm)
+    setInitialFormData(emptyProjectForm)
   }
 
   // Filter projects
@@ -965,7 +963,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,proposal_sent,75
                 </button>
                 <button
                   type="submit"
-                  disabled={createProject.isPending || updateProject.isPending}
+                  disabled={createProject.isPending || updateProject.isPending || !hasChanges}
                   className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg disabled:opacity-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {(createProject.isPending || updateProject.isPending) ? (

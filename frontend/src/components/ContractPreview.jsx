@@ -423,6 +423,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const [priceInputByMilestoneId, setPriceInputByMilestoneId] = useState({}) // raw string while editing price
   const [setAllMarkupValue, setSetAllMarkupValue] = useState('') // quick "set all markups" input in header
   const [scopeOfWork, setScopeOfWork] = useState([])
+  const [initialMilestones, setInitialMilestones] = useState([])
+  const [initialScopeOfWork, setInitialScopeOfWork] = useState([])
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [nextMilestoneId, setNextMilestoneId] = useState(1)
@@ -756,6 +758,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       }
 
       setMilestones(loadedMilestones)
+      setInitialMilestones(loadedMilestones)
       setNextMilestoneId(nextId)
     } else {
       // Set default milestones for new documents using company defaults. Min/max apply only to initial values.
@@ -885,6 +888,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       }
 
       setMilestones(defaultMilestones)
+      setInitialMilestones(defaultMilestones)
       setNextMilestoneId(milestoneId)
     }
 
@@ -937,6 +941,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       })
 
       setScopeOfWork(loadedScope)
+      setInitialScopeOfWork(loadedScope)
       setNextScopeId(loadedScope.length + 1)
     } else {
       // Set default scope of work with only auto-generated items (no blank item)
@@ -948,6 +953,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       }))
 
       setScopeOfWork(defaultScope)
+      setInitialScopeOfWork(defaultScope)
       setNextScopeId(defaultScope.length + 1)
     }
   }, [contractData])
@@ -1210,6 +1216,9 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     return response.data
   }
 
+  const hasChanges = JSON.stringify(milestones) !== JSON.stringify(initialMilestones) ||
+    JSON.stringify(scopeOfWork) !== JSON.stringify(initialScopeOfWork)
+
   // Save all data (milestones and scope of work)
   const handleSaveOnly = async () => {
     if (milestones.length === 0) {
@@ -1220,6 +1229,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     setSaving(true)
     try {
       await Promise.all([saveMilestones(), saveScopeOfWork()])
+      setInitialMilestones(milestones)
+      setInitialScopeOfWork(scopeOfWork)
     } catch (error) {
       console.error('Error saving:', error)
       alert('Failed to save: ' + error.message)
@@ -1241,6 +1252,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     try {
       // Save milestones and scope of work to database first
       await Promise.all([saveMilestones(), saveScopeOfWork()])
+      setInitialMilestones(milestones)
+      setInitialScopeOfWork(scopeOfWork)
       setSaving(false)
 
       // Build the customer payment schedule from milestones in the preview
@@ -1960,7 +1973,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
             </button>
             <button
               onClick={handleSaveOnly}
-              disabled={generating || saving}
+              disabled={generating || saving || !hasChanges}
               className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-pool-blue hover:bg-pool-dark active:bg-pool-dark text-white font-medium rounded-lg sm:rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-sm order-2"
             >
               {saving && !generating ? (
@@ -1982,7 +1995,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
             </button>
             <button
               onClick={handleGeneratePdf}
-              disabled={generating || saving || customerTotal <= 0}
+              disabled={generating || saving || !hasChanges || customerTotal <= 0}
               className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-medium rounded-lg sm:rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-sm order-1 sm:order-3"
             >
               {saving ? (

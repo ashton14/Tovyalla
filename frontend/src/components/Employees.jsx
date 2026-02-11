@@ -54,6 +54,11 @@ function Employees() {
   const isEditingSelfOnly = editingEmployee && editingEmployee.id === currentUserEmployee?.id && !canModifyPrivileges
 
   // Form state
+  const emptyEmployeeForm = {
+    name: '', user_type: 'employee', user_roles: [], email_address: '', phone: '', current: false,
+    registered_time_zone: '', color: '#0ea5e9', date_of_birth: '', sms_opt_in: false,
+  }
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     user_type: 'employee',
@@ -61,6 +66,7 @@ function Employees() {
     email_address: '',
     phone: '',
     current: false,
+    sms_opt_in: false,
     registered_time_zone: '',
     color: '#0ea5e9', // Default blue color
     date_of_birth: '',
@@ -110,6 +116,8 @@ function Employees() {
     }
   }, [user])
 
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
+
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -131,6 +139,7 @@ function Employees() {
         is_sales_person: formData.user_roles.includes('sales'),
         is_foreman: formData.user_roles.includes('foreman'),
         current: formData.current || false,
+        sms_opt_in: formData.sms_opt_in === true,
         color: formData.color && formData.color.trim() !== '' ? formData.color.trim() : null,
         date_of_birth: formData.date_of_birth || null,
       }
@@ -184,37 +193,30 @@ function Employees() {
   // Handle edit
   const handleEdit = (employee) => {
     setEditingEmployee(employee)
-    // Convert stored user_role to array for multi-select
     const rolesArray = employee.user_role 
       ? employee.user_role.split(',').map(r => r.trim()).filter(r => r)
       : []
-    setFormData({
+    const data = {
       name: employee.name || '',
       user_type: employee.user_type || 'employee',
       user_roles: rolesArray,
       email_address: employee.email_address || '',
       phone: formatPhoneInput(employee.phone || ''),
       current: employee.current || false,
+      sms_opt_in: employee.sms_opt_in === true,
       registered_time_zone: employee.registered_time_zone || '',
       color: employee.color || '#0ea5e9',
       date_of_birth: employee.date_of_birth ? employee.date_of_birth.split('T')[0] : '',
-    })
+    }
+    setFormData(data)
+    setInitialFormData(JSON.parse(JSON.stringify(data)))
     setShowForm(true)
   }
 
   // Reset form
   const resetForm = () => {
-    setFormData({
-      name: '',
-      user_type: 'employee',
-      user_roles: [],
-      email_address: '',
-      phone: '',
-      current: false,
-      registered_time_zone: '',
-      color: '#0ea5e9',
-      date_of_birth: '',
-    })
+    setFormData(emptyEmployeeForm)
+    setInitialFormData(JSON.parse(JSON.stringify(emptyEmployeeForm)))
   }
 
   // Filter employees
@@ -412,6 +414,15 @@ function Employees() {
                         placeholder="(555) 555-5555"
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />
+                      <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.sms_opt_in || false}
+                          onChange={(e) => setFormData({ ...formData, sms_opt_in: e.target.checked })}
+                          className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-pool-blue focus:ring-pool-blue"
+                        />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Opt in to text message notifications</span>
+                      </label>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
@@ -599,7 +610,8 @@ function Employees() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  disabled={!hasChanges}
+                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

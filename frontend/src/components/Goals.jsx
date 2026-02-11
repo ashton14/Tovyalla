@@ -24,13 +24,11 @@ function Goals() {
   const [success, setSuccess] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingGoal, setEditingGoal] = useState(null)
-  const [formData, setFormData] = useState({
-    goal_name: '',
-    data_point_type: '',
-    target_value: '',
-    start_date: '',
-    target_date: '',
-  })
+  const emptyGoalForm = { goal_name: '', data_point_type: '', target_value: '', start_date: '', target_date: '' }
+  const [initialFormData, setInitialFormData] = useState(null)
+  const [formData, setFormData] = useState(emptyGoalForm)
+
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -84,32 +82,24 @@ function Goals() {
   // Handle edit
   const handleEdit = (goal) => {
     setEditingGoal(goal)
-    // Format dates for input (YYYY-MM-DD)
-    const startDate = goal.start_date 
-      ? new Date(goal.start_date).toISOString().split('T')[0]
-      : ''
-    const targetDate = goal.target_date 
-      ? new Date(goal.target_date).toISOString().split('T')[0]
-      : ''
-    setFormData({
+    const startDate = goal.start_date ? new Date(goal.start_date).toISOString().split('T')[0] : ''
+    const targetDate = goal.target_date ? new Date(goal.target_date).toISOString().split('T')[0] : ''
+    const data = {
       goal_name: goal.goal_name,
       data_point_type: goal.data_point_type,
       target_value: goal.target_value,
       start_date: startDate,
       target_date: targetDate,
-    })
+    }
+    setFormData(data)
+    setInitialFormData(data)
     setShowForm(true)
   }
 
   // Reset form
   const resetForm = () => {
-    setFormData({
-      goal_name: '',
-      data_point_type: '',
-      target_value: '',
-      start_date: '',
-      target_date: '',
-    })
+    setFormData(emptyGoalForm)
+    setInitialFormData(emptyGoalForm)
   }
 
   // Format currency
@@ -316,7 +306,7 @@ function Goals() {
                 </button>
                 <button
                   type="submit"
-                  disabled={createGoal.isPending || updateGoal.isPending}
+                  disabled={createGoal.isPending || updateGoal.isPending || !hasChanges}
                   className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg disabled:opacity-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {(createGoal.isPending || updateGoal.isPending) ? (

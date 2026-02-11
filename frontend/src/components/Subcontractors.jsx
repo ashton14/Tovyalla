@@ -23,6 +23,7 @@ function Subcontractors() {
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     primary_contact_name: '',
@@ -68,6 +69,8 @@ function Subcontractors() {
       fetchSubcontractors()
     }
   }, [user])
+
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -136,30 +139,28 @@ function Subcontractors() {
     return dateString.split('T')[0]
   }
 
+  const emptySubForm = { name: '', primary_contact_name: '', primary_contact_phone: '', primary_contact_email: '', coi_expiration: '', notes: '' }
+
   // Handle edit
   const handleEdit = (subcontractor) => {
     setEditingSubcontractor(subcontractor)
-    setFormData({
+    const data = {
       name: subcontractor.name || '',
       primary_contact_name: subcontractor.primary_contact_name || '',
       primary_contact_phone: formatPhoneInput(subcontractor.primary_contact_phone || ''),
       primary_contact_email: subcontractor.primary_contact_email || '',
       coi_expiration: formatDateForInput(subcontractor.coi_expiration) || '',
       notes: subcontractor.notes || '',
-    })
+    }
+    setFormData(data)
+    setInitialFormData(data)
     setShowForm(true)
   }
 
   // Reset form
   const resetForm = () => {
-    setFormData({
-      name: '',
-      primary_contact_name: '',
-      primary_contact_phone: '',
-      primary_contact_email: '',
-      coi_expiration: '',
-      notes: '',
-    })
+    setFormData(emptySubForm)
+    setInitialFormData(emptySubForm)
   }
 
   // Filter subcontractors
@@ -750,7 +751,8 @@ XYZ Plumbing,Jane Doe,555-0101,jane@xyz.com,2025-06-30`}
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  disabled={!hasChanges}
+                  className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

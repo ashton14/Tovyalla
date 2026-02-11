@@ -36,6 +36,7 @@ function Inventory() {
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
 
   // Form state
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     stock: '',
@@ -46,6 +47,8 @@ function Inventory() {
     unit_price: '',
     type: 'material',
   })
+
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
   // Get auth token for CSV import
   const getAuthToken = async () => {
@@ -106,7 +109,7 @@ function Inventory() {
   // Handle edit
   const handleEdit = (material) => {
     setEditingMaterial(material)
-    setFormData({
+    const data = {
       name: material.name || '',
       stock: material.stock || '',
       unit: material.unit || '',
@@ -115,8 +118,9 @@ function Inventory() {
       color: material.color || '',
       unit_price: material.unit_price || '',
       type: material.type || 'material',
-    })
-    // Switch to the appropriate tab based on item type
+    }
+    setFormData(data)
+    setInitialFormData(data)
     if (material.type === 'equipment') {
       setActiveTab('equipment')
     } else {
@@ -127,16 +131,12 @@ function Inventory() {
 
   // Reset form
   const resetForm = () => {
-    setFormData({
-      name: '',
-      stock: '',
-      unit: '',
-      brand: '',
-      model: '',
-      color: '',
-      unit_price: '',
+    const data = {
+      name: '', stock: '', unit: '', brand: '', model: '', color: '', unit_price: '',
       type: activeTab === 'materials' ? 'material' : 'equipment',
-    })
+    }
+    setFormData(data)
+    setInitialFormData(data)
   }
 
   // Open form with type set based on active tab
@@ -1170,7 +1170,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                 </button>
                 <button
                   type="submit"
-                  disabled={createItem.isPending || updateItem.isPending}
+                  disabled={createItem.isPending || updateItem.isPending || !hasChanges}
                   className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg disabled:opacity-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {(createItem.isPending || updateItem.isPending) ? (

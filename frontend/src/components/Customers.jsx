@@ -65,6 +65,7 @@ function Customers() {
   const [customLeadSource, setCustomLeadSource] = useState('')
 
   // Form state
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -88,6 +89,12 @@ function Customers() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || null
   }
+
+  const getEffectiveFormData = () => ({
+    ...formData,
+    referred_by: isCustomLeadSource ? customLeadSource : formData.referred_by,
+  })
+  const hasChanges = initialFormData != null && JSON.stringify(getEffectiveFormData()) !== JSON.stringify(initialFormData)
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -149,7 +156,7 @@ function Customers() {
       setCustomLeadSource('')
     }
     
-    setFormData({
+    const data = {
       first_name: customer.first_name || '',
       last_name: customer.last_name || '',
       email: customer.email || '',
@@ -164,28 +171,21 @@ function Customers() {
       pipeline_status: customer.pipeline_status || 'lead',
       notes: customer.notes || '',
       estimated_value: customer.estimated_value || '',
-    })
+    }
+    setFormData(data)
+    setInitialFormData({ ...data, referred_by: existingSource })
     setShowForm(true)
   }
 
   // Reset form
+  const emptyForm = {
+    first_name: '', last_name: '', email: '', phone: '', address_line1: '', address_line2: '',
+    city: '', state: '', zip_code: '', country: 'USA', referred_by: '', pipeline_status: 'lead',
+    notes: '', estimated_value: '',
+  }
   const resetForm = () => {
-    setFormData({
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      address_line1: '',
-      address_line2: '',
-      city: '',
-      state: '',
-      zip_code: '',
-      country: 'USA',
-      referred_by: '',
-      pipeline_status: 'lead',
-      notes: '',
-      estimated_value: '',
-    })
+    setFormData(emptyForm)
+    setInitialFormData(emptyForm)
     setIsCustomLeadSource(false)
     setCustomLeadSource('')
   }
@@ -908,7 +908,7 @@ Jane,Smith,jane@example.com,555-0101,Los Angeles,CA`}
                 </button>
                 <button
                   type="submit"
-                  disabled={createCustomer.isPending || updateCustomer.isPending}
+                  disabled={createCustomer.isPending || updateCustomer.isPending || !hasChanges}
                   className="px-6 py-2.5 bg-gradient-to-r from-pool-blue to-pool-dark hover:from-pool-dark hover:to-pool-blue text-white font-semibold rounded-lg disabled:opacity-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {(createCustomer.isPending || updateCustomer.isPending) ? (

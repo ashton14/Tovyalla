@@ -557,6 +557,13 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
     })
   }
 
+  const hasEditChanges = editingDocument && (
+    (editForm.name || '').trim() !== (editingDocument.name || editingDocument.file_name || '').trim() ||
+    editForm.document_type !== (editingDocument.document_type || 'other') ||
+    editForm.status !== (editingDocument.status || 'draft')
+  )
+  const hasNotesChanges = selectedDocumentForNotes && documentNotes !== (selectedDocumentForNotes.notes || '')
+
   // Handle save edit
   const handleSaveEdit = async () => {
     if (!editingDocument) return
@@ -1178,7 +1185,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
               </button>
               <button
                 onClick={handleSaveEdit}
-                disabled={saving}
+                disabled={saving || !hasEditChanges}
                 className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? (
@@ -1278,7 +1285,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   <button
                     type="button"
                     onClick={handleSaveNotes}
-                    disabled={savingNotes}
+                    disabled={savingNotes || !hasNotesChanges}
                     className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
                   >
                     {savingNotes ? 'Saving...' : 'Save Notes'}

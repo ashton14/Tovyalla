@@ -4258,6 +4258,7 @@ app.post('/api/employees', employeePostValidation, handleValidationErrors, async
       registered_time_zone,
       color,
       date_of_birth,
+      sms_opt_in,
     } = req.body;
 
     // Try to find existing auth user by email to link employee
@@ -4287,6 +4288,7 @@ app.post('/api/employees', employeePostValidation, handleValidationErrors, async
       is_foreman: is_foreman || false,
       registered_time_zone: registered_time_zone || null,
       date_of_birth: date_of_birth || null,
+      sms_opt_in: sms_opt_in === true,
     };
 
     // Handle color - ensure it's a string and trim it, or set to null if empty
@@ -4362,6 +4364,7 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
       registered_time_zone,
       color,
       date_of_birth,
+      sms_opt_in,
     } = req.body;
 
     if (!name) {
@@ -4372,12 +4375,13 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
     let updateData;
 
     if (isEditingSelf && !isAdminOrManager) {
-      // Regular employee editing self: only allow basic info (name, phone, TZ, DOB)
+      // Regular employee editing self: only allow basic info (name, phone, TZ, DOB, sms_opt_in)
       updateData = {
         name,
         phone: phone || null,
         registered_time_zone: registered_time_zone || null,
         date_of_birth: date_of_birth || null,
+        sms_opt_in: sms_opt_in === true,
         updated_at: new Date().toISOString(),
       };
     } else {
@@ -4393,6 +4397,7 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
         is_foreman: is_foreman || false,
         registered_time_zone: registered_time_zone || null,
         date_of_birth: date_of_birth || null,
+        sms_opt_in: sms_opt_in === true,
         updated_at: new Date().toISOString(),
       };
 

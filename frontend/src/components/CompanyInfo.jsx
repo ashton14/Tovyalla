@@ -13,6 +13,7 @@ function CompanyInfo() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  const [initialFormData, setInitialFormData] = useState(null)
   const [formData, setFormData] = useState({
     company_name: '',
     address_line1: '',
@@ -59,7 +60,7 @@ function CompanyInfo() {
       setCompany(companyData)
       
       if (companyData) {
-        setFormData({
+        const data = {
           company_name: companyData.company_name || '',
           address_line1: companyData.address_line1 || '',
           address_line2: companyData.address_line2 || '',
@@ -77,7 +78,9 @@ function CompanyInfo() {
           default_initial_fee_max: companyData.default_initial_fee_max || '',
           default_final_fee_min: companyData.default_final_fee_min || '',
           default_final_fee_max: companyData.default_final_fee_max || '',
-        })
+        }
+        setFormData(data)
+        setInitialFormData(data)
       }
     } catch (err) {
       console.error('Error fetching company:', err)
@@ -113,7 +116,29 @@ function CompanyInfo() {
         }
       )
 
-      setCompany(response.data.company)
+      const updated = response.data.company
+      setCompany(updated)
+      const data = {
+        company_name: updated.company_name || '',
+        address_line1: updated.address_line1 || '',
+        address_line2: updated.address_line2 || '',
+        city: updated.city || '',
+        state: updated.state || '',
+        zip_code: updated.zip_code || '',
+        country: updated.country || 'USA',
+        phone: formatPhoneInput(updated.phone || ''),
+        website: updated.website || '',
+        license_numbers: updated.license_numbers || [],
+        terms_of_service: updated.terms_of_service || '',
+        default_initial_fee_percent: updated.default_initial_fee_percent ?? 20,
+        default_final_fee_percent: updated.default_final_fee_percent ?? 80,
+        default_initial_fee_min: updated.default_initial_fee_min || '',
+        default_initial_fee_max: updated.default_initial_fee_max || '',
+        default_final_fee_min: updated.default_final_fee_min || '',
+        default_final_fee_max: updated.default_final_fee_max || '',
+      }
+      setFormData(data)
+      setInitialFormData(data)
       setEditing(false)
       setSuccess('Company information updated successfully!')
       
@@ -126,6 +151,8 @@ function CompanyInfo() {
       setSaving(false)
     }
   }
+
+  const hasChanges = initialFormData != null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
   // Handle cancel
   const handleCancel = () => {
@@ -607,7 +634,7 @@ function CompanyInfo() {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || !hasChanges}
                     className="px-6 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? 'Saving...' : 'Save Changes'}
