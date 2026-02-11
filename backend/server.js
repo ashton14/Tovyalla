@@ -186,6 +186,37 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Tovyalla CRM API is running' });
 });
 
+// Radar address autocomplete proxy (keeps API key server-side; works in production)
+app.get('/api/geocode/autocomplete', async (req, res) => {
+  try {
+    const apiKey = process.env.RADAR_PUBLISHABLE_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: 'Address autocomplete not configured' });
+    }
+    const { query } = req.query;
+    if (!query || typeof query !== 'string' || query.trim().length < 3) {
+      return res.json({ addresses: [] });
+    }
+    const params = new URLSearchParams({
+      query: query.trim(),
+      layers: 'address',
+      countryCode: 'US',
+      limit: '5',
+    });
+    const radarRes = await fetch(`https://api.radar.io/v1/search/autocomplete?${params}`, {
+      headers: { Authorization: apiKey },
+    });
+    const data = await radarRes.json();
+    if (!radarRes.ok) {
+      return res.status(radarRes.status).json(data);
+    }
+    res.json({ addresses: data.addresses || [] });
+  } catch (err) {
+    console.error('Radar autocomplete proxy error:', err);
+    res.status(500).json({ error: 'Failed to fetch address suggestions' });
+  }
+});
+
 // Login endpoint
 app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req, res) => {
   try {

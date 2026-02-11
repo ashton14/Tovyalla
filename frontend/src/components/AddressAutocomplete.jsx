@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const RADAR_API_BASE = 'https://api.radar.io/v1'
 const DEBOUNCE_MS = 500
-
-// Debug: check if Radar key is available (embedded at build time)
-console.log('Radar key configured:', !!import.meta.env.VITE_RADAR_PUBLISHABLE_KEY)
 
 /**
  * AddressAutocomplete - A reusable address autocomplete component using Radar API
@@ -60,7 +56,7 @@ function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Fetch suggestions from Radar API
+  // Fetch suggestions via backend proxy (keeps Radar key server-side, works in production)
   const fetchSuggestions = useCallback(async (query) => {
     if (!query || query.length < 3) {
       setSuggestions([])
@@ -68,35 +64,20 @@ function AddressAutocomplete({
       return
     }
 
-    const apiKey = import.meta.env.VITE_RADAR_PUBLISHABLE_KEY
-    if (!apiKey) {
-      console.warn('VITE_RADAR_PUBLISHABLE_KEY not configured. Address autocomplete disabled.')
-      setSuggestions([])
-      setNoResults(true)
-      return
-    }
-
     setIsLoading(true)
     setNoResults(false)
 
     try {
-      const params = new URLSearchParams({
-        query: query.trim(),
-        layers: 'address',
-        countryCode: 'US',
-        limit: '5',
-      })
-
-      const response = await fetch(
-        `${RADAR_API_BASE}/search/autocomplete?${params}`,
-        {
-          headers: {
-            Authorization: apiKey,
-          },
-        }
-      )
+      const params = new URLSearchParams({ query: query.trim() })
+      const response = await fetch(`/api/geocode/autocomplete?${params}`)
 
       if (!response.ok) {
+        if (response.status === 503) {
+          // Backend doesn't have RADAR_PUBLISHABLE_KEY configured
+          setSuggestions([])
+          setNoResults(true)
+          return
+        }
         throw new Error('Failed to fetch suggestions')
       }
 
