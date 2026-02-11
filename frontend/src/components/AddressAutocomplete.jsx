@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
+const RADAR_API_BASE = 'https://api.radar.io/v1'
+const DEBOUNCE_MS = 500
+
 /**
- * AddressAutocomplete - A reusable address autocomplete component using OpenStreetMap Nominatim API
+ * AddressAutocomplete - A reusable address autocomplete component using Radar API
  * 
  * Props:
  * - value: Current input value
@@ -54,11 +57,19 @@ function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Fetch suggestions from Nominatim API
+  // Fetch suggestions from Radar API
   const fetchSuggestions = useCallback(async (query) => {
     if (!query || query.length < 3) {
       setSuggestions([])
       setNoResults(false)
+      return
+    }
+
+    const apiKey = import.meta.env.VITE_RADAR_PUBLISHABLE_KEY
+    if (!apiKey) {
+      console.warn('VITE_RADAR_PUBLISHABLE_KEY not configured. Address autocomplete disabled.')
+      setSuggestions([])
+      setNoResults(true)
       return
     }
 
@@ -67,18 +78,17 @@ function AddressAutocomplete({
 
     try {
       const params = new URLSearchParams({
-        q: query,
-        format: 'json',
-        addressdetails: '1',
-        countrycodes: 'us',
+        query: query.trim(),
+        layers: 'address',
+        countryCode: 'US',
         limit: '5',
       })
 
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params}`,
+        `${RADAR_API_BASE}/search/autocomplete?${params}`,
         {
           headers: {
-            'User-Agent': 'Tovyalla CRM (ashtonalonge14@gmail.com)',
+            Authorization: apiKey,
           },
         }
       )
@@ -88,14 +98,10 @@ function AddressAutocomplete({
       }
 
       const data = await response.json()
-      
-      // Filter to only include results with house numbers for better accuracy
-      const filteredData = data.filter(
-        (item) => item.address && (item.address.house_number || item.address.road)
-      )
+      const addresses = data.addresses || []
 
-      setSuggestions(filteredData)
-      setNoResults(filteredData.length === 0 && query.length >= 3)
+      setSuggestions(addresses)
+      setNoResults(addresses.length === 0 && query.length >= 3)
       setShowDropdown(true)
     } catch (error) {
       console.error('Error fetching address suggestions:', error)
@@ -122,31 +128,18 @@ function AddressAutocomplete({
       clearTimeout(debounceRef.current)
     }
 
-    // Debounce API calls
+    // Debounce API calls (500ms after user stops typing)
     debounceRef.current = setTimeout(() => {
       fetchSuggestions(newValue)
-    }, 300)
+    }, DEBOUNCE_MS)
   }
 
-  // Parse address from Nominatim result
-  const parseAddress = (result) => {
-    const addr = result.address || {}
-    
-    // Build street address
-    const houseNumber = addr.house_number || ''
-    const road = addr.road || addr.street || ''
-    const streetAddress = [houseNumber, road].filter(Boolean).join(' ')
-
-    // Get city (Nominatim uses different fields depending on the location)
-    const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || ''
-
-    // Get state
-    const state = addr.state || ''
-
-    // Get zip/postal code
-    const zipCode = addr.postcode || ''
-
-    // Get country
+  // Parse address from Radar API result
+  const parseAddress = (addr) => {
+    const streetAddress = addr.addressLabel || [addr.number, addr.street].filter(Boolean).join(' ') || ''
+    const city = addr.city || ''
+    const state = addr.state || addr.stateCode || ''
+    const zipCode = addr.postalCode || ''
     const country = addr.country || 'USA'
 
     return {
@@ -155,7 +148,7 @@ function AddressAutocomplete({
       state,
       zip_code: zipCode,
       country,
-      full_address: result.display_name,
+      full_address: addr.formattedAddress || [streetAddress, city, state, zipCode].filter(Boolean).join(', '),
     }
   }
 
@@ -222,27 +215,14 @@ function AddressAutocomplete({
     }
   }
 
-  // Format display address for dropdown
-  const formatDisplayAddress = (result) => {
-    const addr = result.address || {}
+  // Format display address for dropdown (Radar address object)
+  const formatDisplayAddress = (addr) => {
     const parts = []
-
-    // Street
-    if (addr.house_number || addr.road) {
-      const street = [addr.house_number, addr.road].filter(Boolean).join(' ')
-      parts.push(street)
-    }
-
-    // City
-    const city = addr.city || addr.town || addr.village || ''
-    if (city) parts.push(city)
-
-    // State
-    if (addr.state) parts.push(addr.state)
-
-    // Zip
-    if (addr.postcode) parts.push(addr.postcode)
-
+    const street = addr.addressLabel || [addr.number, addr.street].filter(Boolean).join(' ')
+    if (street) parts.push(street)
+    if (addr.city) parts.push(addr.city)
+    if (addr.state || addr.stateCode) parts.push(addr.state || addr.stateCode)
+    if (addr.postalCode) parts.push(addr.postalCode)
     return parts.join(', ')
   }
 
@@ -277,7 +257,7 @@ function AddressAutocomplete({
           {suggestions.length > 0 ? (
             suggestions.map((result, index) => (
               <button
-                key={result.place_id}
+                key={result.formattedAddress || `${result.latitude}-${result.longitude}-${index}`}
                 type="button"
                 onClick={() => handleSelect(result)}
                 className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${

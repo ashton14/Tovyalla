@@ -166,13 +166,13 @@ export const subcontractorPostValidation = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength(maxStr(500)),
   body('primary_contact_name').optional({ values: 'null' }).trim().isLength(maxStr(255)),
   body('primary_contact_phone').optional({ values: 'null' }).trim().isLength(maxStr(50)),
-  body('primary_contact_email').optional({ values: 'null' }).trim().isEmail().withMessage('Invalid primary contact email'),
+  body('primary_contact_email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).trim().isEmail().withMessage('Invalid primary contact email'),
   body('coi_expiration').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}/.test(v)).withMessage('COI expiration must be a valid date (YYYY-MM-DD)'),
   body('notes').optional({ values: 'null' }).trim().isLength(maxStr(5000)),
 ];
 export const subcontractorPutValidation = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength(maxStr(500)),
-  body('primary_contact_email').optional({ values: 'null' }).trim().isEmail().withMessage('Invalid primary contact email'),
+  body('primary_contact_email').customSanitizer(emptyStrToUndefined).optional({ values: 'null' }).trim().isEmail().withMessage('Invalid primary contact email'),
   body('coi_expiration').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}/.test(v)).withMessage('COI expiration must be a valid date (YYYY-MM-DD)'),
   body('notes').optional({ values: 'null' }).trim().isLength(maxStr(5000)),
 ];

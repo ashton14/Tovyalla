@@ -421,6 +421,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const [activeTab, setActiveTab] = useState('scope') // 'scope' or 'milestones'
   const [milestones, setMilestones] = useState([])
   const [priceInputByMilestoneId, setPriceInputByMilestoneId] = useState({}) // raw string while editing price
+  const [setAllMarkupValue, setSetAllMarkupValue] = useState('') // quick "set all markups" input in header
   const [scopeOfWork, setScopeOfWork] = useState([])
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -639,8 +640,32 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
     // Load milestones
     if (savedMilestones && savedMilestones.length > 0) {
+      const docType = contractData.documentType || 'contract'
+      const company = contractData.company || {}
+      const parseMinVal = (val) => { if (val == null || val === '') return null; const n = parseFloat(val); return Number.isNaN(n) ? null : n }
+      const parseMaxVal = (val) => { if (val == null || val === '') return null; const n = parseFloat(val); return Number.isNaN(n) ? null : n }
+      const getCategoryMinMaxForType = (milestoneType) => {
+        if (milestoneType === 'subcontractor') return { min: parseMinVal(company.default_subcontractor_fee_min), max: parseMaxVal(company.default_subcontractor_fee_max) }
+        if (milestoneType === 'equipment_materials') return { min: parseMinVal(company.default_equipment_materials_fee_min), max: parseMaxVal(company.default_equipment_materials_fee_max) }
+        if (milestoneType === 'additional') return { min: parseMinVal(company.default_additional_expenses_fee_min), max: parseMaxVal(company.default_additional_expenses_fee_max) }
+        return { min: null, max: null }
+      }
+      const applyInitialMinMax = (cost, markupPercent, min, max) => {
+        if (cost <= 0) return markupPercent
+        let price = cost * (1 + (markupPercent || 0) / 100)
+        if (min != null && price < min) price = min
+        if (max != null && price > max) price = max
+        return roundTo2(((price - cost) / cost) * 100)
+      }
+      const subcontractorMarkup = company.default_subcontractor_markup_percent ?? defaultMarkup
+      const equipmentMaterialsMarkup = company.default_equipment_materials_markup_percent ?? defaultMarkup
+      const additionalExpensesMarkup = company.default_additional_expenses_markup_percent ?? defaultMarkup
+      const autoIncludeSubcontractor = company.auto_include_subcontractor !== false
+      const autoIncludeEquipmentMaterials = company.auto_include_equipment_materials !== false
+      const autoIncludeAdditional = company.auto_include_additional_expenses !== false
+
       // Convert saved milestones to our new format with cost and markupPercent (costs/prices rounded to 2 decimals)
-      const loadedMilestones = savedMilestones.map((m, idx) => {
+      let loadedMilestones = savedMilestones.map((m, idx) => {
         const rawCost = m.cost ?? calculateMilestoneCost(m.milestone_type, m.subcontractor_fee_id, m.additional_expense_id)
         return {
           id: `milestone-${idx + 1}`,
@@ -653,8 +678,85 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           additionalExpenseId: m.additional_expense_id || null,
         }
       })
+
+      // Find expenses already covered by saved milestones; add milestones for new ones
+      const coveredSubcontractorIds = new Set(loadedMilestones.filter(m => m.milestoneType === 'subcontractor').map(m => m.subcontractorFeeId).filter(Boolean))
+      const hasEquipmentMaterials = loadedMilestones.some(m => m.milestoneType === 'equipment_materials')
+      const coveredAdditionalIds = new Set(loadedMilestones.filter(m => m.milestoneType === 'additional').map(m => m.additionalExpenseId).filter(Boolean))
+
+      const newMilestones = []
+      let nextId = loadedMilestones.length + 1
+
+      if (autoIncludeSubcontractor && expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
+        const { min, max } = getCategoryMinMaxForType('subcontractor')
+        expenses.subcontractorFees.forEach((fee) => {
+          const feeId = fee.id || null
+          if (feeId && coveredSubcontractorIds.has(feeId)) return
+          const jobDesc = fee.job_description || 'Work'
+          const cost = roundTo2(parseFloat(fee.flat_fee || fee.expected_value || 0))
+          newMilestones.push({
+            id: `milestone-${nextId++}`,
+            name: jobDesc,
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, subcontractorMarkup, min, max) : subcontractorMarkup,
+            flatPrice: null,
+            milestoneType: 'subcontractor',
+            subcontractorFeeId: feeId,
+          })
+        })
+      }
+
+      if (autoIncludeEquipmentMaterials && !hasEquipmentMaterials) {
+        const hasEquipment = expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0
+        const hasMaterials = expenses.materials && expenses.materials.length > 0
+        if (hasEquipment || hasMaterials) {
+          let equipmentMaterialsCost = 0
+          if (expenses.equipment && Array.isArray(expenses.equipment)) {
+            expenses.equipment.forEach(eq => { equipmentMaterialsCost += parseFloat(eq.actual_price || eq.expected_price || 0) })
+          }
+          if (expenses.materials) {
+            expenses.materials.forEach(mat => { equipmentMaterialsCost += parseFloat(mat.actual_price || mat.expected_price || 0) })
+          }
+          const cost = roundTo2(equipmentMaterialsCost)
+          const { min, max } = getCategoryMinMaxForType('equipment_materials')
+          newMilestones.push({
+            id: `milestone-${nextId++}`,
+            name: 'Equipment & Materials',
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, equipmentMaterialsMarkup, min, max) : equipmentMaterialsMarkup,
+            flatPrice: null,
+            milestoneType: 'equipment_materials',
+          })
+        }
+      }
+
+      if (autoIncludeAdditional && expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
+        const { min, max } = getCategoryMinMaxForType('additional')
+        expenses.additionalExpenses.forEach((exp) => {
+          const expId = exp.id || null
+          if (expId && coveredAdditionalIds.has(expId)) return
+          const description = exp.description || 'Additional Service'
+          const cost = roundTo2(parseFloat(exp.amount || exp.expected_value || 0))
+          newMilestones.push({
+            id: `milestone-${nextId++}`,
+            name: description,
+            cost,
+            markupPercent: cost > 0 ? applyInitialMinMax(cost, additionalExpensesMarkup, min, max) : additionalExpensesMarkup,
+            flatPrice: null,
+            milestoneType: 'additional',
+            additionalExpenseId: expId,
+          })
+        })
+      }
+
+      if (newMilestones.length > 0) {
+        const finalIdx = loadedMilestones.findIndex(m => m.milestoneType === 'final_inspection')
+        const insertAt = finalIdx >= 0 ? finalIdx : loadedMilestones.length
+        loadedMilestones = [...loadedMilestones.slice(0, insertAt), ...newMilestones, ...loadedMilestones.slice(insertAt)]
+      }
+
       setMilestones(loadedMilestones)
-      setNextMilestoneId(loadedMilestones.length + 1)
+      setNextMilestoneId(nextId)
     } else {
       // Set default milestones for new documents using company defaults. Min/max apply only to initial values.
       const docType = contractData.documentType || 'contract'
@@ -881,6 +983,13 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       }
       return { ...m, [fieldOrUpdates]: value }
     }))
+  }
+
+  const setAllMarkups = (rawValue) => {
+    const n = parseFloat(rawValue)
+    if (Number.isNaN(n)) return
+    setMilestones(prev => prev.map(m => ({ ...m, markupPercent: n })))
+    setSetAllMarkupValue('')
   }
 
   // Parse optional min/max from company. Returns null when not set; otherwise the number (0 is valid for min).
@@ -1736,7 +1845,19 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                         <th className="w-10"></th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Milestone Name</th>
                         <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-24">Cost</th>
-                        <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-24">Markup %</th>
+                        <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-24">
+                          <span className="block">Markup %</span>
+                          <input
+                            type="number"
+                            placeholder="Set All"
+                            value={setAllMarkupValue}
+                            onChange={(e) => setSetAllMarkupValue(e.target.value)}
+                            onBlur={(e) => setAllMarkups(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { setAllMarkups(e.target.value); e.target.blur(); } }}
+                            className="mt-1 w-full text-right text-sm border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            title="Set all markups"
+                          />
+                        </th>
                         <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-36">Price</th>
                         <th className="w-16"></th>
                       </tr>

@@ -10,6 +10,23 @@ Tovyalla/
 └── ...
 ```
 
+## Optional Radar Variables (Address Autocomplete)
+
+Add this to your `.env` file for address/location autocomplete in Customers and Projects:
+
+```env
+# Radar Maps (address autocomplete)
+VITE_RADAR_PUBLISHABLE_KEY=prj_test_pk_... or prj_live_pk_...
+```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_RADAR_PUBLISHABLE_KEY` | No | Radar publishable API key for address autocomplete. Use Test key for dev, Live for production. |
+
+**Note:** If not set, address autocomplete will show "No addresses found" and a console warning. The publishable key is safe to expose client-side. Get your key at [Radar Dashboard](https://dashboard.radar.com/settings).
+
+---
+
 ## Required BoldSign Variables
 
 Add these to your `.env` file for electronic signature functionality:
