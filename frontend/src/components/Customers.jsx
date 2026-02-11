@@ -36,7 +36,7 @@ const LEAD_SOURCES = [
 ]
 
 function Customers() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   
   // Use cached query for customers
   const { data: customers = [], isLoading: loading, refetch } = useCustomers()
@@ -377,7 +377,7 @@ function Customers() {
         try {
           await axios.post('/api/customers', customerData, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              ...getAuthHeaders(token),
             },
           })
           successCount++

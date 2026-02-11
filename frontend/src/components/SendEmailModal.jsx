@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
 function SendEmailModal({ document, projectName, customerEmail, onClose, onSuccess }) {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   
@@ -61,9 +61,7 @@ function SendEmailModal({ document, projectName, customerEmail, onClose, onSucce
           documentId: document.id,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(token),
         }
       )
 

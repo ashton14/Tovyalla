@@ -10,7 +10,7 @@ import {
 } from '../hooks/useApi'
 
 function Inventory() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   
   // Use cached query for inventory
   const { data: materials = [], isLoading: loading, refetch } = useInventory()
@@ -332,7 +332,7 @@ function Inventory() {
         try {
           await axios.post('/api/inventory', materialData, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              ...getAuthHeaders(token),
             },
           })
           successCount++

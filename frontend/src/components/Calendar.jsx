@@ -20,7 +20,7 @@ const localizer = dateFnsLocalizer({
 })
 
 function Calendar() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   
   // Google Calendar state
   const [googleConnected, setGoogleConnected] = useState(false)
@@ -95,7 +95,7 @@ function Calendar() {
 
       const response = await axios.get('/api/google/calendar/status', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       })
 
@@ -119,7 +119,7 @@ function Calendar() {
 
       const response = await axios.get('/api/google/oauth/authorize', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       })
 
@@ -144,7 +144,7 @@ function Calendar() {
 
       await axios.post('/api/google/calendar/disconnect', {}, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       })
 
@@ -177,7 +177,7 @@ function Calendar() {
 
       const response = await axios.get('/api/google/calendar/events', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
         params: {
           timeMin,
@@ -239,14 +239,14 @@ function Calendar() {
       if (editingGoogleEvent) {
         await axios.put(`/api/google/calendar/events/${editingGoogleEvent.id}`, payload, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...getAuthHeaders(token),
           },
         })
         setGoogleSuccess('Event updated successfully!')
       } else {
         await axios.post('/api/google/calendar/events', payload, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...getAuthHeaders(token),
           },
         })
         setGoogleSuccess('Event added successfully!')
@@ -277,7 +277,7 @@ function Calendar() {
 
       await axios.delete(`/api/google/calendar/events/${eventId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       })
 

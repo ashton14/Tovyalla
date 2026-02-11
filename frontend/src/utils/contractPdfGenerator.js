@@ -431,7 +431,7 @@ export const generateContractPdf = async (contractData) => {
             ],
           },
         ],
-        margin: [0, 0, 0, 30],
+        margin: [0, 24, 0, 30],
       },
       
       // Contractor Signature Block
@@ -458,7 +458,7 @@ export const generateContractPdf = async (contractData) => {
             ],
           },
         ],
-        margin: [0, 0, 0, 30],
+        margin: [0, 24, 0, 30],
       },
       
       // ================== DOCUMENT FOOTER ==================

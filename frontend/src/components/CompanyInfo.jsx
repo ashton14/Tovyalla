@@ -655,7 +655,12 @@ function CompanyInfo() {
                       <div>
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Website:</span>
                         <p className="text-sm text-gray-900 dark:text-white mt-1">
-                          <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-pool-blue hover:underline">
+                          <a
+                            href={/^https?:\/\//i.test(company.website) ? company.website : `https://${company.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-pool-blue hover:underline"
+                          >
                             {company.website}
                           </a>
                         </p>

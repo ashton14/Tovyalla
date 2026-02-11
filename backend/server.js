@@ -4222,6 +4222,7 @@ app.post('/api/employees', employeePostValidation, handleValidationErrors, async
       is_foreman,
       registered_time_zone,
       color,
+      date_of_birth,
     } = req.body;
 
     // Try to find existing auth user by email to link employee
@@ -4250,6 +4251,7 @@ app.post('/api/employees', employeePostValidation, handleValidationErrors, async
       is_sales_person: is_sales_person || false,
       is_foreman: is_foreman || false,
       registered_time_zone: registered_time_zone || null,
+      date_of_birth: date_of_birth || null,
     };
 
     // Handle color - ensure it's a string and trim it, or set to null if empty
@@ -4297,11 +4299,26 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
       return res.status(404).json({ error: 'Employee not found' });
     }
 
+    // Get requesting user's employee record
+    const userEmail = user.email?.toLowerCase();
+    const { data: requesterEmployee } = await supabase
+      .from('employees')
+      .select('id, user_type')
+      .eq('company_id', companyID)
+      .eq('email_address', userEmail)
+      .maybeSingle();
+
+    const isEditingSelf = requesterEmployee && existingEmployee.id === requesterEmployee.id;
+    const isAdminOrManager = requesterEmployee && ['admin', 'manager', 'owner'].includes(requesterEmployee.user_type);
+
+    if (!isEditingSelf && !isAdminOrManager) {
+      return res.status(403).json({ error: 'You can only edit your own basic information. Contact an admin or manager to update other employees.' });
+    }
+
     const {
       name,
       user_type,
       user_role,
-      email_address,
       phone,
       current,
       is_project_manager,
@@ -4309,31 +4326,47 @@ app.put('/api/employees/:id', employeePutValidation, handleValidationErrors, asy
       is_foreman,
       registered_time_zone,
       color,
+      date_of_birth,
     } = req.body;
 
-    if (!name || !email_address) {
-      return res.status(400).json({ error: 'Name and email address are required' });
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
     }
 
-    const updateData = {
-      name,
-      user_type: user_type || 'employee',
-      user_role: user_role || null,
-      email_address,
-      phone: phone || null,
-      current: current || false,
-      is_project_manager: is_project_manager || false,
-      is_sales_person: is_sales_person || false,
-      is_foreman: is_foreman || false,
-      registered_time_zone: registered_time_zone || null,
-      updated_at: new Date().toISOString(),
-    };
+    // Never update email_address - it ties to whitelist and changing it would cause loss of access
+    let updateData;
 
-    // Handle color - ensure it's a string and trim it, or set to null if empty
-    if (color !== undefined && color !== null && typeof color === 'string' && color.trim() !== '') {
-      updateData.color = color.trim();
+    if (isEditingSelf && !isAdminOrManager) {
+      // Regular employee editing self: only allow basic info (name, phone, TZ, DOB)
+      updateData = {
+        name,
+        phone: phone || null,
+        registered_time_zone: registered_time_zone || null,
+        date_of_birth: date_of_birth || null,
+        updated_at: new Date().toISOString(),
+      };
     } else {
-      updateData.color = null;
+      // Admin/manager: full update (except email - never change)
+      updateData = {
+        name,
+        user_type: user_type || 'employee',
+        user_role: user_role || null,
+        phone: phone || null,
+        current: current || false,
+        is_project_manager: is_project_manager || false,
+        is_sales_person: is_sales_person || false,
+        is_foreman: is_foreman || false,
+        registered_time_zone: registered_time_zone || null,
+        date_of_birth: date_of_birth || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Handle color - ensure it's a string and trim it, or set to null if empty
+      if (color !== undefined && color !== null && typeof color === 'string' && color.trim() !== '') {
+        updateData.color = color.trim();
+      } else {
+        updateData.color = null;
+      }
     }
 
     const { data, error } = await supabase

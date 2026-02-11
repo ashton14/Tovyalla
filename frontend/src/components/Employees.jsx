@@ -18,6 +18,17 @@ const USER_ROLES = [
   { value: 'other', label: 'Other' },
 ]
 
+// US time zones for dropdown
+const TIME_ZONES = [
+  { value: '', label: 'Select time zone' },
+  { value: 'America/Los_Angeles', label: 'Pacific Standard Time (PST): UTC-8' },
+  { value: 'America/Denver', label: 'Mountain Standard Time (MST): UTC-7' },
+  { value: 'America/Chicago', label: 'Central Standard Time (CST): UTC-6' },
+  { value: 'America/New_York', label: 'Eastern Standard Time (EST): UTC-5' },
+  { value: 'America/Anchorage', label: 'Alaska Standard Time (AKST): UTC-9' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii-Aleutian Standard Time (HST): UTC-10' },
+]
+
 function Employees() {
   const { user, supabase, getAuthHeaders } = useAuth()
   const [activeTab, setActiveTab] = useState('employees')
@@ -36,6 +47,10 @@ function Employees() {
   
   // Check if current user is admin, manager, or owner (can modify user types, roles, active status)
   const canModifyPrivileges = currentUserEmployee?.user_type === 'admin' || currentUserEmployee?.user_type === 'manager' || currentUserEmployee?.user_type === 'owner'
+  // Can edit an employee: self (basic info only) or admin/manager (full edit)
+  const canEditEmployee = (emp) => emp?.id === currentUserEmployee?.id || canModifyPrivileges
+  // Editing self without admin/manager: only basic info (name, email, phone, TZ)
+  const isEditingSelfOnly = editingEmployee && editingEmployee.id === currentUserEmployee?.id && !canModifyPrivileges
 
   // Form state
   const [formData, setFormData] = useState({
@@ -47,6 +62,7 @@ function Employees() {
     current: false,
     registered_time_zone: '',
     color: '#0ea5e9', // Default blue color
+    date_of_birth: '',
   })
 
   // Get auth token
@@ -115,6 +131,7 @@ function Employees() {
         is_foreman: formData.user_roles.includes('foreman'),
         current: formData.current || false,
         color: formData.color && formData.color.trim() !== '' ? formData.color.trim() : null,
+        date_of_birth: formData.date_of_birth || null,
       }
       // Remove user_roles from payload as we've converted it to user_role
       delete payload.user_roles
@@ -179,6 +196,7 @@ function Employees() {
       current: employee.current || false,
       registered_time_zone: employee.registered_time_zone || '',
       color: employee.color || '#0ea5e9',
+      date_of_birth: employee.date_of_birth ? employee.date_of_birth.split('T')[0] : '',
     })
     setShowForm(true)
   }
@@ -194,6 +212,7 @@ function Employees() {
       current: false,
       registered_time_zone: '',
       color: '#0ea5e9',
+      date_of_birth: '',
     })
   }
 
@@ -361,16 +380,25 @@ function Employees() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Email Address <span className="text-red-500">*</span>
+                        Email Address {!editingEmployee && <span className="text-red-500">*</span>}
                       </label>
-                      <input
-                        type="email"
-                        value={formData.email_address}
-                        onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
-                        required
-                        placeholder="john@company.com"
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
-                      />
+                      {editingEmployee ? (
+                        <p className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm">
+                          {formData.email_address}
+                        </p>
+                      ) : (
+                        <input
+                          type="email"
+                          value={formData.email_address}
+                          onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
+                          required
+                          placeholder="john@company.com"
+                          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                        />
+                      )}
+                      {editingEmployee && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -385,20 +413,41 @@ function Employees() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Zone</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
                       <input
-                        type="text"
-                        value={formData.registered_time_zone}
-                        onChange={(e) => setFormData({ ...formData, registered_time_zone: e.target.value })}
-                        placeholder="e.g., America/Los_Angeles"
+                        type="date"
+                        value={formData.date_of_birth}
+                        onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Zone</label>
+                      <select
+                        value={formData.registered_time_zone}
+                        onChange={(e) => setFormData({ ...formData, registered_time_zone: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                      >
+                        {TIME_ZONES.map((tz) => (
+                          <option key={tz.value || 'empty'} value={tz.value}>
+                            {tz.label}
+                          </option>
+                        ))}
+                        {formData.registered_time_zone && !TIME_ZONES.some((tz) => tz.value === formData.registered_time_zone) && (
+                          <option value={formData.registered_time_zone}>
+                            {formData.registered_time_zone} (current)
+                          </option>
+                        )}
+                      </select>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Role & Classification */}
+              {/* Role & Classification - Admin/Manager only when editing others; hidden when editing self as regular employee */}
+              {!isEditingSelfOnly && (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -505,8 +554,10 @@ function Employees() {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Calendar Settings */}
+              {/* Calendar Settings - Admin/Manager only when editing others; hidden when editing self as regular employee */}
+              {!isEditingSelfOnly && (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -534,6 +585,7 @@ function Employees() {
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Used for this employee's events on the calendar</p>
                 </div>
               </div>
+              )}
 
               {/* Footer Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -697,24 +749,28 @@ function Employees() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleEdit(employee)}
-                            className="p-1 text-pool-blue hover:text-pool-dark hover:bg-blue-50 rounded"
-                            title="Edit"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(employee.id)}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                            title="Delete"
-                          >
+                          {canEditEmployee(employee) && (
+                            <button
+                              onClick={() => handleEdit(employee)}
+                              className="p-1 text-pool-blue hover:text-pool-dark hover:bg-blue-50 rounded"
+                              title="Edit"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
+                          {canModifyPrivileges && (
+                            <button
+                              onClick={() => handleDelete(employee.id)}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>

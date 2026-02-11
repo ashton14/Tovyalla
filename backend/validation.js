@@ -109,14 +109,15 @@ export const employeePostValidation = [
   body('is_sales_person').optional().isBoolean(),
   body('is_foreman').optional().isBoolean(),
   body('color').optional({ values: 'null' }).trim().isLength(maxStr(50)),
+  body('date_of_birth').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('Date of birth must be YYYY-MM-DD'),
 ];
 export const employeePutValidation = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength(maxStr(255)),
-  body('email_address').optional().trim().notEmpty().withMessage('Email cannot be empty').isEmail().withMessage('Invalid email format'),
   body('user_type').optional().trim().isIn(['admin', 'manager', 'owner', 'employee']).withMessage('Invalid user type'),
   body('phone').optional({ values: 'null' }).trim().isLength(maxStr(50)),
   body('current').optional().isBoolean(),
   body('color').optional({ values: 'null' }).trim().isLength(maxStr(50)),
+  body('date_of_birth').optional({ values: 'null' }).trim().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('Date of birth must be YYYY-MM-DD'),
 ];
 
 // --- Projects ---
@@ -176,7 +177,7 @@ export const subcontractorPutValidation = [
 ];
 
 // --- Goals ---
-const dataPointTypes = ['revenue', 'projects_sold', 'projects_completed', 'custom'];
+const dataPointTypes = ['profit', 'est_value', 'leads', 'projects_sold', 'total_customers', 'active_projects', 'completed_projects'];
 export const goalPostValidation = [
   body('goal_name').trim().notEmpty().withMessage('Goal name is required').isLength(maxStr(255)),
   body('data_point_type').trim().notEmpty().withMessage('Data point type is required').isIn(dataPointTypes).withMessage('Invalid data point type'),

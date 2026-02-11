@@ -48,7 +48,7 @@ const formatDateString = (dateString) => {
 }
 
 function ProjectExpenses({ project, onClose }) {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   const [loading, setLoading] = useState(true)
   const [expenses, setExpenses] = useState(null)
   const [subcontractors, setSubcontractors] = useState([])
@@ -124,7 +124,7 @@ function ProjectExpenses({ project, onClose }) {
       if (!token) throw new Error('Not authenticated')
 
       const response = await axios.get(`/api/projects/${project.id}/expenses`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(token),
       })
 
       setExpenses(response.data)
@@ -145,10 +145,10 @@ function ProjectExpenses({ project, onClose }) {
       try {
         const [subsRes, invRes] = await Promise.all([
           axios.get('/api/subcontractors', {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: getAuthHeaders(token),
           }),
           axios.get('/api/inventory', {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: getAuthHeaders(token),
           }),
         ])
 
@@ -186,14 +186,14 @@ function ProjectExpenses({ project, onClose }) {
         await axios.put(
           `/api/projects/${project.id}/expenses/subcontractor-fees/${editingSubcontractor.id}`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Subcontractor fee updated!')
       } else {
         await axios.post(
           `/api/projects/${project.id}/expenses/subcontractor-fees`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Subcontractor fee added!')
       }
@@ -247,7 +247,7 @@ function ProjectExpenses({ project, onClose }) {
 
       await axios.delete(
         `/api/projects/${project.id}/expenses/subcontractor-fees/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders(token) }
       )
 
       setSuccess('Entry deleted!')
@@ -282,14 +282,14 @@ function ProjectExpenses({ project, onClose }) {
         await axios.put(
           `/api/projects/${project.id}/expenses/materials/${editingMaterial.id}`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Material updated!')
       } else {
         await axios.post(
           `/api/projects/${project.id}/expenses/materials`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Material added!')
       }
@@ -341,7 +341,7 @@ function ProjectExpenses({ project, onClose }) {
 
       await axios.delete(
         `/api/projects/${project.id}/expenses/materials/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders(token) }
       )
 
       setSuccess('Entry deleted!')
@@ -371,14 +371,14 @@ function ProjectExpenses({ project, onClose }) {
         await axios.put(
           `/api/projects/${project.id}/expenses/additional/${editingAdditional.id}`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Expense updated!')
       } else {
         await axios.post(
           `/api/projects/${project.id}/expenses/additional`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Expense added!')
       }
@@ -427,7 +427,7 @@ function ProjectExpenses({ project, onClose }) {
 
       await axios.delete(
         `/api/projects/${project.id}/expenses/additional/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders(token) }
       )
 
       setSuccess('Expense deleted!')
@@ -462,14 +462,14 @@ function ProjectExpenses({ project, onClose }) {
         await axios.put(
           `/api/projects/${project.id}/expenses/equipment/${editingEquipment.id}`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Equipment updated!')
       } else {
         await axios.post(
           `/api/projects/${project.id}/expenses/equipment`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: getAuthHeaders(token) }
         )
         setSuccess('Equipment added!')
       }
@@ -519,7 +519,7 @@ function ProjectExpenses({ project, onClose }) {
 
       await axios.delete(
         `/api/projects/${project.id}/expenses/equipment/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders(token) }
       )
 
       setSuccess('Equipment deleted!')

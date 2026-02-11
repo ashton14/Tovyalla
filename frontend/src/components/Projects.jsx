@@ -34,7 +34,7 @@ const PROJECT_STATUSES = [
 ]
 
 function Projects() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, getAuthHeaders } = useAuth()
   
   // Use cached queries
   const { data: projects = [], isLoading: loading, refetch } = useProjects()
@@ -429,7 +429,7 @@ function Projects() {
         try {
           await axios.post('/api/projects', projectData, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              ...getAuthHeaders(token),
             },
           })
           successCount++

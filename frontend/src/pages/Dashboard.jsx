@@ -22,6 +22,7 @@ import Goals from '../components/Goals'
 import Settings from '../components/Settings'
 import Subscription from '../components/Subscription'
 import Messages from '../components/Messages'
+import BirthdayPopup, { getBirthdayEmployees, wasBirthdayDismissedToday, dismissBirthdayToday } from '../components/BirthdayPopup'
 import { useEmployees, useProjects, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
 
 const CHART_METRICS = [
@@ -43,6 +44,7 @@ function Dashboard() {
   const [chartYear, setChartYear] = useState(new Date().getFullYear())
   const [chartMetric, setChartMetric] = useState('value')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showBirthdayPopup, setShowBirthdayPopup] = useState(false)
 
   // Use cached queries
   const { data: employees = [] } = useEmployees()
@@ -82,6 +84,14 @@ function Dashboard() {
       navigate('/')
     }
   }, [user, loading, navigate])
+
+  // Show birthday popup once per day when employees have birthdays today
+  useEffect(() => {
+    const birthdayEmps = getBirthdayEmployees(employees)
+    if (birthdayEmps.length > 0 && !wasBirthdayDismissedToday()) {
+      setShowBirthdayPopup(true)
+    }
+  }, [employees])
 
   // Handle URL query parameters for section navigation (e.g., from OAuth redirect)
   useEffect(() => {
@@ -157,8 +167,19 @@ function Dashboard() {
     setSidebarOpen(false)
   }
 
+  const birthdayEmployees = getBirthdayEmployees(employees)
+  const handleCloseBirthday = () => {
+    dismissBirthdayToday()
+    setShowBirthdayPopup(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Birthday popup - shows once per day when employees have birthdays */}
+      {showBirthdayPopup && birthdayEmployees.length > 0 && (
+        <BirthdayPopup employees={birthdayEmployees} onClose={handleCloseBirthday} />
+      )}
+
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
