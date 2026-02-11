@@ -186,10 +186,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Tovyalla CRM API is running' });
 });
 
+// Log Radar key status at startup (check Railway logs)
+const radarKey = process.env.RADAR_PUBLISHABLE_KEY || process.env.VITE_RADAR_PUBLISHABLE_KEY;
+console.log('Radar autocomplete:', radarKey ? 'configured' : 'NOT configured (add RADAR_PUBLISHABLE_KEY or VITE_RADAR_PUBLISHABLE_KEY to env)');
+
 // Radar address autocomplete proxy (keeps API key server-side; works in production)
 app.get('/api/geocode/autocomplete', async (req, res) => {
   try {
-    const apiKey = process.env.RADAR_PUBLISHABLE_KEY;
+    const apiKey = process.env.RADAR_PUBLISHABLE_KEY || process.env.VITE_RADAR_PUBLISHABLE_KEY;
     if (!apiKey) {
       return res.status(503).json({ error: 'Address autocomplete not configured' });
     }
