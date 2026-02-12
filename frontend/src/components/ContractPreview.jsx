@@ -5,10 +5,13 @@ import { getContractPdfBlob } from '../utils/contractPdfGenerator'
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  DragOverlay,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -184,8 +187,61 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
   )
 }
 
+// Custom collision detection: prefer nest zones when pointer is over them
+
+const scopeCollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args)
+  const nestCollision = pointerCollisions.find((c) => String(c.id).startsWith('nest-'))
+  if (nestCollision) {
+    return [nestCollision, ...pointerCollisions.filter((c) => c.id !== nestCollision.id)]
+  }
+  return pointerCollisions
+}
+
+// Drag overlay content - shows parent + children when dragging a parent
+const ScopeDragOverlayContent = ({ item, subtree }) => {
+  if (!item) return null
+  const isParent = subtree && subtree.length > 1
+  return (
+    <div className="rounded-lg border-2 border-pool-blue bg-white dark:bg-gray-800 shadow-xl overflow-hidden min-w-[200px] max-w-[320px]">
+      <div className="p-3 border-b border-gray-200 dark:border-gray-600">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+            {isParent ? '▸ Section' : 'Work Item'}
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            {item.title || '(Untitled)'}
+          </span>
+        </div>
+      </div>
+      {isParent && subtree.slice(1).map((child) => (
+        <div key={child.id} className="px-4 py-2 bg-pool-light/30 dark:bg-pool-blue/20 border-l-4 border-l-pool-blue">
+          <span className="text-xs text-pool-blue dark:text-pool-300">↳</span>
+          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 truncate">{child.title || '(Untitled)'}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Subscope droppable zone - when a scope is dropped here, it becomes a child
+const SubscopeDropZone = ({ parentId, onAddClick, children, fullHeight }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: `nest-${parentId}` })
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      onClick={onAddClick}
+      className={`group flex items-center justify-center rounded flex-shrink-0 transition-colors cursor-pointer ${fullHeight ? 'w-12 min-h-[4rem] py-2' : 'w-10 h-10'} ${isOver ? 'bg-pool-light ring-2 ring-pool-blue' : 'hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+      title="Add subscope (or drop here to nest)"
+    >
+      {children}
+    </button>
+  )
+}
+
 // Sortable mobile card component for scope of work - defined outside to prevent recreation on render
-const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateScopeItem }) => {
+const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateScopeItem, addSubscope, promoteToRoot, nestUnder, parentOptions, isSubscope, hasChildren }) => {
   const {
     attributes,
     listeners,
@@ -205,12 +261,44 @@ const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateSc
     <div
       ref={setNodeRef}
       style={style}
-      className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${isDragging ? 'shadow-lg' : ''}`}
+      className={`p-4 rounded-lg border ${isSubscope ? 'ml-8 pl-4 border-l-4 border-l-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600 bg-white dark:bg-gray-800'} ${index % 2 === 0 && !isSubscope ? 'bg-gray-50/50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg' : ''}`}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           <DragHandle listeners={listeners} attributes={attributes} />
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Work Item {index + 1}</span>
+          {!isSubscope ? (
+            <SubscopeDropZone parentId={item.id} onAddClick={() => addSubscope(item.id)}>
+              <svg className="w-4 h-4 text-gray-500 group-hover:text-pool-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16M4 12h16" />
+              </svg>
+            </SubscopeDropZone>
+          ) : (
+            <button
+              onClick={() => promoteToRoot(item.id)}
+              className="p-1 text-gray-500 hover:text-pool-blue"
+              title="Move to top level"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7h-10M17 7v10" />
+              </svg>
+            </button>
+          )}
+          <span className={`text-xs font-medium uppercase tracking-wide ${isSubscope ? 'text-pool-blue dark:text-pool-300' : 'text-gray-600 dark:text-gray-400'}`}>
+            {isSubscope ? '↳ Subscope' : (hasChildren ? '▸ Section' : 'Work Item')} {index + 1}
+          </span>
+          {parentOptions?.length > 0 && (
+            <select
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue max-w-[140px]"
+              value=""
+              onChange={(e) => { const v = e.target.value; if (v) { nestUnder(item.id, v); e.target.value = ''; } }}
+              title="Make subscope of..."
+            >
+              <option value="">Make subscope of...</option>
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>{(p.title || '(Untitled)').slice(0, 20)}{(p.title?.length > 20 ? '…' : '')}</option>
+              ))}
+            </select>
+          )}
         </div>
         {scopeLength > 1 && (
           <button
@@ -356,7 +444,7 @@ const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilest
 }
 
 // Sortable table row for scope of work (desktop) - defined outside to prevent recreation on render
-const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateScopeItem }) => {
+const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateScopeItem, addSubscope, promoteToRoot, nestUnder, parentOptions, isSubscope, hasChildren }) => {
   const {
     attributes,
     listeners,
@@ -376,19 +464,54 @@ const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateSco
     <tr
       ref={setNodeRef}
       style={style}
-      className={`border-b border-gray-100 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
+      className={`border-b border-gray-100 dark:border-gray-700 ${isSubscope ? 'bg-pool-light/30 dark:bg-pool-blue/20 border-l-4 border-l-pool-blue' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600'} ${index % 2 === 0 && !isSubscope ? 'bg-gray-50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
     >
       <td className="py-3 px-2 w-10 align-top">
         <DragHandle listeners={listeners} attributes={attributes} />
       </td>
+      <td className="py-3 px-2 w-12 align-top">
+        {!isSubscope ? (
+          <SubscopeDropZone parentId={item.id} onAddClick={() => addSubscope(item.id)} fullHeight>
+            <svg className="w-4 h-4 text-gray-500 group-hover:text-pool-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16M4 12h16" />
+            </svg>
+          </SubscopeDropZone>
+        ) : (
+          <button
+            type="button"
+            onClick={() => promoteToRoot(item.id)}
+            className="p-1 text-gray-500 hover:text-pool-blue"
+            title="Move to top level"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7h-10M17 7v10" />
+            </svg>
+          </button>
+        )}
+      </td>
       <td className="py-3 px-4 align-top">
-        <input
-          type="text"
-          value={item.title}
-          onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
-          placeholder="Enter work title"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="text"
+            value={item.title}
+            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+            placeholder="Enter work title"
+            className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          {parentOptions?.length > 0 && (
+            <select
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue"
+              value=""
+              onChange={(e) => { const v = e.target.value; if (v) { nestUnder(item.id, v); e.target.value = ''; } }}
+              title="Make subscope of..."
+            >
+              <option value="">Make subscope of...</option>
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>{p.title || '(Untitled)'}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </td>
       <td className="py-3 px-4 align-top">
         <textarea
@@ -423,6 +546,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   const [priceInputByMilestoneId, setPriceInputByMilestoneId] = useState({}) // raw string while editing price
   const [setAllMarkupValue, setSetAllMarkupValue] = useState('') // quick "set all markups" input in header
   const [scopeOfWork, setScopeOfWork] = useState([])
+  const [activeScopeDragId, setActiveScopeDragId] = useState(null)
   const [initialMilestones, setInitialMilestones] = useState([])
   const [initialScopeOfWork, setInitialScopeOfWork] = useState([])
   const [generating, setGenerating] = useState(false)
@@ -463,14 +587,98 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     })
   )
 
+  // Helper: move a contiguous block within an array
+  const moveBlock = (arr, fromStart, fromEnd, toIndex) => {
+    const block = arr.slice(fromStart, fromEnd + 1)
+    const rest = [...arr.slice(0, fromStart), ...arr.slice(fromEnd + 1)]
+    let insertIdx = toIndex
+    if (toIndex > fromStart) insertIdx = toIndex - (fromEnd - fromStart + 1)
+    insertIdx = Math.max(0, Math.min(insertIdx, rest.length))
+    return [...rest.slice(0, insertIdx), ...block, ...rest.slice(insertIdx)]
+  }
+
+  // Get scope items in preorder (parent before children) for display
+  const scopeInPreorder = (items) => {
+    const byParent = {}
+    items.forEach((item) => {
+      const pid = item.parent_id || '__root__'
+      if (!byParent[pid]) byParent[pid] = []
+      byParent[pid].push(item)
+    })
+    const result = []
+    const add = (pid) => {
+      (byParent[pid] || []).forEach((item) => {
+        result.push(item)
+        add(item.id)
+      })
+    }
+    add('__root__')
+    return result
+  }
+
+  // Get subtree (parent + descendants) in preorder for overlay
+  const getSubtreeForOverlay = (rootId) => {
+    const ordered = scopeInPreorder(scopeOfWork)
+    const idx = ordered.findIndex((i) => i.id === rootId)
+    if (idx < 0) return []
+    const collectDescendantIds = (pid) => {
+      const direct = scopeOfWork.filter((i) => i.parent_id === pid).map((i) => i.id)
+      return [pid, ...direct.flatMap((id) => collectDescendantIds(id))]
+    }
+    const descendantIds = new Set(collectDescendantIds(rootId))
+    let end = idx
+    while (end + 1 < ordered.length && descendantIds.has(ordered[end + 1].id)) end++
+    return ordered.slice(idx, end + 1)
+  }
+
   // Handle drag end for scope of work
   const handleScopeDragEnd = (event) => {
     const { active, over } = event
-    if (active.id !== over?.id) {
+    setActiveScopeDragId(null)
+    if (!over) return
+    const overId = String(over.id)
+    const collectDescendantIds = (items, pid) => {
+      const direct = items.filter((i) => i.parent_id === pid).map((i) => i.id)
+      return [pid, ...direct.flatMap((id) => collectDescendantIds(items, id))]
+    }
+    const isDescendantOf = (items, potentialDescId, ancestorId) =>
+      ancestorId !== potentialDescId && collectDescendantIds(items, ancestorId).includes(potentialDescId)
+    // Drop on nest zone: make dragged item a subscope of that parent
+    // When nesting a scope that has children, those children also become direct children of the new parent
+    if (overId.startsWith('nest-')) {
+      const parentId = overId.replace('nest-', '')
+      if (parentId === active.id) return // can't nest under self
       setScopeOfWork((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id)
-        const newIndex = items.findIndex((item) => item.id === over.id)
-        return arrayMove(items, oldIndex, newIndex)
+        if (isDescendantOf(items, parentId, active.id)) return items // can't nest parent under its own child
+        const movedIds = new Set(collectDescendantIds(items, active.id))
+        const updated = items.map((i) => (movedIds.has(i.id) ? { ...i, parent_id: parentId } : i))
+        return scopeInPreorder(updated)
+      })
+      return
+    }
+    // Normal reorder (drop on another sortable item) - adopt target's level
+    if (active.id !== over.id) {
+      setScopeOfWork((items) => {
+        const ordered = scopeInPreorder(items)
+        const oldIndex = ordered.findIndex((item) => item.id === active.id)
+        const newIndex = ordered.findIndex((item) => item.id === over.id)
+        if (oldIndex < 0 || newIndex < 0) return items
+        if (isDescendantOf(items, over.id, active.id)) return items // can't drop parent onto its own descendant
+        const descendantIds = new Set(collectDescendantIds(items, active.id))
+        let endIndex = oldIndex
+        for (let i = oldIndex + 1; i < ordered.length; i++) {
+          if (descendantIds.has(ordered[i].id)) endIndex = i
+          else break // descendants are contiguous in preorder
+        }
+        const target = ordered[newIndex]
+        const newParentId = target?.parent_id ?? null
+        // Move whole subtree (parent + children) as a block when parent has descendants
+        const reordered = descendantIds.size > 1
+          ? moveBlock(ordered, oldIndex, endIndex, newIndex)
+          : arrayMove(ordered, oldIndex, newIndex)
+        return reordered.map((item) =>
+          item.id === active.id ? { ...item, parent_id: newParentId } : item
+        )
       })
     }
   }
@@ -913,9 +1121,10 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     // Load scope of work items
     if (savedScopeOfWork && savedScopeOfWork.length > 0) {
       let loadedScope = savedScopeOfWork.map((item, idx) => ({
-        id: `scope-${idx + 1}`,
+        id: item.id || `scope-${idx + 1}`,
         title: item.title || '',
         description: item.description || '',
+        parent_id: item.parent_id || null,
       }))
       
       // Process each auto-generated item
@@ -935,6 +1144,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
             id: `scope-${loadedScope.length + 1}`,
             title: autoItem.title,
             description: autoItem.description,
+            parent_id: null,
             isAutoGenerated: true,
           })
         }
@@ -949,6 +1159,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         id: `scope-${idx + 1}`,
         title: autoItem.title,
         description: autoItem.description,
+        parent_id: null,
         isAutoGenerated: true,
       }))
 
@@ -1107,20 +1318,81 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
   // ==================== SCOPE OF WORK FUNCTIONS ====================
 
-  // Add a new scope of work item
+  // Add a new scope of work item (top-level)
   const addScopeItem = () => {
     const newItem = {
       id: `scope-${nextScopeId}`,
       title: '',
       description: '',
+      parent_id: null,
     }
     setScopeOfWork(prev => [...prev, newItem])
     setNextScopeId(prev => prev + 1)
   }
 
-  // Remove a scope of work item
+  // Add a subscope under a parent
+  const addSubscope = (parentId) => {
+    const newItem = {
+      id: `scope-${nextScopeId}`,
+      title: '',
+      description: '',
+      parent_id: parentId,
+    }
+    setScopeOfWork((prev) => {
+      const ordered = scopeInPreorder(prev)
+      const parentIndex = ordered.findIndex((i) => i.id === parentId)
+      const insertAt = parentIndex < 0 ? prev.length : parentIndex + 1
+      return [...ordered.slice(0, insertAt), newItem, ...ordered.slice(insertAt)]
+    })
+    setNextScopeId(prev => prev + 1)
+  }
+
+  // Promote a subscope to top-level
+  const promoteToRoot = (id) => {
+    setScopeOfWork((prev) => prev.map((i) => (i.id === id ? { ...i, parent_id: null } : i)))
+  }
+
+  // Make a scope a subscope of another (nest under parent)
+  // When nesting a scope that has children, those children also become direct children of the new parent
+  const nestUnder = (scopeId, parentId) => {
+    if (scopeId === parentId) return
+    setScopeOfWork((prev) => {
+      const collectDescendantIds = (pid) => {
+        const direct = prev.filter((i) => i.parent_id === pid).map((i) => i.id)
+        return [pid, ...direct.flatMap((id) => collectDescendantIds(id))]
+      }
+      const movedIds = new Set(collectDescendantIds(scopeId))
+      const updated = prev.map((i) => (movedIds.has(i.id) ? { ...i, parent_id: parentId } : i))
+      return scopeInPreorder(updated)
+    })
+  }
+
+  // Remove a scope of work item (and all its subscopes)
   const removeScopeItem = (id) => {
-    setScopeOfWork(prev => prev.filter(item => item.id !== id))
+    setScopeOfWork((prev) => {
+      const collectIds = (pid, items) => {
+        const descendants = items.filter((i) => i.parent_id === pid)
+        return [pid, ...descendants.flatMap((d) => collectIds(d.id, items))]
+      }
+      const toRemove = new Set(collectIds(id, prev))
+      return prev.filter((item) => !toRemove.has(item.id))
+    })
+  }
+
+  // Clear all scope of work items
+  const clearAllScope = () => {
+    if (scopeOfWork.length === 0) return
+    if (!window.confirm('Clear all scope of work items?')) return
+    setScopeOfWork([])
+    setNextScopeId(1)
+  }
+
+  // Clear all milestones
+  const clearAllMilestones = () => {
+    if (milestones.length === 0) return
+    if (!window.confirm('Clear all milestones?')) return
+    setMilestones([])
+    setNextMilestoneId(1)
   }
 
   // Update a scope of work item
@@ -1195,11 +1467,14 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
 
     const docType = contractData.documentType || 'contract'
 
-    const scopeToSave = scopeOfWork
+    const ordered = scopeInPreorder(scopeOfWork)
+    const scopeToSave = ordered
       .filter(item => item.title != null && String(item.title).trim() !== '') // Only save items with a title
       .map(item => ({
+        id: item.id,
         title: String(item.title).trim(),
         description: item.description != null ? String(item.description) : '',
+        parent_id: item.parent_id || null,
       }))
 
     const response = await axios.put(
@@ -1264,13 +1539,22 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
           amount: getMilestonePrice(m),
         }))
 
-      // Build scope of work items for the PDF
-      const scopeOfWorkItems = scopeOfWork
-        .filter(item => item.title.trim())
-        .map(item => ({
-          item: item.title,
-          description: item.description || '',
-        }))
+      // Build scope of work items for the PDF (with subscopes - nested structure)
+      const buildScopeForPdf = (items) => {
+        const parentIds = new Set(items.filter((i) => i.parent_id).map((i) => i.parent_id))
+        const ordered = scopeInPreorder(items).filter((i) => i.title?.trim() || parentIds.has(i.id))
+        const buildNode = (parentId) =>
+          ordered
+            .filter((i) => (parentId ? i.parent_id === parentId : !i.parent_id))
+            .map((item) => {
+              const node = { item: item.title?.trim() || '(Untitled)', description: item.description || '' }
+              const children = buildNode(item.id)
+              if (children.length > 0) node.subscopes = children
+              return node
+            })
+        return buildNode(null)
+      }
+      const scopeOfWorkItems = buildScopeForPdf(scopeOfWork)
 
       // Calculate the actual grand total (sum of all milestone amounts, rounded to 2 decimals)
       const actualGrandTotal = roundTo2(customerPaymentSchedule.reduce((sum, item) => sum + item.amount, 0))
@@ -1709,10 +1993,10 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
               </div>
 
               {/* Mobile Card Layout */}
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleScopeDragEnd}>
-                <SortableContext items={scopeOfWork.map(item => item.id)} strategy={verticalListSortingStrategy}>
+              <DndContext sensors={sensors} collisionDetection={scopeCollisionDetection} onDragStart={({ active }) => setActiveScopeDragId(active.id)} onDragEnd={handleScopeDragEnd}>
+                <SortableContext items={scopeInPreorder(scopeOfWork).map(item => item.id)} strategy={verticalListSortingStrategy}>
                   <div className="sm:hidden space-y-3">
-                    {scopeOfWork.map((item, index) => (
+                    {scopeInPreorder(scopeOfWork).map((item, index) => (
                       <SortableScopeCard 
                         key={item.id} 
                         item={item} 
@@ -1720,6 +2004,12 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                         scopeLength={scopeOfWork.length}
                         removeScopeItem={removeScopeItem}
                         updateScopeItem={updateScopeItem}
+                        addSubscope={addSubscope}
+                        promoteToRoot={promoteToRoot}
+                        nestUnder={nestUnder}
+                        parentOptions={scopeOfWork.filter((p) => !p.parent_id && p.id !== item.id)}
+                        isSubscope={!!item.parent_id}
+                        hasChildren={scopeOfWork.some((i) => i.parent_id === item.id)}
                       />
                     ))}
                     
@@ -1735,23 +2025,41 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                     </button>
                   </div>
                 </SortableContext>
+                <DragOverlay>
+                  {activeScopeDragId && (
+                    <ScopeDragOverlayContent
+                      item={scopeOfWork.find((s) => s.id === activeScopeDragId)}
+                      subtree={getSubtreeForOverlay(activeScopeDragId)}
+                    />
+                  )}
+                </DragOverlay>
               </DndContext>
 
               {/* Desktop Table Layout */}
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleScopeDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={scopeCollisionDetection} onDragStart={({ active }) => setActiveScopeDragId(active.id)} onDragEnd={handleScopeDragEnd}>
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="w-10"></th>
+                        <th className="w-12" title="Add subscope or drop scope here"></th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-1/3">Work Title</th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Description</th>
-                        <th className="w-20"></th>
+                        <th className="w-24 text-right py-3 px-4">
+                          {scopeOfWork.length > 0 && (
+                            <button
+                              onClick={clearAllScope}
+                              className="text-xs font-medium text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                        </th>
                       </tr>
                     </thead>
-                    <SortableContext items={scopeOfWork.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={scopeInPreorder(scopeOfWork).map(item => item.id)} strategy={verticalListSortingStrategy}>
                       <tbody>
-                        {scopeOfWork.map((item, index) => (
+                        {scopeInPreorder(scopeOfWork).map((item, index) => (
                           <SortableScopeRow 
                             key={item.id} 
                             item={item} 
@@ -1759,11 +2067,17 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                             scopeLength={scopeOfWork.length}
                             removeScopeItem={removeScopeItem}
                             updateScopeItem={updateScopeItem}
+                            addSubscope={addSubscope}
+                            promoteToRoot={promoteToRoot}
+                            nestUnder={nestUnder}
+                            parentOptions={scopeOfWork.filter((p) => !p.parent_id && p.id !== item.id)}
+                            isSubscope={!!item.parent_id}
+                            hasChildren={scopeOfWork.some((i) => i.parent_id === item.id)}
                           />
                         ))}
                         {/* Add Scope Item Row */}
                         <tr>
-                          <td colSpan={4} className="py-3 px-4">
+                          <td colSpan={5} className="py-3 px-4">
                             <button
                               onClick={addScopeItem}
                               className="text-pool-blue hover:text-pool-dark text-sm font-medium flex items-center gap-2"
@@ -1779,6 +2093,14 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                     </SortableContext>
                   </table>
                 </div>
+                <DragOverlay>
+                  {activeScopeDragId && (
+                    <ScopeDragOverlayContent
+                      item={scopeOfWork.find((s) => s.id === activeScopeDragId)}
+                      subtree={getSubtreeForOverlay(activeScopeDragId)}
+                    />
+                  )}
+                </DragOverlay>
               </DndContext>
             </>
           )}
@@ -1872,7 +2194,16 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                           />
                         </th>
                         <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-36">Price</th>
-                        <th className="w-16"></th>
+                        <th className="w-24 text-right py-3 px-4">
+                          {milestones.length > 0 && (
+                            <button
+                              onClick={clearAllMilestones}
+                              className="text-xs font-medium text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                        </th>
                       </tr>
                     </thead>
                     <SortableContext items={milestones.map(m => m.id)} strategy={verticalListSortingStrategy}>

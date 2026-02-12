@@ -4240,30 +4240,38 @@ app.put('/api/projects/:id/scope-of-work', async (req, res) => {
       .eq('company_id', companyID)
       .eq('document_type', docType);
 
-    // Insert new scope of work items with document_type
-    const itemsToInsert = scopeOfWork
-      .filter(item => item.title && item.title.trim()) // Only insert items with a title
-      .map((item, index) => ({
-        company_id: companyID,
-        project_id: id,
-        title: item.title,
-        description: item.description || null,
-        sort_order: index,
-        document_type: docType,
-      }));
-
-    if (itemsToInsert.length === 0) {
+    // Filter to items with titles; items are in preorder (parent before children)
+    const items = scopeOfWork.filter(item => item.title && item.title.trim());
+    if (items.length === 0) {
       return res.json({ scopeOfWork: [] });
     }
 
-    const { data: savedItems, error: insertError } = await supabase
-      .from('scope_of_work')
-      .insert(itemsToInsert)
-      .select();
+    // Insert in order so we can resolve parent_id (client id -> uuid)
+    const idToUuid = {};
+    const savedItems = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const parentUuid = (item.parent_id && idToUuid[item.parent_id]) || null;
+      const { data: inserted, error: insertError } = await supabase
+        .from('scope_of_work')
+        .insert({
+          company_id: companyID,
+          project_id: id,
+          title: item.title,
+          description: item.description || null,
+          sort_order: i,
+          document_type: docType,
+          parent_id: parentUuid,
+        })
+        .select()
+        .single();
 
-    if (insertError) {
-      console.error('Error inserting scope of work:', insertError);
-      return res.status(500).json({ error: insertError.message });
+      if (insertError) {
+        console.error('Error inserting scope of work:', insertError);
+        return res.status(500).json({ error: insertError.message });
+      }
+      if (item.id) idToUuid[item.id] = inserted.id;
+      savedItems.push(inserted);
     }
 
     res.json({ scopeOfWork: savedItems });

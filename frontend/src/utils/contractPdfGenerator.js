@@ -215,6 +215,7 @@ export const generateContractPdf = async (contractData) => {
   const paymentTotal = roundTo2(contractData.customerGrandTotal ?? paymentSchedule.reduce((sum, item) => sum + item.amount, 0))
   
   // Build scope of work: use custom scope from preview, else use saved scope from document
+  // Supports nested structure: { item, description, subscopes?: [...] }
   let scopeOfWork = []
   if (contractData.customScopeOfWork && contractData.customScopeOfWork.length > 0) {
     scopeOfWork = contractData.customScopeOfWork
@@ -222,14 +223,66 @@ export const generateContractPdf = async (contractData) => {
       .map((item) => ({
         item: item.item,
         description: item.description || '',
+        subscopes: item.subscopes || [],
       }))
   } else if (contractData.savedScopeOfWork && contractData.savedScopeOfWork.length > 0) {
-    scopeOfWork = contractData.savedScopeOfWork
-      .filter(item => (item.title || item.item || '').trim())
-      .map((item) => ({
-        item: item.title || item.item || '',
-        description: item.description || '',
-      }))
+    const items = contractData.savedScopeOfWork
+    const parentIds = new Set(items.filter((i) => i.parent_id).map((i) => i.parent_id))
+    const flat = items.filter((item) =>
+      (item.title || item.item || '').trim() || parentIds.has(item.id)
+    )
+    const buildNested = (parentId) =>
+      flat
+        .filter((i) => (parentId ? i.parent_id === parentId : !i.parent_id))
+        .map((item) => {
+          const children = buildNested(item.id)
+          const node = {
+            item: item.title || item.item || '',
+            description: item.description || '',
+          }
+          if (children.length > 0) node.subscopes = children
+          return node
+        })
+    scopeOfWork = buildNested(null)
+  }
+
+  // Recursive helper to build scope stack for PDF (item = header, subscopes = subheaders)
+  const buildScopeStack = (items, isFirst = true, depth = 0) => {
+    const result = []
+    const indent = depth * 15
+    const subFontSize = depth === 0 ? 12 : 11
+    const titleColor = depth === 0 ? '#111827' : '#374151'
+    const descColor = depth === 0 ? '#374151' : '#6b7280'
+    items.forEach((item, idx) => {
+      const marginTop = isFirst && idx === 0 ? 0 : 15
+      result.push(
+        { 
+          text: item.item || '', 
+          fontSize: subFontSize, 
+          bold: true, 
+          color: titleColor,
+          margin: [indent, marginTop, 0, 6],
+        },
+        item.description ? { 
+          text: item.description, 
+          fontSize: 10, 
+          color: descColor,
+          lineHeight: 1.4,
+          margin: [indent + 15, 0, 0, depth === 0 ? 8 : 6],
+        } : {}
+      )
+      if (item.subscopes && item.subscopes.length > 0) {
+        result.push(...buildScopeStack(item.subscopes, false, depth + 1))
+      }
+      if (depth === 0 && idx < items.length - 1) {
+        result.push({
+          canvas: [
+            { type: 'line', x1: 0, y1: 5, x2: 520, y2: 5, lineWidth: 0.5, lineColor: '#e5e7eb' }
+          ],
+        })
+      }
+    })
+    return result
   }
 
   // Build contact info string (phone, website on same line if both exist)
@@ -350,33 +403,9 @@ export const generateContractPdf = async (contractData) => {
       { text: 'The Contractor agrees to perform the following work:', style: 'paragraph' },
       { text: '\n' },
       
-      // Scope of work items (from preview only)
+      // Scope of work items (from preview only; supports subscopes as subheaders)
       scopeOfWork.length > 0 ? {
-        // Custom scope of work: show item title and description with more spacing
-        stack: scopeOfWork.map((item, index) => ({
-          stack: [
-            { 
-              text: item.item || '', 
-              fontSize: 12, 
-              bold: true, 
-              color: '#111827',
-              margin: [0, index === 0 ? 0 : 15, 0, 6],
-            },
-            item.description ? { 
-              text: item.description, 
-              fontSize: 10, 
-              color: '#374151',
-              lineHeight: 1.4,
-              margin: [15, 0, 0, 8],
-            } : {},
-            // Separator line between items (except last)
-            index < scopeOfWork.length - 1 ? {
-              canvas: [
-                { type: 'line', x1: 0, y1: 5, x2: 520, y2: 5, lineWidth: 0.5, lineColor: '#e5e7eb' }
-              ],
-            } : {},
-          ],
-        })),
+        stack: buildScopeStack(scopeOfWork),
         margin: [0, 5, 0, 15],
       } : { text: 'Scope of work to be determined.', style: 'note' },
       
