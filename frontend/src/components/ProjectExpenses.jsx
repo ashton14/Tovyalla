@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import { useTemplates } from '../hooks/useApi'
 
 // Helper function to format date string (YYYY-MM-DD) to local date without timezone issues
 const formatDateString = (dateString) => {
@@ -49,10 +50,14 @@ const formatDateString = (dateString) => {
 
 function ProjectExpenses({ project, onClose }) {
   const { user, supabase, getAuthHeaders } = useAuth()
+  const { data: templates = [] } = useTemplates()
   const [loading, setLoading] = useState(true)
   const [expenses, setExpenses] = useState(null)
   const [subcontractors, setSubcontractors] = useState([])
   const [inventory, setInventory] = useState([])
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
   
   // Form states
   const [showSubcontractorForm, setShowSubcontractorForm] = useState(false)
@@ -87,12 +92,12 @@ function ProjectExpenses({ project, onClose }) {
   })
 
   const [additionalForm, setAdditionalForm] = useState({
-    description: '',
+    name: '',
     amount: '',
     expected_value: '',
     expense_date: new Date().toISOString().split('T')[0],
     status: 'incomplete',
-    category: '',
+    description: '',
     notes: '',
   })
 
@@ -386,12 +391,12 @@ function ProjectExpenses({ project, onClose }) {
       setShowAdditionalForm(false)
       setEditingAdditional(null)
       setAdditionalForm({
-        description: '',
+        name: '',
         amount: '',
         expected_value: '',
         expense_date: new Date().toISOString().split('T')[0],
         status: 'incomplete',
-        category: '',
+        description: '',
         notes: '',
       })
       
@@ -407,12 +412,12 @@ function ProjectExpenses({ project, onClose }) {
     // Extract date part only (YYYY-MM-DD) to avoid timezone issues
     const expenseDate = entry.expense_date ? entry.expense_date.split('T')[0] : ''
     setAdditionalForm({
-      description: entry.description ?? '',
+      name: entry.name ?? '',
       amount: entry.amount ?? '',
       expected_value: entry.expected_value ?? '',
       expense_date: expenseDate || '',
       status: entry.status || 'incomplete',
-      category: entry.category ?? '',
+      description: entry.description ?? '',
       notes: entry.notes ?? '',
     })
     setShowAdditionalForm(true)
@@ -434,6 +439,34 @@ function ProjectExpenses({ project, onClose }) {
       await fetchExpenses()
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete expense')
+    }
+  }
+
+  const handleApplyTemplate = async () => {
+    if (!selectedTemplateId) return
+    setError('')
+    setSuccess('')
+    setApplyingTemplate(true)
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const res = await axios.post(
+        `/api/projects/${project.id}/expenses/apply-template`,
+        { templateId: selectedTemplateId },
+        { headers: getAuthHeaders(token) }
+      )
+
+      const { created } = res.data
+      const total = (created?.subcontractors || 0) + (created?.materials || 0) + (created?.equipment || 0) + (created?.additional || 0)
+      setSuccess(`Template applied! Added ${total} expense(s).`)
+      setShowTemplateModal(false)
+      setSelectedTemplateId('')
+      await fetchExpenses()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to apply template')
+    } finally {
+      setApplyingTemplate(false)
     }
   }
 
@@ -637,7 +670,7 @@ function ProjectExpenses({ project, onClose }) {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Project Expenses</h2>
-              <p className="text-gray-600">{project.address || 'Project'}</p>
+              <p className="text-gray-600 dark:text-gray-400">{project.address || 'Project'}</p>
             </div>
             <button
               onClick={onClose}
@@ -779,7 +812,7 @@ function ProjectExpenses({ project, onClose }) {
           {/* Add Expense Buttons */}
           <div className="mb-6">
             <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Add Expense</p>
-            
+            <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Mobile: Grid with colored buttons */}
             <div className="grid grid-cols-2 gap-2 sm:hidden">
               <button
@@ -853,12 +886,12 @@ function ProjectExpenses({ project, onClose }) {
                   setShowAdditionalForm(true)
                   setEditingAdditional(null)
                   setAdditionalForm({
-                    description: '',
+                    name: '',
                     amount: '',
                     expected_value: '',
                     expense_date: new Date().toISOString().split('T')[0],
                     status: 'incomplete',
-                    category: '',
+                    description: '',
                     notes: '',
                   })
                 }}
@@ -944,12 +977,12 @@ function ProjectExpenses({ project, onClose }) {
                   setShowAdditionalForm(true)
                   setEditingAdditional(null)
                   setAdditionalForm({
-                    description: '',
+                    name: '',
                     amount: '',
                     expected_value: '',
                     expense_date: new Date().toISOString().split('T')[0],
                     status: 'incomplete',
-                    category: '',
+                    description: '',
                     notes: '',
                   })
                 }}
@@ -958,8 +991,18 @@ function ProjectExpenses({ project, onClose }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Additional
+                Other
               </button>
+            </div>
+            <button
+              onClick={() => setShowTemplateModal(true)}
+              className="px-4 py-2 text-sm font-medium bg-pool-blue text-white hover:bg-pool-dark rounded-lg border border-pool-blue transition-colors flex items-center gap-1.5 flex-shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Use template
+            </button>
             </div>
           </div>
 
@@ -1189,10 +1232,10 @@ function ProjectExpenses({ project, onClose }) {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
@@ -1201,10 +1244,11 @@ function ProjectExpenses({ project, onClose }) {
                   <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                     {expenses.additionalExpenses.map((entry) => (
                       <tr key={entry.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{entry.name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{entry.description || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {formatDateString(entry.expense_date)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{entry.description}</td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             entry.status === 'complete' ? 'bg-green-100 text-green-800' :
@@ -1215,7 +1259,6 @@ function ProjectExpenses({ project, onClose }) {
                              entry.status === 'complete' ? 'Complete' : 'Incomplete'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{entry.category || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">
                           {entry.expected_value ? `$${parseFloat(entry.expected_value).toFixed(2)}` : '-'}
                         </td>
@@ -1554,11 +1597,11 @@ function ProjectExpenses({ project, onClose }) {
 
                   <form onSubmit={handleAdditionalSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
                       <input
                         type="text"
-                        value={additionalForm.description}
-                        onChange={(e) => setAdditionalForm({ ...additionalForm, description: e.target.value })}
+                        value={additionalForm.name}
+                        onChange={(e) => setAdditionalForm({ ...additionalForm, name: e.target.value })}
                         required
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
@@ -1616,11 +1659,11 @@ function ProjectExpenses({ project, onClose }) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                       <input
                         type="text"
-                        value={additionalForm.category}
-                        onChange={(e) => setAdditionalForm({ ...additionalForm, category: e.target.value })}
+                        value={additionalForm.description}
+                        onChange={(e) => setAdditionalForm({ ...additionalForm, description: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="e.g., Equipment, Permit, Travel"
                       />
@@ -1807,6 +1850,58 @@ function ProjectExpenses({ project, onClose }) {
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Use Template Modal */}
+          {showTemplateModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={() => { setShowTemplateModal(false); setSelectedTemplateId(''); }}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Use Template</h3>
+                    <button
+                      onClick={() => { setShowTemplateModal(false); setSelectedTemplateId(''); }}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Select a template to load its expenses into this project. Items that reference deleted subcontractors or inventory will be skipped.
+                  </p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template</label>
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select a template...</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({(t.subcontractorCount || 0) + (t.materialCount || 0) + (t.equipmentCount || 0) + (t.additionalCount || 0)} items)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowTemplateModal(false); setSelectedTemplateId(''); }}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleApplyTemplate}
+                      disabled={!selectedTemplateId || applyingTemplate}
+                      className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md disabled:opacity-50"
+                    >
+                      {applyingTemplate ? 'Applying...' : 'Apply'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

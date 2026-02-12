@@ -2489,6 +2489,325 @@ app.delete('/api/projects/:id', async (req, res) => {
   }
 });
 
+// ========== EXPENSE TEMPLATES ENDPOINTS ==========
+
+// Get all templates for company
+app.get('/api/templates', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { data, error } = await supabase
+      .from('expense_templates')
+      .select(`
+        id,
+        name,
+        created_at,
+        updated_at,
+        expense_template_subcontractor_fees(id),
+        expense_template_materials(id),
+        expense_template_equipment(id),
+        expense_template_additional(id)
+      `)
+      .eq('company_id', companyID)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const templates = (data || []).map((t) => ({
+      ...t,
+      subcontractorCount: (t.expense_template_subcontractor_fees || []).length,
+      materialCount: (t.expense_template_materials || []).length,
+      equipmentCount: (t.expense_template_equipment || []).length,
+      additionalCount: (t.expense_template_additional || []).length,
+    }));
+
+    res.json({ templates });
+  } catch (error) {
+    console.error('Get templates error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get single template with full items
+app.get('/api/templates/:id', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { id } = req.params;
+
+    const { data: template, error } = await supabase
+      .from('expense_templates')
+      .select(`
+        *,
+        expense_template_subcontractor_fees(
+          *,
+          subcontractors(id, name)
+        ),
+        expense_template_materials(
+          *,
+          inventory(id, name, unit, type)
+        ),
+        expense_template_equipment(
+          *,
+          inventory(id, name, unit, type)
+        ),
+        expense_template_additional(*)
+      `)
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (error || !template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json({ template });
+  } catch (error) {
+    console.error('Get template error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create template
+app.post('/api/templates', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { name, subcontractorFees = [], materials = [], equipment = [], additionalExpenses = [] } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    const { data: template, error: templateError } = await supabase
+      .from('expense_templates')
+      .insert([{ company_id: companyID, name: name.trim() }])
+      .select()
+      .single();
+
+    if (templateError) {
+      return res.status(500).json({ error: templateError.message });
+    }
+
+    const templateId = template.id;
+
+    if (subcontractorFees.length > 0) {
+      const rows = subcontractorFees.map((f) => ({
+        template_id: templateId,
+        subcontractor_id: f.subcontractor_id,
+        flat_fee: f.flat_fee != null ? parseFloat(f.flat_fee) : null,
+        expected_value: f.expected_value != null ? parseFloat(f.expected_value) : null,
+        job_description: f.job_description || null,
+        notes: f.notes || null,
+      })).filter((r) => r.subcontractor_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_subcontractor_fees').insert(rows);
+      }
+    }
+
+    if (materials.length > 0) {
+      const rows = materials.map((m) => ({
+        template_id: templateId,
+        inventory_id: m.inventory_id,
+        quantity: m.quantity != null ? parseFloat(m.quantity) : null,
+        expected_price: m.expected_price != null ? parseFloat(m.expected_price) : null,
+        actual_price: m.actual_price != null ? parseFloat(m.actual_price) : null,
+        notes: m.notes || null,
+      })).filter((r) => r.inventory_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_materials').insert(rows);
+      }
+    }
+
+    if (equipment.length > 0) {
+      const rows = equipment.map((e) => ({
+        template_id: templateId,
+        inventory_id: e.inventory_id,
+        quantity: e.quantity != null ? parseFloat(e.quantity) : null,
+        expected_price: e.expected_price != null ? parseFloat(e.expected_price) : null,
+        actual_price: e.actual_price != null ? parseFloat(e.actual_price) : null,
+        notes: e.notes || null,
+      })).filter((r) => r.inventory_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_equipment').insert(rows);
+      }
+    }
+
+    if (additionalExpenses.length > 0) {
+      const rows = additionalExpenses.map((a) => ({
+        template_id: templateId,
+        name: a.name || 'Additional',
+        expected_value: a.expected_value != null ? parseFloat(a.expected_value) : null,
+        description: a.description || null,
+        notes: a.notes || null,
+      })).filter((r) => r.name);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_additional').insert(rows);
+      }
+    }
+
+    const { data: full } = await supabase
+      .from('expense_templates')
+      .select(`
+        *,
+        expense_template_subcontractor_fees(*, subcontractors(id, name)),
+        expense_template_materials(*, inventory(id, name, unit, type)),
+        expense_template_equipment(*, inventory(id, name, unit, type)),
+        expense_template_additional(*)
+      `)
+      .eq('id', templateId)
+      .single();
+
+    res.status(201).json({ template: full || template });
+  } catch (error) {
+    console.error('Create template error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update template (replace all items)
+app.put('/api/templates/:id', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { id } = req.params;
+    const { name, subcontractorFees = [], materials = [], equipment = [], additionalExpenses = [] } = req.body;
+
+    const { data: existing, error: checkError } = await supabase
+      .from('expense_templates')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (checkError || !existing) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const updates = {};
+    if (name != null && typeof name === 'string' && name.trim()) {
+      updates.name = name.trim();
+    }
+    if (Object.keys(updates).length > 0) {
+      updates.updated_at = new Date().toISOString();
+      await supabase.from('expense_templates').update(updates).eq('id', id).eq('company_id', companyID);
+    }
+
+    await supabase.from('expense_template_subcontractor_fees').delete().eq('template_id', id);
+    await supabase.from('expense_template_materials').delete().eq('template_id', id);
+    await supabase.from('expense_template_equipment').delete().eq('template_id', id);
+    await supabase.from('expense_template_additional').delete().eq('template_id', id);
+
+    if (subcontractorFees.length > 0) {
+      const rows = subcontractorFees.map((f) => ({
+        template_id: id,
+        subcontractor_id: f.subcontractor_id,
+        flat_fee: f.flat_fee != null ? parseFloat(f.flat_fee) : null,
+        expected_value: f.expected_value != null ? parseFloat(f.expected_value) : null,
+        job_description: f.job_description || null,
+        notes: f.notes || null,
+      })).filter((r) => r.subcontractor_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_subcontractor_fees').insert(rows);
+      }
+    }
+
+    if (materials.length > 0) {
+      const rows = materials.map((m) => ({
+        template_id: id,
+        inventory_id: m.inventory_id,
+        quantity: m.quantity != null ? parseFloat(m.quantity) : null,
+        expected_price: m.expected_price != null ? parseFloat(m.expected_price) : null,
+        actual_price: m.actual_price != null ? parseFloat(m.actual_price) : null,
+        notes: m.notes || null,
+      })).filter((r) => r.inventory_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_materials').insert(rows);
+      }
+    }
+
+    if (equipment.length > 0) {
+      const rows = equipment.map((e) => ({
+        template_id: id,
+        inventory_id: e.inventory_id,
+        quantity: e.quantity != null ? parseFloat(e.quantity) : null,
+        expected_price: e.expected_price != null ? parseFloat(e.expected_price) : null,
+        actual_price: e.actual_price != null ? parseFloat(e.actual_price) : null,
+        notes: e.notes || null,
+      })).filter((r) => r.inventory_id);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_equipment').insert(rows);
+      }
+    }
+
+    if (additionalExpenses.length > 0) {
+      const rows = additionalExpenses.map((a) => ({
+        template_id: id,
+        name: a.name || 'Additional',
+        expected_value: a.expected_value != null ? parseFloat(a.expected_value) : null,
+        description: a.description || null,
+        notes: a.notes || null,
+      })).filter((r) => r.name);
+      if (rows.length > 0) {
+        await supabase.from('expense_template_additional').insert(rows);
+      }
+    }
+
+    const { data: full } = await supabase
+      .from('expense_templates')
+      .select(`
+        *,
+        expense_template_subcontractor_fees(*, subcontractors(id, name)),
+        expense_template_materials(*, inventory(id, name, unit, type)),
+        expense_template_equipment(*, inventory(id, name, unit, type)),
+        expense_template_additional(*)
+      `)
+      .eq('id', id)
+      .single();
+
+    res.json({ template: full || existing });
+  } catch (error) {
+    console.error('Update template error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete template
+app.delete('/api/templates/:id', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('expense_templates')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyID);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete template error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ========== PROJECT EXPENSES ENDPOINTS ==========
 
 // Get all expenses for a project with calculations
@@ -2643,6 +2962,163 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     });
   } catch (error) {
     console.error('Get expenses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Apply template to project
+app.post('/api/projects/:id/expenses/apply-template', async (req, res) => {
+  try {
+    const auth = await getAuthUserAndCompany(req);
+    if (auth.error) return res.status(auth.status).json({ error: auth.error });
+    const { companyID } = auth;
+
+    const { id } = req.params;
+    const { templateId } = req.body;
+
+    if (!templateId) {
+      return res.status(400).json({ error: 'templateId is required' });
+    }
+
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('company_id', companyID)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { data: template, error: templateError } = await supabase
+      .from('expense_templates')
+      .select(`
+        id,
+        expense_template_subcontractor_fees(*),
+        expense_template_materials(*),
+        expense_template_equipment(*),
+        expense_template_additional(*)
+      `)
+      .eq('id', templateId)
+      .eq('company_id', companyID)
+      .single();
+
+    if (templateError || !template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const { data: subcontractors } = await supabase
+      .from('subcontractors')
+      .select('id')
+      .eq('company_id', companyID);
+    const subcontractorIds = new Set((subcontractors || []).map((s) => s.id));
+
+    const { data: inventory } = await supabase
+      .from('inventory')
+      .select('id, type, name')
+      .eq('company_id', companyID);
+    const inventoryById = new Map((inventory || []).map((i) => [i.id, i]));
+
+    const today = new Date().toISOString().split('T')[0];
+    let created = { subcontractors: 0, materials: 0, equipment: 0, additional: 0 };
+
+    const subFees = (template.expense_template_subcontractor_fees || []).filter(
+      (f) => subcontractorIds.has(f.subcontractor_id)
+    );
+    if (subFees.length > 0) {
+      const rows = subFees.map((f) => ({
+        project_id: id,
+        subcontractor_id: f.subcontractor_id,
+        flat_fee: f.flat_fee,
+        expected_value: f.expected_value,
+        date_added: today,
+        status: 'incomplete',
+        notes: f.notes || null,
+        job_description: f.job_description || null,
+      }));
+      const { data: inserted } = await supabase
+        .from('project_subcontractor_fees')
+        .insert(rows)
+        .select('id');
+      created.subcontractors = (inserted || []).length;
+    }
+
+    const mats = (template.expense_template_materials || []).filter((m) => {
+      const inv = inventoryById.get(m.inventory_id);
+      return inv && inv.type === 'material';
+    });
+    if (mats.length > 0) {
+      const rows = mats.map((m) => ({
+        project_id: id,
+        inventory_id: m.inventory_id,
+        quantity: m.quantity || null,
+        date_ordered: null,
+        date_received: null,
+        status: 'incomplete',
+        expected_price: m.expected_price || null,
+        actual_price: m.actual_price || null,
+        notes: m.notes || null,
+      }));
+      const { data: inserted } = await supabase
+        .from('project_materials')
+        .insert(rows)
+        .select('id');
+      created.materials = (inserted || []).length;
+    }
+
+    const equips = (template.expense_template_equipment || []).filter((e) => {
+      const inv = inventoryById.get(e.inventory_id);
+      return inv && inv.type === 'equipment';
+    });
+    if (equips.length > 0) {
+      const rows = equips.map((e) => {
+        const invItem = inventoryById.get(e.inventory_id);
+        return {
+          project_id: id,
+          company_id: companyID,
+          inventory_id: e.inventory_id,
+          name: invItem?.name || 'Equipment',
+          expected_price: e.expected_price || null,
+          actual_price: e.actual_price || null,
+          quantity: e.quantity || 1,
+          date_ordered: null,
+          date_received: null,
+          status: 'pending',
+          notes: e.notes || null,
+        };
+      });
+      if (rows.length > 0) {
+        const { data: inserted } = await supabase
+          .from('project_equipment')
+          .insert(rows)
+          .select('id');
+        created.equipment = (inserted || []).length;
+      }
+    }
+
+    const addExps = template.expense_template_additional || [];
+    if (addExps.length > 0) {
+      const rows = addExps.map((a) => ({
+        project_id: id,
+        name: a.name || 'Additional',
+        amount: null,
+        expected_value: a.expected_value || null,
+        expense_date: today,
+        status: 'incomplete',
+        description: a.description || null,
+        notes: a.notes || null,
+      }));
+      const { data: inserted } = await supabase
+        .from('project_additional_expenses')
+        .insert(rows)
+        .select('id');
+      created.additional = (inserted || []).length;
+    }
+
+    res.json({ success: true, created });
+  } catch (error) {
+    console.error('Apply template error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -3006,7 +3482,7 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
     const { user, companyID } = auth;
 
     const { id } = req.params;
-    const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
+    const { name, amount, expected_value, expense_date, status, description, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -3020,20 +3496,20 @@ app.post('/api/projects/:id/expenses/additional', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (!description || !expense_date) {
-      return res.status(400).json({ error: 'description and expense_date are required' });
+    if (!name || !expense_date) {
+      return res.status(400).json({ error: 'name and expense_date are required' });
     }
 
     const { data, error } = await supabase
       .from('project_additional_expenses')
       .insert([{
         project_id: id,
-        description,
+        name,
         amount: amount ? parseFloat(amount) : null,
         expected_value: expected_value ? parseFloat(expected_value) : null,
         expense_date,
         status: status || 'incomplete',
-        category: category || null,
+        description: description || null,
         notes: notes || null,
       }])
       .select()
@@ -3058,7 +3534,7 @@ app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => 
     const { user, companyID } = auth;
 
     const { id, expenseId } = req.params;
-    const { description, amount, expected_value, expense_date, status, category, notes } = req.body;
+    const { name, amount, expected_value, expense_date, status, description, notes } = req.body;
 
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
@@ -3076,12 +3552,12 @@ app.put('/api/projects/:id/expenses/additional/:expenseId', async (req, res) => 
       updated_at: new Date().toISOString(),
     };
 
-    if (description !== undefined) updateData.description = description;
+    if (name !== undefined) updateData.name = name;
     if (amount !== undefined) updateData.amount = amount ? parseFloat(amount) : null;
     if (expected_value !== undefined) updateData.expected_value = expected_value ? parseFloat(expected_value) : null;
     if (expense_date !== undefined) updateData.expense_date = expense_date;
     if (status !== undefined) updateData.status = status;
-    if (category !== undefined) updateData.category = category || null;
+    if (description !== undefined) updateData.description = description || null;
     if (notes !== undefined) updateData.notes = notes || null;
 
     const { data, error } = await supabase

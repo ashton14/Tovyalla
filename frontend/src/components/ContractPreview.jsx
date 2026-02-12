@@ -582,9 +582,9 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     
     if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
       expenses.additionalExpenses.forEach((exp) => {
-        const description = exp.description || 'Additional service'
-        const category = exp.category ? ` [${exp.category}]` : ''
-        lines.push(`• ${description}${category}`)
+        const name = exp.name || 'Additional service'
+        const desc = exp.description ? ` [${exp.description}]` : ''
+        lines.push(`• ${name}${desc}`)
       })
     }
     
@@ -737,11 +737,11 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
         expenses.additionalExpenses.forEach((exp) => {
           const expId = exp.id || null
           if (expId && coveredAdditionalIds.has(expId)) return
-          const description = exp.description || 'Additional Service'
+          const expName = exp.name || 'Additional Service'
           const cost = roundTo2(parseFloat(exp.amount || exp.expected_value || 0))
           newMilestones.push({
             id: `milestone-${nextId++}`,
-            name: description,
+            name: expName,
             cost,
             markupPercent: cost > 0 ? applyInitialMinMax(cost, additionalExpensesMarkup, min, max) : additionalExpensesMarkup,
             flatPrice: null,
@@ -859,11 +859,11 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       if (autoIncludeAdditional && expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
         const { min, max } = getCategoryMinMaxForType('additional')
         expenses.additionalExpenses.forEach((exp) => {
-          const description = exp.description || 'Additional Service'
+          const expName = exp.name || 'Additional Service'
           const cost = roundTo2(parseFloat(exp.amount || exp.expected_value || 0))
           defaultMilestones.push({
             id: `milestone-${milestoneId}`,
-            name: description,
+            name: expName,
             cost,
             markupPercent: cost > 0 ? applyInitialMinMax(cost, additionalExpensesMarkup, min, max) : additionalExpensesMarkup,
             flatPrice: null,

@@ -161,6 +161,27 @@ export const useUpdateProject = () => {
   })
 }
 
+export const useTemplates = () => {
+  const getAuthHeaders = useAuthHeaders()
+  const { user, currentCompanyID } = useAuth()
+
+  return useQuery({
+    queryKey: ['templates', currentCompanyID],
+    queryFn: async () => {
+      const headers = await getAuthHeaders()
+      if (!headers.Authorization) throw new Error('Not authenticated')
+
+      const response = await axios.get('/api/templates', {
+        headers,
+      })
+      return response.data.templates || []
+    },
+    enabled: !!user && !!currentCompanyID,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  })
+}
+
 export const useDeleteProject = () => {
   const queryClient = useQueryClient()
   const getAuthHeaders = useAuthHeaders()

@@ -14,6 +14,7 @@ import {
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
 import Projects from '../components/Projects'
+import Templates from '../components/Templates'
 import Inventory from '../components/Inventory'
 import Subcontractors from '../components/Subcontractors'
 import Employees from '../components/Employees'
@@ -97,7 +98,7 @@ function Dashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const section = urlParams.get('section')
-    if (section && ['overview', 'projects', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'messages', 'subscription', 'settings'].includes(section)) {
+    if (section && ['overview', 'projects', 'templates', 'customers', 'employees', 'inventory', 'subcontractors', 'calendar', 'goals', 'messages', 'subscription', 'settings'].includes(section)) {
       setActiveSection(section)
       // Clean up URL
       const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString().replace(/section=[^&]*&?/g, '').replace(/&$/, '') : '')
@@ -250,6 +251,16 @@ function Dashboard() {
             }`}
           >
             <span className="font-medium">Projects</span>
+          </button>
+          <button
+            onClick={() => handleNavClick('templates')}
+            className={`w-full text-left px-3 py-2 rounded-md transition-colors text-sm ${
+              activeSection === 'templates'
+                ? 'bg-pool-blue text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <span className="font-medium">Templates</span>
           </button>
           <button
             onClick={() => handleNavClick('inventory')}
@@ -610,6 +621,7 @@ function Dashboard() {
           {activeSection === 'company' && <CompanyInfo />}
           {activeSection === 'customers' && <Customers />}
           {activeSection === 'projects' && <Projects />}
+          {activeSection === 'templates' && <Templates />}
           {activeSection === 'inventory' && <Inventory />}
           {activeSection === 'subcontractors' && <Subcontractors />}
           {activeSection === 'employees' && <Employees />}
