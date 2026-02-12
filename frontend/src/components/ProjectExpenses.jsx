@@ -58,6 +58,7 @@ function ProjectExpenses({ project, onClose }) {
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [applyingTemplate, setApplyingTemplate] = useState(false)
+  const [clearingAll, setClearingAll] = useState(false)
   
   // Form states
   const [showSubcontractorForm, setShowSubcontractorForm] = useState(false)
@@ -467,6 +468,35 @@ function ProjectExpenses({ project, onClose }) {
       setError(err.response?.data?.error || 'Failed to apply template')
     } finally {
       setApplyingTemplate(false)
+    }
+  }
+
+  const handleClearAll = async () => {
+    if (!expenses) return
+    const total = (expenses.subcontractorFees?.length || 0) + (expenses.materials?.length || 0) + (expenses.equipment?.length || 0) + (expenses.additionalExpenses?.length || 0)
+    if (total === 0) return
+    if (!window.confirm(`Are you sure you want to delete all ${total} expense(s)? This cannot be undone.`)) return
+
+    setError('')
+    setSuccess('')
+    setClearingAll(true)
+    try {
+      const token = await getAuthToken()
+      if (!token) throw new Error('Not authenticated')
+
+      const deleteCalls = []
+      ;(expenses.subcontractorFees || []).forEach((e) => deleteCalls.push(axios.delete(`/api/projects/${project.id}/expenses/subcontractor-fees/${e.id}`, { headers: getAuthHeaders(token) })))
+      ;(expenses.materials || []).forEach((e) => deleteCalls.push(axios.delete(`/api/projects/${project.id}/expenses/materials/${e.id}`, { headers: getAuthHeaders(token) })))
+      ;(expenses.equipment || []).forEach((e) => deleteCalls.push(axios.delete(`/api/projects/${project.id}/expenses/equipment/${e.id}`, { headers: getAuthHeaders(token) })))
+      ;(expenses.additionalExpenses || []).forEach((e) => deleteCalls.push(axios.delete(`/api/projects/${project.id}/expenses/additional/${e.id}`, { headers: getAuthHeaders(token) })))
+
+      await Promise.all(deleteCalls)
+      setSuccess(`Cleared all ${total} expense(s).`)
+      await fetchExpenses()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to clear expenses')
+    } finally {
+      setClearingAll(false)
     }
   }
 
@@ -994,15 +1024,34 @@ function ProjectExpenses({ project, onClose }) {
                 Other
               </button>
             </div>
-            <button
-              onClick={() => setShowTemplateModal(true)}
-              className="px-4 py-2 text-sm font-medium bg-pool-blue text-white hover:bg-pool-dark rounded-lg border border-pool-blue transition-colors flex items-center gap-1.5 flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Use template
-            </button>
+            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                className="px-4 py-2 text-sm font-medium bg-pool-blue text-white hover:bg-pool-dark rounded-lg border border-pool-blue transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Use template
+              </button>
+              <button
+                onClick={handleClearAll}
+                disabled={clearingAll || !expenses || ((expenses.subcontractorFees?.length || 0) + (expenses.materials?.length || 0) + (expenses.equipment?.length || 0) + (expenses.additionalExpenses?.length || 0)) === 0}
+                className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {clearingAll ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+                Clear all
+              </button>
+            </div>
             </div>
           </div>
 

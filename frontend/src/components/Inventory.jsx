@@ -1127,7 +1127,7 @@ Pool Pump,unit,5,450.00,FlowMaster,FM-2000,Black`}
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       >
                         <option value="">Select unit</option>
-                        <option value="unit">Unit</option>
+                        <option value="unit">unit</option>
                         <option value="ft">ft</option>
                         <option value="lbs">lbs</option>
                         <option value="gal">gal</option>

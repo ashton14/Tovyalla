@@ -2320,7 +2320,7 @@ app.post('/api/projects', projectPostValidation, handleValidationErrors, async (
       notes,
     } = req.body;
 
-    const initialStatus = status || 'proposal_sent';
+    const initialStatus = status || 'contacted';
 
     const { data, error } = await supabase
       .from('projects')
@@ -2400,7 +2400,7 @@ app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const newStatus = status || 'proposal_sent';
+    const newStatus = status || 'contacted';
     const statusChanged = existing.status !== newStatus;
 
     const { data, error } = await supabase
@@ -5172,6 +5172,21 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
       return res.status(404).json({ error: 'Entity not found' });
     }
 
+    // For employees: only managers/admin/owner or the employee themselves can upload
+    if (entityType === 'employees') {
+      const { data: currentEmployee } = await supabase
+        .from('employees')
+        .select('id, user_type')
+        .eq('company_id', companyID)
+        .eq('email_address', user.email?.toLowerCase())
+        .maybeSingle();
+      const canManage = currentEmployee?.user_type === 'admin' || currentEmployee?.user_type === 'manager' || currentEmployee?.user_type === 'owner';
+      const isOwnDocs = entityId === currentEmployee?.id;
+      if (!canManage && !isOwnDocs) {
+        return res.status(403).json({ error: 'Only managers and admins can upload documents for other employees. You can only upload documents for yourself.' });
+      }
+    }
+
     // Check if file was uploaded
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -5571,6 +5586,21 @@ app.delete('/api/documents/:entityType/:entityId/:fileName', async (req, res) =>
 
     if (entityError || !entity) {
       return res.status(404).json({ error: 'Entity not found' });
+    }
+
+    // For employees: only managers/admin/owner or the employee themselves can delete
+    if (entityType === 'employees') {
+      const { data: currentEmployee } = await supabase
+        .from('employees')
+        .select('id, user_type')
+        .eq('company_id', companyID)
+        .eq('email_address', user.email?.toLowerCase())
+        .maybeSingle();
+      const canManage = currentEmployee?.user_type === 'admin' || currentEmployee?.user_type === 'manager' || currentEmployee?.user_type === 'owner';
+      const isOwnDocs = entityId === currentEmployee?.id;
+      if (!canManage && !isOwnDocs) {
+        return res.status(403).json({ error: 'Only managers and admins can delete documents for other employees. You can only delete your own documents.' });
+      }
     }
 
     const { documentId } = req.query;

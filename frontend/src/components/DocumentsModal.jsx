@@ -5,7 +5,7 @@ import { openContractPdf } from '../utils/contractPdfGenerator'
 import ContractPreview from './ContractPreview'
 import SendEmailModal from './SendEmailModal'
 
-function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClose }) {
+function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClose, canUploadDocuments, canDeleteDocuments }) {
   const { user, supabase, currentCompanyID, getAuthHeaders } = useAuth()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -32,6 +32,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
   const [documentNotes, setDocumentNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [syncingDocId, setSyncingDocId] = useState(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   // Get auth token
   const getAuthToken = async () => {
@@ -290,16 +291,25 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
       // Refresh documents list
       fetchDocuments()
       
-      // Reset form
+      // Reset form and close modal
       setSelectedFile(null)
       setDocumentName('')
       setDocumentType('')
+      setShowUploadModal(false)
     } catch (err) {
       console.error('❌ Error uploading document:', err)
       setError(err.message || 'Failed to upload document')
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleCloseUploadModal = () => {
+    setShowUploadModal(false)
+    setSelectedFile(null)
+    setDocumentName('')
+    setDocumentType('')
+    setError('')
   }
 
   // Handle file view/preview
@@ -659,187 +669,213 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
             </div>
           )}
 
-          {/* Upload Section */}
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Upload Document
-              </label>
-              {/* Create Document Button - Only show for projects */}
-              {entityType === 'projects' && (
-                <div className="relative create-document-menu">
-                  <button
-                    onClick={() => setShowCreateMenu(!showCreateMenu)}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-md transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create Document
-                    <svg className={`w-4 h-4 transition-transform ${showCreateMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {/* Dropdown Menu */}
-                  {showCreateMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-10">
-                      <div className="py-1">
-                        <button
-                          onClick={() => {
-                            setShowCreateMenu(false)
-                            handleGenerateProposal()
-                          }}
-                          disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {generatingContract ? (
-                            <>
-                              <svg className="animate-spin w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              Proposal
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowCreateMenu(false)
-                            handleGenerateContract()
-                          }}
-                          disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {generatingContract ? (
-                            <>
-                              <svg className="animate-spin w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                          Contract
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowCreateMenu(false)
-                            handleGenerateChangeOrder()
-                          }}
-                          disabled={generatingContract}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {generatingContract ? (
-                            <>
-                              <svg className="animate-spin w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                              Change Order
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            {/* Upload Form */}
-            <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Document Name <span className="text-gray-400 font-normal">(optional - defaults to file name)</span>
-                </label>
-                <input
-                  type="text"
-                  value={documentName}
-                  onChange={(e) => setDocumentName(e.target.value)}
-                  placeholder="Enter document name or leave blank"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Document Type *
-                </label>
-                <select
-                  value={documentType}
-                  onChange={(e) => setDocumentType(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm ${!documentType ? 'border-gray-300 text-gray-500' : 'border-gray-300'}`}
+          {/* Document Actions - Upload and Create buttons */}
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            {(canUploadDocuments !== false) && (
+            <button
+              onClick={() => { setError(''); setShowUploadModal(true) }}
+              className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white text-sm font-semibold rounded-md transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Upload Document
+            </button>
+            )}
+            {/* Create Document Button - Only show for projects */}
+            {entityType === 'projects' && (
+              <div className="relative create-document-menu">
+                <button
+                  onClick={() => setShowCreateMenu(!showCreateMenu)}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-md transition-colors flex items-center gap-2"
                 >
-                  <option value="" disabled>Select document type...</option>
-                  <option value="contract">Contract</option>
-                  <option value="proposal">Proposal</option>
-                  <option value="change_order">Change Order</option>
-                  <option value="insurance">Insurance</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  File *
-                </label>
-            <input
-              type="file"
-                  onChange={handleFileSelect}
-              disabled={uploading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
-            />
-                {selectedFile && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                  </p>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Document
+                  <svg className={`w-4 h-4 transition-transform ${showCreateMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {/* Dropdown Menu */}
+                {showCreateMenu && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-10">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setShowCreateMenu(false)
+                          handleGenerateProposal()
+                        }}
+                        disabled={generatingContract}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingContract ? (
+                          <>
+                            <svg className="animate-spin w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Proposal
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreateMenu(false)
+                          handleGenerateContract()
+                        }}
+                        disabled={generatingContract}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingContract ? (
+                          <>
+                            <svg className="animate-spin w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            Contract
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreateMenu(false)
+                          handleGenerateChangeOrder()
+                        }}
+                        disabled={generatingContract}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingContract ? (
+                          <>
+                            <svg className="animate-spin w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Change Order
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-              
-              <button
-                onClick={handleFileUpload}
-                disabled={uploading || !selectedFile || !documentType}
-                className="w-full px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Upload Document
-                  </>
             )}
-              </button>
-            </div>
           </div>
+
+          {/* Upload Document Modal */}
+          {showUploadModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={handleCloseUploadModal}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-600">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upload Document</h3>
+                </div>
+                <div className="p-4 space-y-3">
+                  {error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-md text-sm">
+                      {error}
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Document Name <span className="text-gray-400 font-normal">(optional - defaults to file name)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={documentName}
+                      onChange={(e) => setDocumentName(e.target.value)}
+                      placeholder="Enter document name or leave blank"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Document Type *
+                    </label>
+                    <select
+                      value={documentType}
+                      onChange={(e) => setDocumentType(e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${!documentType ? 'border-gray-300 dark:border-gray-600 text-gray-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    >
+                      <option value="" disabled>Select document type...</option>
+                      <option value="contract">Contract</option>
+                      <option value="proposal">Proposal</option>
+                      <option value="change_order">Change Order</option>
+                      <option value="insurance">Insurance</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      File *
+                    </label>
+                    <input
+                      type="file"
+                      onChange={handleFileSelect}
+                      disabled={uploading}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    {selectedFile && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 border-t border-gray-200 dark:border-gray-600 flex justify-end gap-2">
+                  <button
+                    onClick={handleCloseUploadModal}
+                    disabled={uploading}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleFileUpload}
+                    disabled={uploading || !selectedFile || !documentType}
+                    className="px-4 py-2 bg-pool-blue hover:bg-pool-dark text-white font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {uploading ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Upload
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Documents List */}
           <div>
@@ -881,7 +917,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
             ) : documents.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p>No documents uploaded yet.</p>
-                <p className="text-sm mt-2">Upload a document using the form above.</p>
+                <p className="text-sm mt-2">Upload a document using the Upload Document button above.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -987,6 +1023,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         >
                           View
                         </button>
+                        {entityType !== 'employees' && (
                         <button
                           onClick={() => handleSendClick(doc)}
                           className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
@@ -994,6 +1031,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                         >
                           Send
                         </button>
+                        )}
                         {doc.id && (
                       <button
                             onClick={() => handleEditClick(doc)}
@@ -1002,12 +1040,14 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                             Edit
                       </button>
                         )}
+                        {(canDeleteDocuments !== false) && (
                       <button
                           onClick={() => handleDelete(fileName, doc.id)}
                         className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
                       >
                         Delete
                       </button>
+                        )}
                     </div>
                   </div>
                   )

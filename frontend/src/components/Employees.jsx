@@ -860,6 +860,8 @@ function Employees() {
             setShowDocumentsModal(false)
             setSelectedEntityForDocuments(null)
           }}
+          canUploadDocuments={canModifyPrivileges || selectedEntityForDocuments?.id === currentUserEmployee?.id}
+          canDeleteDocuments={canModifyPrivileges || selectedEntityForDocuments?.id === currentUserEmployee?.id}
         />
       )}
     </div>

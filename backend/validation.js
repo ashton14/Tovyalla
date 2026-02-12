@@ -124,7 +124,7 @@ export const employeePutValidation = [
 ];
 
 // --- Projects ---
-const projectStatuses = ['lead', 'proposal_sent', 'sold', 'contract_sent', 'in_progress', 'completed', 'cancelled'];
+const projectStatuses = ['contacted', 'lead', 'proposal_sent', 'sold', 'contract_sent', 'in_progress', 'completed', 'cancelled'];
 export const projectPostValidation = [
   body('project_type').trim().notEmpty().withMessage('Project type is required').isLength(maxStr(100)),
   body('pool_or_spa').trim().notEmpty().withMessage('Pool or spa selection is required').isLength(maxStr(50)),

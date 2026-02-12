@@ -350,10 +350,10 @@ export const generateContractPdf = async (contractData) => {
       // ================== CONTRACT TITLE ==================
       { 
         text: docType === 'proposal' 
-          ? 'POOL CONSTRUCTION PROPOSAL' 
+          ? 'PROPOSAL' 
           : docType === 'change_order'
           ? 'CHANGE ORDER'
-          : 'POOL CONSTRUCTION CONTRACT', 
+          : 'CONTRACT', 
         style: 'title', 
         alignment: 'center', 
         margin: [0, 0, 0, 20] 

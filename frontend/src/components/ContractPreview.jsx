@@ -261,7 +261,7 @@ const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateSc
     <div
       ref={setNodeRef}
       style={style}
-      className={`p-4 rounded-lg border ${isSubscope ? 'ml-8 pl-4 border-l-4 border-l-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600 bg-white dark:bg-gray-800'} ${index % 2 === 0 && !isSubscope ? 'bg-gray-50/50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg' : ''}`}
+      className={`p-4 rounded-lg border ${isSubscope ? 'ml-8 pl-4 border-l-4 border-l-pool-blue bg-pool-light/30 dark:bg-pool-blue/20' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600 bg-white dark:bg-gray-800'} ${isDragging ? 'shadow-lg' : ''}`}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
@@ -286,19 +286,6 @@ const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateSc
           <span className={`text-xs font-medium uppercase tracking-wide ${isSubscope ? 'text-pool-blue dark:text-pool-300' : 'text-gray-600 dark:text-gray-400'}`}>
             {isSubscope ? '↳ Subscope' : (hasChildren ? '▸ Section' : 'Work Item')} {index + 1}
           </span>
-          {parentOptions?.length > 0 && (
-            <select
-              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue max-w-[140px]"
-              value=""
-              onChange={(e) => { const v = e.target.value; if (v) { nestUnder(item.id, v); e.target.value = ''; } }}
-              title="Make subscope of..."
-            >
-              <option value="">Make subscope of...</option>
-              {parentOptions.map((p) => (
-                <option key={p.id} value={p.id}>{(p.title || '(Untitled)').slice(0, 20)}{(p.title?.length > 20 ? '…' : '')}</option>
-              ))}
-            </select>
-          )}
         </div>
         {scopeLength > 1 && (
           <button
@@ -313,13 +300,28 @@ const SortableScopeCard = ({ item, index, scopeLength, removeScopeItem, updateSc
         )}
       </div>
       <div className="space-y-3">
-        <input
-          type="text"
-          value={item.title}
-          onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
-          placeholder="Work title (e.g., Pool Excavation)"
-          className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
+        <div className="space-y-1.5">
+          <input
+            type="text"
+            value={item.title}
+            onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
+            placeholder="Work title (e.g., Pool Excavation)"
+            className="w-full min-w-0 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          {parentOptions?.length > 0 && (
+            <select
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue w-36"
+              value=""
+              onChange={(e) => { const v = e.target.value; if (v) { nestUnder(item.id, v); e.target.value = ''; } }}
+              title="Move to..."
+            >
+              <option value="">Move to...</option>
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>{(p.title || '(Untitled)').slice(0, 20)}{(p.title?.length > 20 ? '…' : '')}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <textarea
           value={item.description}
           onChange={(e) => updateScopeItem(item.id, 'description', e.target.value)}
@@ -464,7 +466,7 @@ const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateSco
     <tr
       ref={setNodeRef}
       style={style}
-      className={`border-b border-gray-100 dark:border-gray-700 ${isSubscope ? 'bg-pool-light/30 dark:bg-pool-blue/20 border-l-4 border-l-pool-blue' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600'} ${index % 2 === 0 && !isSubscope ? 'bg-gray-50 dark:bg-gray-700/50' : ''} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
+      className={`border-b border-gray-100 dark:border-gray-700 ${isSubscope ? 'bg-pool-light/30 dark:bg-pool-blue/20 border-l-4 border-l-pool-blue' : 'border-l-4 border-l-gray-300 dark:border-l-gray-600 bg-white dark:bg-gray-800'} ${isDragging ? 'shadow-lg bg-white dark:bg-gray-700' : ''}`}
     >
       <td className="py-3 px-2 w-10 align-top">
         <DragHandle listeners={listeners} attributes={attributes} />
@@ -490,22 +492,22 @@ const SortableScopeRow = ({ item, index, scopeLength, removeScopeItem, updateSco
         )}
       </td>
       <td className="py-3 px-4 align-top">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-col gap-1.5">
           <input
             type="text"
             value={item.title}
             onChange={(e) => updateScopeItem(item.id, 'title', e.target.value)}
             placeholder="Enter work title"
-            className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
           {parentOptions?.length > 0 && (
             <select
-              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue"
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-pool-blue w-36"
               value=""
               onChange={(e) => { const v = e.target.value; if (v) { nestUnder(item.id, v); e.target.value = ''; } }}
-              title="Make subscope of..."
+              title="Move to..."
             >
-              <option value="">Make subscope of...</option>
+              <option value="">Move to...</option>
               {parentOptions.map((p) => (
                 <option key={p.id} value={p.id}>{p.title || '(Untitled)'}</option>
               ))}
@@ -1405,9 +1407,11 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   // Calculate totals (costs and prices rounded to 2 decimals)
   const totalMilestoneCost = roundTo2(milestones.reduce((sum, m) => sum + (m.cost || 0), 0))
   const customerTotal = roundTo2(milestones.reduce((sum, m) => sum + getMilestonePrice(m), 0))
-  const profit = roundTo2(customerTotal - totalCost)
+  // Use expense-based cost when available, otherwise sum of milestone costs (so cost is never 0 when milestones have costs)
+  const effectiveTotalCost = totalCost > 0 ? totalCost : totalMilestoneCost
+  const profit = roundTo2(customerTotal - effectiveTotalCost)
   const profitMargin = customerTotal > 0 ? (profit / customerTotal) * 100 : 0
-  const markupPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0
+  const markupPercent = effectiveTotalCost > 0 ? (profit / effectiveTotalCost) * 100 : 0
 
   // Get auth token
   const getAuthToken = async () => {
@@ -2038,7 +2042,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
               {/* Desktop Table Layout */}
               <DndContext sensors={sensors} collisionDetection={scopeCollisionDetection} onDragStart={({ active }) => setActiveScopeDragId(active.id)} onDragEnd={handleScopeDragEnd}>
                 <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full table-fixed">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="w-10"></th>
@@ -2164,7 +2168,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                         <span className="font-bold text-gray-900 dark:text-white text-xl">{formatCurrency(customerTotal)}</span>
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Cost: {formatCurrency(totalCost)} • Profit: {formatCurrency(profit)}
+                        Cost: {formatCurrency(effectiveTotalCost)} • Profit: {formatCurrency(profit)}
                       </div>
                     </div>
                   </div>
@@ -2247,7 +2251,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
                         <td></td>
                         <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">TOTAL</td>
                         <td className="py-4 px-4 text-right font-semibold text-gray-700 dark:text-gray-300">
-                          {formatCurrency(totalCost)}
+                          {formatCurrency(effectiveTotalCost)}
                         </td>
                         <td></td>
                         <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white text-lg">
@@ -2268,7 +2272,7 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
               <div>
                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase">Total Cost</p>
-                <p className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(totalCost)}</p>
+                <p className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(effectiveTotalCost)}</p>
               </div>
               <div>
                 <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase">Customer Price</p>
