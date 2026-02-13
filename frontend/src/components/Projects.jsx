@@ -561,7 +561,13 @@ function Projects() {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All PMs</option>
-              {[...new Set(projects.map(p => p.project_manager).filter(Boolean))].sort().map((pm) => (
+              {[...new Set([
+                ...projects.map(p => p.project_manager).filter(Boolean),
+                ...employees
+                  .filter((emp) => emp.is_project_manager === true || emp.user_role?.toLowerCase().includes('project_manager') || emp.user_role?.toLowerCase().includes('project manager'))
+                  .map((emp) => emp.name)
+                  .filter(Boolean),
+              ])].sort().map((pm) => (
                 <option key={pm} value={pm}>
                   {pm}
                 </option>
