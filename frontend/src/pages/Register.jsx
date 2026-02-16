@@ -165,7 +165,9 @@ function Register() {
       <div className="relative w-full max-w-5xl z-10 my-4">
         {/* Header */}
         <div className="text-center mb-4 sm:mb-6">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          <Link to="/" className="inline-block">
+            <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          </Link>
           <p className="text-white/80 font-light text-sm sm:text-base">Customer Relationship Management</p>
         </div>
 
@@ -303,7 +305,7 @@ function Register() {
               <div className="mt-4 pt-4 border-t border-gray-200 text-center">
                 <p className="text-sm text-gray-600">
                   Already have an account?{' '}
-                  <Link to="/" className="text-pool-blue hover:text-pool-dark font-semibold transition-colors">
+                  <Link to="/login" className="text-pool-blue hover:text-pool-dark font-semibold transition-colors">
                     Sign in
                   </Link>
                 </p>

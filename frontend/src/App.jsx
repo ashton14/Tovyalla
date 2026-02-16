@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import RegisterSuccess from './pages/RegisterSuccess'
@@ -13,13 +14,14 @@ import ShaderBackground from './components/ShaderBackground'
 
 function AppContent() {
   const location = useLocation()
-  const showShader = location.pathname === '/' || location.pathname === '/register' || location.pathname === '/register/success' || location.pathname === '/terms' || location.pathname === '/privacy' || location.pathname === '/refund' || location.pathname === '/contact'
+  const showShader = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/register/success' || location.pathname === '/terms' || location.pathname === '/privacy' || location.pathname === '/refund' || location.pathname === '/contact'
 
   return (
     <div className="relative min-h-screen w-screen">
       {showShader && <ShaderBackground />}
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register/success" element={<RegisterSuccess />} />
         <Route path="/dashboard" element={<Dashboard />} />

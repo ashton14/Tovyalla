@@ -191,7 +191,7 @@ function RegisterSuccess() {
             </form>
 
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-              <Link to="/" className="text-sm text-pool-blue hover:text-pool-dark font-semibold">
+              <Link to="/login" className="text-sm text-pool-blue hover:text-pool-dark font-semibold">
                 Back to sign in
               </Link>
             </div>

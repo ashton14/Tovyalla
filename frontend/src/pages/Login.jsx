@@ -82,7 +82,9 @@ function Login() {
       <div className="relative w-full max-w-md z-10">
         {/* Header */}
         <div className="text-center mb-4 sm:mb-6">
-          <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          <Link to="/" className="inline-block">
+            <img src="/tovyalla_logo.png" alt="Tovyalla CRM" className="h-12 sm:h-16 w-auto mx-auto mb-1" />
+          </Link>
           <p className="text-white/80 font-light text-sm sm:text-base">Customer Relationship Management</p>
         </div>
 

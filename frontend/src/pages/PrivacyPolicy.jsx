@@ -6,8 +6,8 @@ function PrivacyPolicy() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 p-8 md:p-12">
           <div className="mb-6">
-            <Link to="/register" className="text-pool-blue hover:text-pool-dark font-semibold text-sm">
-              ← Back to Registration
+            <Link to="/" className="text-pool-blue hover:text-pool-dark font-semibold text-sm">
+              ← Back to Home
             </Link>
           </div>
           
