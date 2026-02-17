@@ -6759,7 +6759,7 @@ app.post('/api/google/calendar/events', async (req, res) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location } = req.body;
+    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location, recurrence, reminders } = req.body;
 
     if (!name && !summary) {
       return res.status(400).json({ error: 'Event name/summary is required' });
@@ -6783,7 +6783,9 @@ app.post('/api/google/calendar/events', async (req, res) => {
       startDateTime: startDateTime || start,
       endDateTime: endTime,
       timeZone: timeZone || 'America/New_York',
-      location,
+      location: location || undefined,
+      recurrence: recurrence || undefined,
+      reminders: reminders || undefined,
     };
 
     const event = await googleCalendarService.createEvent(user.id, eventData);
@@ -6811,7 +6813,7 @@ app.put('/api/google/calendar/events/:eventId', async (req, res) => {
     }
 
     const { eventId } = req.params;
-    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location } = req.body;
+    const { name, summary, description, startDateTime, endDateTime, start, end, timeZone, location, reminders } = req.body;
 
     const eventData = {
       ...(name && { name }),
@@ -6825,6 +6827,7 @@ app.put('/api/google/calendar/events/:eventId', async (req, res) => {
       ...(end && !endDateTime && { endDateTime: end }),
       ...(timeZone && { timeZone }),
       ...(location !== undefined && { location }),
+      ...(reminders && { reminders }),
     };
 
     const event = await googleCalendarService.updateEvent(user.id, eventId, eventData);

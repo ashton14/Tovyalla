@@ -257,6 +257,12 @@ export async function createEvent(userId, eventData) {
     },
     ...(eventData.location && { location: eventData.location }),
     ...(eventData.attendees && { attendees: eventData.attendees }),
+    ...(eventData.recurrence?.length && { recurrence: eventData.recurrence }),
+    ...(eventData.reminders && {
+      reminders: eventData.reminders.useDefault
+        ? { useDefault: true }
+        : { useDefault: false, overrides: eventData.reminders.overrides || [] },
+    }),
   };
 
   const response = await calendar.events.insert({
@@ -293,6 +299,11 @@ export async function updateEvent(userId, eventId, eventData) {
     },
     ...(eventData.location !== undefined && { location: eventData.location }),
     ...(eventData.attendees && { attendees: eventData.attendees }),
+    ...(eventData.reminders && {
+      reminders: eventData.reminders.useDefault
+        ? { useDefault: true }
+        : { useDefault: false, overrides: eventData.reminders.overrides || [] },
+    }),
   };
 
   const response = await calendar.events.update({

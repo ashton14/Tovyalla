@@ -625,7 +625,7 @@ function Dashboard() {
           {activeSection === 'inventory' && <Inventory />}
           {activeSection === 'subcontractors' && <Subcontractors />}
           {activeSection === 'employees' && <Employees />}
-          {activeSection === 'calendar' && <Calendar />}
+          <Calendar isActive={activeSection === 'calendar'} />
           {activeSection === 'goals' && <Goals />}
           {activeSection === 'messages' && <Messages />}
           {activeSection === 'subscription' && <Subscription />}
