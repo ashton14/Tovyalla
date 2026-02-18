@@ -99,23 +99,29 @@ export async function handleOAuthCallback(code, state) {
       throw new Error(`Failed to store tokens: ${updateError.message}`);
     }
 
-    // Get user's email from Google
-    oauth2Client.setCredentials(tokens);
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const { data: userInfo } = await oauth2.userinfo.get();
-    
-    if (userInfo.email) {
-      await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: {
-          ...updatedMetadata,
-          google_calendar_email: userInfo.email,
-        },
-      });
+    // Get user's email from Google (optional - tokens are already stored, connection works without it)
+    let email = null;
+    try {
+      const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+      client.setCredentials(tokens);
+      const oauth2 = google.oauth2({ version: 'v2', auth: client });
+      const { data: userInfo } = await oauth2.userinfo.get();
+      if (userInfo?.email) {
+        email = userInfo.email;
+        await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...updatedMetadata,
+            google_calendar_email: email,
+          },
+        });
+      }
+    } catch (userInfoError) {
+      console.warn('Could not fetch Google user email (connection still works):', userInfoError?.message || userInfoError);
     }
 
     return {
       success: true,
-      email: userInfo.email,
+      email,
     };
   } catch (error) {
     console.error('OAuth callback error:', error);
