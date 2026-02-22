@@ -15,6 +15,7 @@ export default {
         },
       },
       animation: {
+        'dropdown-in': 'dropdown-in 0.15s ease-out forwards',
         'aurora-pulse-1': 'aurora-pulse-1 4s ease-in-out infinite',
         'aurora-pulse-2': 'aurora-pulse-2 3s ease-in-out infinite',
         'aurora-pulse-3': 'aurora-pulse-3 5s ease-in-out infinite',
@@ -22,6 +23,10 @@ export default {
         'aurora-drift': 'aurora-drift 8s ease-in-out infinite',
       },
       keyframes: {
+        'dropdown-in': {
+          '0%': { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
         'aurora-pulse-1': {
           '0%, 100%': { opacity: '0.3', transform: 'scale(1) translate(0%, 0%)' },
           '50%': { opacity: '0.7', transform: 'scale(1.15) translate(5%, -3%)' },

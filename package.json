@@ -4,7 +4,7 @@
   "description": "CRM system for pool construction company",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently -n server,client \"npm run server\" \"npm run client\"",
+    "dev": "concurrently -n server,client \"npm run server\" \"npx wait-on tcp:127.0.0.1:5000 -t 30000 && npm run client\"",
     "server": "node backend/server.js",
     "client": "cd frontend && npm run dev",
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
@@ -13,7 +13,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "wait-on": "^8.0.1"
   }
 }
 

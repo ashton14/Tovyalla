@@ -105,10 +105,10 @@ export async function sendContractForSignature({
   fs.writeFileSync(tempFilePath, documentBuffer);
 
   try {
-    // Create form fields for OWNER signature section
+    // Create form fields for OWNER signature section (+48px down)
     const ownerSignatureBounds = new Rectangle();
     ownerSignatureBounds.x = 50;      // +10 right
-    ownerSignatureBounds.y = 290;
+    ownerSignatureBounds.y = 338;     // 290 + 48
     ownerSignatureBounds.width = 280;
     ownerSignatureBounds.height = 28;
 
@@ -122,7 +122,7 @@ export async function sendContractForSignature({
     // OWNER Printed Name field
     const ownerNameBounds = new Rectangle();
     ownerNameBounds.x = 50;           // +10 right
-    ownerNameBounds.y = 370;          // +10 down for printed name
+    ownerNameBounds.y = 418;          // 370 + 48
     ownerNameBounds.width = 280;
     ownerNameBounds.height = 22;
 
@@ -137,7 +137,7 @@ export async function sendContractForSignature({
     // OWNER Date field
     const ownerDateBounds = new Rectangle();
     ownerDateBounds.x = 475;          // +10 right
-    ownerDateBounds.y = 290;
+    ownerDateBounds.y = 338;         // 290 + 48
     ownerDateBounds.width = 140;
     ownerDateBounds.height = 22;
 
@@ -161,10 +161,10 @@ export async function sendContractForSignature({
 
     // Create CONTRACTOR signer if different from owner
     if (companySignerEmail && companySignerEmail.toLowerCase() !== recipientEmail.toLowerCase()) {
-      // CONTRACTOR Signature field
+      // CONTRACTOR Signature field (+48px down)
       const contractorSignatureBounds = new Rectangle();
       contractorSignatureBounds.x = 50;      // +10 right
-      contractorSignatureBounds.y = 534;     // +72 down
+      contractorSignatureBounds.y = 582;     // 534 + 48
       contractorSignatureBounds.width = 280;
       contractorSignatureBounds.height = 28;
 
@@ -178,7 +178,7 @@ export async function sendContractForSignature({
       // CONTRACTOR Printed Name field
       const contractorNameBounds = new Rectangle();
       contractorNameBounds.x = 50;           // +10 right
-      contractorNameBounds.y = 614;          // +72 down + 10 for printed name
+      contractorNameBounds.y = 662;          // 614 + 48
       contractorNameBounds.width = 280;
       contractorNameBounds.height = 22;
 
@@ -193,7 +193,7 @@ export async function sendContractForSignature({
       // CONTRACTOR Date field
       const contractorDateBounds = new Rectangle();
       contractorDateBounds.x = 475;          // +10 right
-      contractorDateBounds.y = 534;          // +72 down
+      contractorDateBounds.y = 582;          // 534 + 48
       contractorDateBounds.width = 140;
       contractorDateBounds.height = 22;
 

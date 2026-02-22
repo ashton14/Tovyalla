@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import ProjectExpenses from './ProjectExpenses'
 import DocumentsModal from './DocumentsModal'
 import AddressAutocomplete from './AddressAutocomplete'
+import ActionsMenu, { DOCUMENT_ICON, EDIT_ICON, DELETE_ICON, EXPENSE_ICON, TIMELINE_ICON } from './ActionsMenu'
+import ProjectTimelineModal from './ProjectTimelineModal'
 import {
   useProjects,
   useCustomers,
@@ -28,6 +30,7 @@ const POOL_OR_SPA_OPTIONS = [
 const PROJECT_STATUSES = [
   { value: 'contacted', label: 'Contacted', color: 'bg-gray-100 text-gray-800' },
   { value: 'proposal_sent', label: 'Proposal Sent', color: 'bg-gray-100 text-blue-800' },
+  { value: 'proposal_signed', label: 'Proposal Signed', color: 'bg-blue-50 text-blue-800' },
   { value: 'contract_sent', label: 'Contract Sent', color: 'bg-blue-100 text-blue-800' },
   { value: 'sold', label: 'Sold', color: 'bg-green-100 text-green-800' },
   { value: 'complete', label: 'Complete', color: 'bg-emerald-100 text-emerald-800' },
@@ -58,12 +61,15 @@ function Projects() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
   const [selectedProjectForExpenses, setSelectedProjectForExpenses] = useState(null)
+  const [selectedProjectForTimeline, setSelectedProjectForTimeline] = useState(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ success: 0, failed: 0, total: 0 })
   const [importErrors, setImportErrors] = useState([])
   const [showDocumentsModal, setShowDocumentsModal] = useState(false)
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
+  const [openActionsProjectId, setOpenActionsProjectId] = useState(null)
+  const actionsMenuRef = useRef(null)
 
   // Form state
   const emptyProjectForm = {
@@ -195,6 +201,17 @@ function Projects() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, filterStatus, filterType, filterPM])
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (openActionsProjectId && actionsMenuRef.current && !actionsMenuRef.current.contains(e.target)) {
+        setOpenActionsProjectId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openActionsProjectId])
 
   const getStatusBadge = (status) => {
     const statusObj = PROJECT_STATUSES.find((s) => s.value === status)
@@ -1102,51 +1119,19 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
                         {new Date(project.updated_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              setSelectedEntityForDocuments({
-                                id: project.id,
-                                name: project.project_name || `Project ${project.id.substring(0, 8)}`,
-                                customerEmail: project.customers?.email || '',
-                              })
-                              setShowDocumentsModal(true)
-                            }}
-                            className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
-                            title="Documents"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setSelectedProjectForExpenses(project)}
-                            className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
-                            title="Expenses"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleEdit(project)}
-                            className="p-1 text-pool-blue hover:text-pool-dark hover:bg-blue-50 rounded"
-                            title="Edit"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(project.id)}
-                            disabled={deleteProject.isPending}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded disabled:opacity-50"
-                            title="Delete"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                        <div ref={openActionsProjectId === project.id ? actionsMenuRef : null}>
+                          <ActionsMenu
+                            isOpen={openActionsProjectId === project.id}
+                            onToggle={() => setOpenActionsProjectId((prev) => (prev === project.id ? null : project.id))}
+                            onAction={() => setOpenActionsProjectId(null)}
+                            actions={[
+                              { icon: DOCUMENT_ICON, label: 'Documents', iconColor: 'text-green-600 dark:text-green-400', onClick: () => { setSelectedEntityForDocuments({ id: project.id, name: project.project_name || `Project ${project.id.substring(0, 8)}`, customerEmail: project.customers?.email || '' }); setShowDocumentsModal(true) } },
+                              { icon: EXPENSE_ICON, label: 'Expenses', iconColor: 'text-purple-600 dark:text-purple-400', onClick: () => setSelectedProjectForExpenses(project) },
+                              { icon: TIMELINE_ICON, label: 'Timeline', iconColor: 'text-amber-600 dark:text-amber-400', onClick: () => setSelectedProjectForTimeline(project) },
+                              { icon: EDIT_ICON, label: 'Edit', onClick: () => handleEdit(project) },
+                              { icon: DELETE_ICON, label: 'Delete', danger: true, disabled: deleteProject.isPending, onClick: () => handleDelete(project.id) },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -1224,7 +1209,7 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Proposals</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {projects.filter((p) => ['contract_sent', 'proposal_sent'].includes(p.status)).length}
+            {projects.filter((p) => ['contract_sent', 'proposal_sent', 'proposal_signed'].includes(p.status)).length}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -1256,6 +1241,15 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
             setShowDocumentsModal(false)
             setSelectedEntityForDocuments(null)
           }}
+        />
+      )}
+
+      {/* Timeline Modal */}
+      {selectedProjectForTimeline && (
+        <ProjectTimelineModal
+          project={selectedProjectForTimeline}
+          onClose={() => setSelectedProjectForTimeline(null)}
+          onProjectUpdated={(updated) => setSelectedProjectForTimeline(updated)}
         />
       )}
     </div>

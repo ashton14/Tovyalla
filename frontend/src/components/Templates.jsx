@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import ActionsMenu, { EDIT_ICON, DELETE_ICON } from './ActionsMenu'
 import { useTemplates } from '../hooks/useApi'
 
 const emptySubcontractor = {
@@ -61,6 +62,8 @@ function Templates() {
   const [equipForm, setEquipForm] = useState(emptyEquipment)
   const [addForm, setAddForm] = useState(emptyAdditional)
   const [saving, setSaving] = useState(false)
+  const [openActionsId, setOpenActionsId] = useState(null)
+  const actionsMenuRef = useRef(null)
 
   const getAuthToken = async () => {
     if (!supabase) return null
@@ -85,6 +88,16 @@ function Templates() {
     }
     if (supabase) fetchData()
   }, [supabase])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (openActionsId && actionsMenuRef.current && !actionsMenuRef.current.contains(e.target)) {
+        setOpenActionsId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openActionsId])
 
   const resetForm = () => {
     setFormName('')
@@ -426,24 +439,17 @@ function Templates() {
                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{t.equipmentCount || 0}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{t.additionalCount || 0}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleOpenEdit(t)}
-                      className="p-1 text-pool-blue hover:text-pool-dark hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                      title="Edit"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(t)}
-                      className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                      title="Delete"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div ref={openActionsId === t.id ? actionsMenuRef : null}>
+                      <ActionsMenu
+                        isOpen={openActionsId === t.id}
+                        onToggle={() => setOpenActionsId((prev) => (prev === t.id ? null : t.id))}
+                        onAction={() => setOpenActionsId(null)}
+                        actions={[
+                          { icon: EDIT_ICON, label: 'Edit', onClick: () => handleOpenEdit(t) },
+                          { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleDelete(t) },
+                        ]}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))
@@ -538,8 +544,17 @@ function Templates() {
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{f.expected_value ? `$${parseFloat(f.expected_value).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{f.flat_fee ? `$${parseFloat(f.flat_fee).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm text-right">
-                              <button onClick={() => { setSubForm({ ...f }); setEditingSubIdx(i); setShowSubForm(true); }} className="text-pool-blue hover:text-pool-dark mr-3">Edit</button>
-                              <button onClick={() => setSubcontractorFees((p) => p.filter((_, j) => j !== i))} className="text-red-600 hover:text-red-800">Delete</button>
+                              <div ref={openActionsId === `form-sub-${i}` ? actionsMenuRef : null}>
+                                <ActionsMenu
+                                  isOpen={openActionsId === `form-sub-${i}`}
+                                  onToggle={() => setOpenActionsId((prev) => (prev === `form-sub-${i}` ? null : `form-sub-${i}`))}
+                                  onAction={() => setOpenActionsId(null)}
+                                  actions={[
+                                    { icon: EDIT_ICON, label: 'Edit', onClick: () => { setSubForm({ ...f }); setEditingSubIdx(i); setShowSubForm(true) } },
+                                    { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => setSubcontractorFees((p) => p.filter((_, j) => j !== i)) },
+                                  ]}
+                                />
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -574,8 +589,17 @@ function Templates() {
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{m.expected_price ? `$${parseFloat(m.expected_price).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{m.actual_price ? `$${parseFloat(m.actual_price).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm text-right">
-                              <button onClick={() => { setMatForm({ ...m }); setEditingMatIdx(i); setShowMatForm(true); }} className="text-pool-blue hover:text-pool-dark mr-3">Edit</button>
-                              <button onClick={() => setMaterials((p) => p.filter((_, j) => j !== i))} className="text-red-600 hover:text-red-800">Delete</button>
+                              <div ref={openActionsId === `form-mat-${i}` ? actionsMenuRef : null}>
+                                <ActionsMenu
+                                  isOpen={openActionsId === `form-mat-${i}`}
+                                  onToggle={() => setOpenActionsId((prev) => (prev === `form-mat-${i}` ? null : `form-mat-${i}`))}
+                                  onAction={() => setOpenActionsId(null)}
+                                  actions={[
+                                    { icon: EDIT_ICON, label: 'Edit', onClick: () => { setMatForm({ ...m }); setEditingMatIdx(i); setShowMatForm(true) } },
+                                    { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => setMaterials((p) => p.filter((_, j) => j !== i)) },
+                                  ]}
+                                />
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -610,8 +634,17 @@ function Templates() {
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{e.expected_price ? `$${parseFloat(e.expected_price).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{e.actual_price ? `$${parseFloat(e.actual_price).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm text-right">
-                              <button onClick={() => { setEquipForm({ ...e }); setEditingEquipIdx(i); setShowEquipForm(true); }} className="text-pool-blue hover:text-pool-dark mr-3">Edit</button>
-                              <button onClick={() => setEquipment((p) => p.filter((_, j) => j !== i))} className="text-red-600 hover:text-red-800">Delete</button>
+                              <div ref={openActionsId === `form-equip-${i}` ? actionsMenuRef : null}>
+                                <ActionsMenu
+                                  isOpen={openActionsId === `form-equip-${i}`}
+                                  onToggle={() => setOpenActionsId((prev) => (prev === `form-equip-${i}` ? null : `form-equip-${i}`))}
+                                  onAction={() => setOpenActionsId(null)}
+                                  actions={[
+                                    { icon: EDIT_ICON, label: 'Edit', onClick: () => { setEquipForm({ ...e }); setEditingEquipIdx(i); setShowEquipForm(true) } },
+                                    { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => setEquipment((p) => p.filter((_, j) => j !== i)) },
+                                  ]}
+                                />
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -644,8 +677,17 @@ function Templates() {
                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{a.description || '-'}</td>
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{a.expected_value ? `$${parseFloat(a.expected_value).toFixed(2)}` : '-'}</td>
                             <td className="px-4 py-3 text-sm text-right">
-                              <button onClick={() => { setAddForm({ ...a }); setEditingAddIdx(i); setShowAddForm(true); }} className="text-pool-blue hover:text-pool-dark mr-3">Edit</button>
-                              <button onClick={() => setAdditionalExpenses((p) => p.filter((_, j) => j !== i))} className="text-red-600 hover:text-red-800">Delete</button>
+                              <div ref={openActionsId === `form-add-${i}` ? actionsMenuRef : null}>
+                                <ActionsMenu
+                                  isOpen={openActionsId === `form-add-${i}`}
+                                  onToggle={() => setOpenActionsId((prev) => (prev === `form-add-${i}` ? null : `form-add-${i}`))}
+                                  onAction={() => setOpenActionsId(null)}
+                                  actions={[
+                                    { icon: EDIT_ICON, label: 'Edit', onClick: () => { setAddForm({ ...a }); setEditingAddIdx(i); setShowAddForm(true) } },
+                                    { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => setAdditionalExpenses((p) => p.filter((_, j) => j !== i)) },
+                                  ]}
+                                />
+                              </div>
                             </td>
                           </tr>
                         ))}

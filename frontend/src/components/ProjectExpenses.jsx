@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
+import ActionsMenu, { EDIT_ICON, DELETE_ICON } from './ActionsMenu'
 import { useTemplates } from '../hooks/useApi'
 
 // Helper function to format date string (YYYY-MM-DD) to local date without timezone issues
@@ -70,6 +71,8 @@ function ProjectExpenses({ project, onClose }) {
   
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [openActionsId, setOpenActionsId] = useState(null)
+  const actionsMenuRef = useRef(null)
 
   const [subcontractorForm, setSubcontractorForm] = useState({
     subcontractor_id: '',
@@ -171,6 +174,17 @@ function ProjectExpenses({ project, onClose }) {
       fetchExpenses()
     }
   }, [user, project])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!openActionsId) return
+      if (actionsMenuRef.current?.contains(e.target)) return
+      if (e.target.closest('[data-actions-menu-dropdown]')) return
+      setOpenActionsId(null)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openActionsId])
 
   // Handle subcontractor fee
   const handleSubcontractorSubmit = async (e) => {
@@ -1097,18 +1111,18 @@ function ProjectExpenses({ project, onClose }) {
                           {entry.flat_fee ? `$${parseFloat(entry.flat_fee).toFixed(2)}` : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm text-right">
-                          <button
-                            onClick={() => handleSubcontractorEdit(entry)}
-                            className="text-pool-blue hover:text-pool-dark mr-3"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleSubcontractorDelete(entry.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
+                          <div ref={openActionsId === `sub-${entry.id}` ? actionsMenuRef : null}>
+                            <ActionsMenu
+                              isOpen={openActionsId === `sub-${entry.id}`}
+                              onToggle={() => setOpenActionsId((prev) => (prev === `sub-${entry.id}` ? null : `sub-${entry.id}`))}
+                              onAction={() => setOpenActionsId(null)}
+                              usePortal
+                              actions={[
+                                { icon: EDIT_ICON, label: 'Edit', onClick: () => handleSubcontractorEdit(entry) },
+                                { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleSubcontractorDelete(entry.id) },
+                              ]}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1171,18 +1185,18 @@ function ProjectExpenses({ project, onClose }) {
                             {actualPrice > 0 ? `$${actualPrice.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
-                            <button
-                              onClick={() => handleMaterialEdit(entry)}
-                              className="text-pool-blue hover:text-pool-dark mr-3"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleMaterialDelete(entry.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </button>
+                            <div ref={openActionsId === `mat-${entry.id}` ? actionsMenuRef : null}>
+                              <ActionsMenu
+                                isOpen={openActionsId === `mat-${entry.id}`}
+                                onToggle={() => setOpenActionsId((prev) => (prev === `mat-${entry.id}` ? null : `mat-${entry.id}`))}
+                                onAction={() => setOpenActionsId(null)}
+                                usePortal
+                                actions={[
+                                  { icon: EDIT_ICON, label: 'Edit', onClick: () => handleMaterialEdit(entry) },
+                                  { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleMaterialDelete(entry.id) },
+                                ]}
+                              />
+                            </div>
                           </td>
                         </tr>
                       )
@@ -1249,18 +1263,18 @@ function ProjectExpenses({ project, onClose }) {
                             {actualTotal > 0 ? `$${actualTotal.toFixed(2)}` : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
-                            <button
-                              onClick={() => handleEquipmentEdit(entry)}
-                              className="text-pool-blue hover:text-pool-dark mr-3"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleEquipmentDelete(entry.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </button>
+                            <div ref={openActionsId === `equip-${entry.id}` ? actionsMenuRef : null}>
+                              <ActionsMenu
+                                isOpen={openActionsId === `equip-${entry.id}`}
+                                onToggle={() => setOpenActionsId((prev) => (prev === `equip-${entry.id}` ? null : `equip-${entry.id}`))}
+                                onAction={() => setOpenActionsId(null)}
+                                usePortal
+                                actions={[
+                                  { icon: EDIT_ICON, label: 'Edit', onClick: () => handleEquipmentEdit(entry) },
+                                  { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleEquipmentDelete(entry.id) },
+                                ]}
+                              />
+                            </div>
                           </td>
                         </tr>
                       )
@@ -1315,18 +1329,18 @@ function ProjectExpenses({ project, onClose }) {
                           {entry.amount ? `$${parseFloat(entry.amount).toFixed(2)}` : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm text-right">
-                          <button
-                            onClick={() => handleAdditionalEdit(entry)}
-                            className="text-pool-blue hover:text-pool-dark mr-3"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleAdditionalDelete(entry.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
+                          <div ref={openActionsId === `add-${entry.id}` ? actionsMenuRef : null}>
+                            <ActionsMenu
+                              isOpen={openActionsId === `add-${entry.id}`}
+                              onToggle={() => setOpenActionsId((prev) => (prev === `add-${entry.id}` ? null : `add-${entry.id}`))}
+                              onAction={() => setOpenActionsId(null)}
+                              usePortal
+                              actions={[
+                                { icon: EDIT_ICON, label: 'Edit', onClick: () => handleAdditionalEdit(entry) },
+                                { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleAdditionalDelete(entry.id) },
+                              ]}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))}

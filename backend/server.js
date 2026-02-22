@@ -2400,54 +2400,68 @@ app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const newStatus = status || 'contacted';
+    const newStatus = status !== undefined ? status : existing.status;
     const statusChanged = existing.status !== newStatus;
+
+    // Build update object from only provided fields (partial update)
+    const updateFields = {
+      updated_at: new Date().toISOString(),
+    };
+    if (project_name !== undefined) updateFields.project_name = project_name || null;
+    if (customer_id !== undefined) updateFields.customer_id = customer_id || null;
+    if (address !== undefined) updateFields.address = address || null;
+    if (project_type !== undefined) updateFields.project_type = project_type;
+    if (pool_or_spa !== undefined) updateFields.pool_or_spa = pool_or_spa;
+    if (sq_feet !== undefined) updateFields.sq_feet = sq_feet ? parseFloat(sq_feet) : null;
+    if (status !== undefined) updateFields.status = newStatus;
+    if (accessories_features !== undefined) updateFields.accessories_features = accessories_features || null;
+    if (est_value !== undefined) updateFields.est_value = est_value ? parseFloat(est_value) : null;
+    if (closing_price !== undefined) updateFields.closing_price = closing_price ? parseFloat(closing_price) : null;
+    if (project_manager !== undefined) updateFields.project_manager = project_manager || null;
+    if (notes !== undefined) updateFields.notes = notes || null;
 
     const { data, error } = await supabase
       .from('projects')
-      .update({
-        project_name: project_name || null,
-        customer_id: customer_id || null,
-        address: address || null,
-        project_type,
-        pool_or_spa,
-        sq_feet: sq_feet ? parseFloat(sq_feet) : null,
-        status: newStatus,
-        accessories_features: accessories_features || null,
-        est_value: est_value ? parseFloat(est_value) : null,
-        closing_price: closing_price ? parseFloat(closing_price) : null,
-        project_manager: project_manager || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateFields)
       .eq('id', id)
       .eq('company_id', companyID)
       .select()
       .single();
 
     if (error) {
+      console.error('Update project Supabase error:', error);
       return res.status(500).json({ error: error.message });
     }
 
-    // Track status change if status changed
+    // Track status change if status changed (non-blocking - don't fail main update)
     if (statusChanged) {
-      await supabase
-        .from('project_status_history')
-        .upsert({
-          project_id: id,
-          company_id: companyID,
-          status: newStatus,
-          changed_at: new Date().toISOString(),
-        }, {
-          onConflict: 'project_id,status',
-          ignoreDuplicates: false,
-        });
+      try {
+        const { error: historyError } = await supabase
+          .from('project_status_history')
+          .upsert({
+            project_id: id,
+            company_id: companyID,
+            status: newStatus,
+            changed_at: new Date().toISOString(),
+          }, {
+            onConflict: 'project_id,status',
+            ignoreDuplicates: false,
+          });
+        if (historyError) {
+          console.warn('project_status_history upsert failed (non-fatal):', historyError.message);
+        }
+      } catch (historyErr) {
+        console.warn('project_status_history error (non-fatal):', historyErr);
+      }
     }
 
     res.json({ project: data });
   } catch (error) {
     console.error('Update project error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({
+      error: error.message || 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
   }
 });
 
