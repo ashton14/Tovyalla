@@ -125,9 +125,17 @@ export const employeePutValidation = [
 
 // --- Projects ---
 const projectStatuses = ['contacted', 'lead', 'proposal_sent', 'proposal_signed', 'contract_sent', 'sold', 'in_progress', 'complete', 'completed', 'cancelled'];
+const propertyTypes = ['residential', 'commercial', 'HOA'];
+const projectTypeOptions = ['pool', 'spa', 'building', 'roof', 'yard', 'patio', 'deck', 'renovation', 'landscaping', 'fencing', 'foundation', 'electrical', 'plumbing', 'hvac', 'other'];
+// Normalize project_types: ensure array, trim/lowercase each value, filter empties
+const sanitizeProjectTypes = (val) =>
+  Array.isArray(val) ? val.map((v) => String(v || '').trim().toLowerCase()).filter(Boolean) : [];
 export const projectPostValidation = [
-  body('project_type').trim().notEmpty().withMessage('Project type is required').isLength(maxStr(100)),
-  body('pool_or_spa').trim().notEmpty().withMessage('Pool or spa selection is required').isLength(maxStr(50)),
+  body('property_type').trim().notEmpty().withMessage('Property type is required').isIn(propertyTypes).withMessage('Invalid property type'),
+  body('project_types')
+    .isArray().withMessage('Project types must be an array')
+    .customSanitizer(sanitizeProjectTypes),
+  body('project_types.*').optional().isIn(projectTypeOptions).withMessage('Invalid project type'),
   body('project_name').optional().trim().isLength(maxStr(500)),
   body('status').optional().trim().isIn(projectStatuses).withMessage('Invalid project status'),
   body('sq_feet').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Square feet must be non-negative'),
@@ -135,8 +143,12 @@ export const projectPostValidation = [
   body('closing_price').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Closing price must be non-negative'),
 ];
 export const projectPutValidation = [
-  body('project_type').optional().trim().notEmpty().withMessage('Project type cannot be empty').isLength(maxStr(100)),
-  body('pool_or_spa').optional().trim().notEmpty().withMessage('Pool or spa cannot be empty').isLength(maxStr(50)),
+  body('property_type').optional().trim().notEmpty().withMessage('Property type cannot be empty').isIn(propertyTypes).withMessage('Invalid property type'),
+  body('project_types')
+    .optional()
+    .isArray().withMessage('Project types must be an array')
+    .customSanitizer((val) => (Array.isArray(val) ? sanitizeProjectTypes(val) : val)),
+  body('project_types.*').optional().isIn(projectTypeOptions).withMessage('Invalid project type'),
   body('project_name').optional().trim().isLength(maxStr(500)),
   body('status').optional().trim().isIn(projectStatuses).withMessage('Invalid project status'),
   body('sq_feet').optional({ values: 'null' }).isFloat({ min: 0 }).withMessage('Square feet must be non-negative'),

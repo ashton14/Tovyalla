@@ -15,16 +15,28 @@ import {
   useDeleteProject,
 } from '../hooks/useApi'
 
-const PROJECT_TYPES = [
+const PROPERTY_TYPES = [
   { value: 'residential', label: 'Residential' },
   { value: 'commercial', label: 'Commercial' },
   { value: 'HOA', label: 'HOA' },
 ]
 
-const POOL_OR_SPA_OPTIONS = [
+const PROJECT_TYPE_OPTIONS = [
   { value: 'pool', label: 'Pool' },
   { value: 'spa', label: 'Spa' },
-  { value: 'pool & spa', label: 'Pool & Spa' },
+  { value: 'building', label: 'Building' },
+  { value: 'roof', label: 'Roof' },
+  { value: 'yard', label: 'Yard' },
+  { value: 'patio', label: 'Patio' },
+  { value: 'deck', label: 'Deck' },
+  { value: 'renovation', label: 'Renovation' },
+  { value: 'landscaping', label: 'Landscaping' },
+  { value: 'fencing', label: 'Fencing' },
+  { value: 'foundation', label: 'Foundation' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'plumbing', label: 'Plumbing' },
+  { value: 'hvac', label: 'HVAC' },
+  { value: 'other', label: 'Other' },
 ]
 
 const PROJECT_STATUSES = [
@@ -70,10 +82,12 @@ function Projects() {
   const [selectedEntityForDocuments, setSelectedEntityForDocuments] = useState(null)
   const [openActionsProjectId, setOpenActionsProjectId] = useState(null)
   const actionsMenuRef = useRef(null)
+  const [projectTypeDropdownOpen, setProjectTypeDropdownOpen] = useState(false)
+  const projectTypeDropdownRef = useRef(null)
 
   // Form state
   const emptyProjectForm = {
-    project_name: '', customer_id: '', address: '', project_type: 'residential', pool_or_spa: 'pool',
+    project_name: '', customer_id: '', address: '', property_type: 'residential', project_types: [],
     sq_feet: '', status: 'contacted', accessories_features: '', est_value: '', closing_price: '',
     project_manager: '', notes: '',
   }
@@ -82,8 +96,8 @@ function Projects() {
     project_name: '',
     customer_id: '',
     address: '',
-    project_type: 'residential',
-    pool_or_spa: 'pool',
+    property_type: 'residential',
+    project_types: [],
     sq_feet: '',
     status: 'contacted',
     accessories_features: '',
@@ -108,12 +122,23 @@ function Projects() {
     setError('')
     setSuccess('')
 
+    const projectTypes = Array.isArray(formData.project_types)
+      ? formData.project_types.map((v) => String(v || '').trim().toLowerCase()).filter(Boolean)
+      : []
+
     const payload = {
-      ...formData,
+      project_name: formData.project_name || null,
+      customer_id: formData.customer_id || null,
+      address: formData.address || null,
+      property_type: formData.property_type || 'residential',
+      project_types: projectTypes,
       sq_feet: formData.sq_feet ? parseFloat(formData.sq_feet) : null,
       est_value: formData.est_value ? parseFloat(formData.est_value) : null,
       closing_price: formData.closing_price ? parseFloat(formData.closing_price) : null,
-      customer_id: formData.customer_id || null,
+      status: formData.status || 'contacted',
+      accessories_features: formData.accessories_features || null,
+      project_manager: formData.project_manager || null,
+      notes: formData.notes || null,
     }
 
     try {
@@ -154,8 +179,8 @@ function Projects() {
       project_name: project.project_name || '',
       customer_id: project.customer_id || '',
       address: project.address || '',
-      project_type: project.project_type || 'residential',
-      pool_or_spa: project.pool_or_spa || 'pool',
+      property_type: project.property_type || 'residential',
+      project_types: Array.isArray(project.project_types) ? [...project.project_types] : [],
       sq_feet: project.sq_feet || '',
       status: project.status || 'contacted',
       accessories_features: project.accessories_features || '',
@@ -173,6 +198,7 @@ function Projects() {
   const resetForm = () => {
     setFormData(emptyProjectForm)
     setInitialFormData(emptyProjectForm)
+    setProjectTypeDropdownOpen(false)
   }
 
   // Filter projects
@@ -185,7 +211,7 @@ function Projects() {
       (project.customers && `${project.customers.first_name} ${project.customers.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = filterStatus === 'all' || project.status === filterStatus
-    const matchesType = filterType === 'all' || project.project_type === filterType
+    const matchesType = filterType === 'all' || project.property_type === filterType
     const matchesPM = filterPM === 'all' || project.project_manager === filterPM
     
     return matchesSearch && matchesStatus && matchesType && matchesPM
@@ -212,6 +238,17 @@ function Projects() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openActionsProjectId])
+
+  // Close project type dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (projectTypeDropdownOpen && projectTypeDropdownRef.current && !projectTypeDropdownRef.current.contains(e.target)) {
+        setProjectTypeDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [projectTypeDropdownOpen])
 
   const getStatusBadge = (status) => {
     const statusObj = PROJECT_STATUSES.find((s) => s.value === status)
@@ -271,7 +308,7 @@ function Projects() {
     const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''))
     
     // Required columns
-    const requiredColumns = ['project_type', 'pool_or_spa']
+    const requiredColumns = ['property_type']
     const missingColumns = requiredColumns.filter(col => !headers.includes(col))
     
     if (missingColumns.length > 0) {
@@ -288,7 +325,7 @@ function Projects() {
       })
       
       // Skip empty rows
-      if (!row.project_type && !row.pool_or_spa) {
+      if (!row.property_type) {
         continue
       }
       
@@ -363,12 +400,17 @@ function Projects() {
           customerId = findCustomerIdByName(row.customer_name || row.customer)
         }
 
+        const projectTypesRaw = (row.project_types || row['project_types'] || row['project types'] || '').trim()
+        const projectTypesParsed = projectTypesRaw
+          ? projectTypesRaw.split(/[,|;]/).map(s => s.trim().toLowerCase()).filter(Boolean)
+          : []
+
         const projectData = {
           project_name: row.project_name || row['project_name'] || row['project name'] || row.name || '',
           customer_id: customerId || null,
           address: row.address || '',
-          project_type: row.project_type || '',
-          pool_or_spa: row.pool_or_spa || row['pool_or_spa'] || '',
+          property_type: (row.property_type || row['property_type'] || row['property type'] || '').trim(),
+          project_types: projectTypesParsed,
           sq_feet: row.sq_feet || row['sq_feet'] || row['square feet'] || '',
           status: row.status || 'contacted',
           accessories_features: row.accessories_features || row['accessories_features'] || row['accessories & features'] || '',
@@ -379,46 +421,46 @@ function Projects() {
         }
 
         // Validate required fields
-        if (!projectData.project_type || !projectData.pool_or_spa) {
-          failedCount++
-          errors.push({
-            row: i + 2, // +2 because row 1 is header, and arrays are 0-indexed
-            error: 'Missing required fields: project_type and pool_or_spa are required',
-            data: projectData,
-          })
-          setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
-          continue
-        }
-
-        // Validate project_type
-        const validProjectTypes = ['residential', 'commercial', 'HOA']
-        if (!validProjectTypes.includes(projectData.project_type.toLowerCase())) {
+        if (!projectData.property_type) {
           failedCount++
           errors.push({
             row: i + 2,
-            error: `Invalid project_type: ${projectData.project_type}. Must be one of: ${validProjectTypes.join(', ')}`,
+            error: 'Missing required field: property_type is required',
             data: projectData,
           })
           setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
           continue
         }
 
-        // Validate pool_or_spa
-        const validPoolOrSpa = ['pool', 'spa', 'pool & spa']
-        if (!validPoolOrSpa.includes(projectData.pool_or_spa.toLowerCase())) {
+        // Validate property_type
+        const validPropertyTypes = ['residential', 'commercial', 'hoa']
+        if (!validPropertyTypes.includes(projectData.property_type.toLowerCase())) {
           failedCount++
           errors.push({
             row: i + 2,
-            error: `Invalid pool_or_spa: ${projectData.pool_or_spa}. Must be one of: ${validPoolOrSpa.join(', ')}`,
+            error: `Invalid property_type: ${projectData.property_type}. Must be one of: residential, commercial, HOA`,
             data: projectData,
           })
           setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
           continue
         }
 
-        // Normalize values
-        projectData.project_type = projectData.project_type.toLowerCase()
-        projectData.pool_or_spa = projectData.pool_or_spa.toLowerCase()
+        // Validate project_types (each must be valid)
+        const validProjectTypeValues = PROJECT_TYPE_OPTIONS.map(o => o.value)
+        const invalidTypes = projectTypesParsed.filter(t => !validProjectTypeValues.includes(t))
+        if (invalidTypes.length > 0) {
+          failedCount++
+          errors.push({
+            row: i + 2,
+            error: `Invalid project_types: ${invalidTypes.join(', ')}. Valid values: ${validProjectTypeValues.join(', ')}`,
+            data: projectData,
+          })
+          setImportProgress({ success: successCount, failed: failedCount, total: rows.length })
+          continue
+        }
+
+        // Normalize property_type for HOA (DB may use uppercase)
+        projectData.property_type = projectData.property_type.toLowerCase() === 'hoa' ? 'HOA' : projectData.property_type.toLowerCase()
 
         // Convert numeric fields
         if (projectData.sq_feet) {
@@ -556,14 +598,14 @@ function Projects() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Property Type</label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="all">All Types</option>
-              {PROJECT_TYPES.map((type) => (
+              <option value="all">All Property Types</option>
+              {PROPERTY_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -620,11 +662,11 @@ function Projects() {
                   <div className="space-y-1 text-sm text-blue-800">
                     <p><strong>Required:</strong></p>
                     <ul className="list-disc list-inside ml-2">
-                      <li><code className="bg-blue-100 px-1 rounded">project_type</code> - Must be: <code className="bg-blue-100 px-1 rounded">residential</code>, <code className="bg-blue-100 px-1 rounded">commercial</code>, or <code className="bg-blue-100 px-1 rounded">HOA</code></li>
-                      <li><code className="bg-blue-100 px-1 rounded">pool_or_spa</code> - Must be: <code className="bg-blue-100 px-1 rounded">pool</code>, <code className="bg-blue-100 px-1 rounded">spa</code>, or <code className="bg-blue-100 px-1 rounded">pool & spa</code></li>
+                      <li><code className="bg-blue-100 px-1 rounded">property_type</code> - Must be: <code className="bg-blue-100 px-1 rounded">residential</code>, <code className="bg-blue-100 px-1 rounded">commercial</code>, or <code className="bg-blue-100 px-1 rounded">HOA</code></li>
                     </ul>
                     <p className="mt-2"><strong>Optional:</strong></p>
                     <ul className="list-disc list-inside ml-2">
+                      <li><code className="bg-blue-100 px-1 rounded">project_types</code> - Comma-separated: building, roof, yard, patio, deck, renovation, landscaping, fencing, foundation, electrical, plumbing, hvac, other</li>
                       <li><code className="bg-blue-100 px-1 rounded">project_name</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">customer_name</code> or <code className="bg-blue-100 px-1 rounded">customer_id</code></li>
                       <li><code className="bg-blue-100 px-1 rounded">address</code></li>
@@ -643,9 +685,9 @@ function Projects() {
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
                   <h4 className="font-semibold text-gray-900 mb-2">Example CSV Format:</h4>
                   <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
-{`project_name,project_type,pool_or_spa,address,customer_name,status,est_value,closing_price
-Smith Pool Build,residential,pool,123 Main St,John Doe,sold,50000,48000
-Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,`}
+{`project_name,property_type,project_types,address,customer_name,status,est_value,closing_price
+Smith Renovation,residential,building;renovation,123 Main St,John Doe,sold,50000,48000
+Downtown Office Build,commercial,building;electrical;hvac,456 Business Ave,Jane Smith,contacted,75000,`}
                   </pre>
                 </div>
 
@@ -833,34 +875,17 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Project Type <span className="text-red-500">*</span>
+                        Property Type <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={formData.project_type}
-                        onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
+                        value={formData.property_type}
+                        onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
                         required
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       >
-                        {PROJECT_TYPES.map((type) => (
+                        {PROPERTY_TYPES.map((type) => (
                           <option key={type.value} value={type.value}>
                             {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Pool or Spa <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={formData.pool_or_spa}
-                        onChange={(e) => setFormData({ ...formData, pool_or_spa: e.target.value })}
-                        required
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
-                      >
-                        {POOL_OR_SPA_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
                           </option>
                         ))}
                       </select>
@@ -875,6 +900,51 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
                         placeholder="0"
                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                       />
+                    </div>
+                    <div ref={projectTypeDropdownRef} className="relative">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Project Type
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setProjectTypeDropdownOpen((prev) => !prev)}
+                        className="w-full px-4 py-2.5 text-left border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow flex items-center justify-between"
+                      >
+                        <span className={formData.project_types?.length ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
+                          {formData.project_types?.length
+                            ? formData.project_types.map((v) => PROJECT_TYPE_OPTIONS.find((o) => o.value === v)?.label || v).join(', ')
+                            : 'Select project type...'}
+                        </span>
+                        <svg className={`w-4 h-4 text-gray-500 transition-transform ${projectTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {projectTypeDropdownOpen && (
+                        <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-lg max-h-48 overflow-y-auto py-1">
+                          {PROJECT_TYPE_OPTIONS.map((option) => {
+                            const checked = formData.project_types?.includes(option.value) ?? false
+                            return (
+                              <label
+                                key={option.value}
+                                className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...(formData.project_types || []), option.value]
+                                      : (formData.project_types || []).filter((v) => v !== option.value)
+                                    setFormData({ ...formData, project_types: next })
+                                  }}
+                                  className="rounded border-gray-300 text-pool-blue focus:ring-pool-blue"
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1029,10 +1099,10 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
                   Address
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
-                  Type
+                  Property
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
-                  Pool
+                  Project Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                   SqFt
@@ -1091,11 +1161,15 @@ Downtown Spa Project,commercial,spa,456 Business Ave,Jane Smith,contacted,75000,
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {project.project_type === 'residential' ? 'Res' : project.project_type === 'commercial' ? 'Com' : (PROJECT_TYPES.find((t) => t.value === project.project_type)?.label || project.project_type)}
+                          {project.property_type === 'residential' ? 'Res' : project.property_type === 'commercial' ? 'Com' : (PROPERTY_TYPES.find((t) => t.value === project.property_type)?.label || project.property_type || '-')}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white capitalize">{project.pool_or_spa}</div>
+                        <div className="text-sm text-gray-900 dark:text-white" title={Array.isArray(project.project_types) && project.project_types.length ? project.project_types.map(v => PROJECT_TYPE_OPTIONS.find(o => o.value === v)?.label || v).join(', ') : ''}>
+                          {Array.isArray(project.project_types) && project.project_types.length
+                            ? project.project_types.slice(0, 2).map(v => PROJECT_TYPE_OPTIONS.find(o => o.value === v)?.label || v).join(', ') + (project.project_types.length > 2 ? '…' : '')
+                            : '-'}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {project.sq_feet ? project.sq_feet.toLocaleString() : '-'}

@@ -162,7 +162,7 @@ function Landing() {
             <div>
               <span className="text-sm font-medium text-white/90">Tovyalla CRM</span>
               <p className="mt-1 max-w-xs text-sm text-white/50">
-                Complete CRM for pool and spa businesses.
+                Complete CRM for contractors.
               </p>
             </div>
             <div className="flex gap-12 sm:gap-16">

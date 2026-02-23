@@ -366,7 +366,18 @@ export const generateContractPdf = async (contractData) => {
           widths: ['30%', '70%'],
           body: [
             [{ text: 'Project Address:', style: 'tableLabel' }, { text: project.address || 'TBD', style: 'tableValue' }],
-            [{ text: 'Project Type:', style: 'tableLabel' }, { text: `${project.project_type || ''} - ${project.pool_or_spa || ''}`.toUpperCase(), style: 'tableValue' }],
+            [
+              { text: 'Property / Project Type:', style: 'tableLabel' },
+              {
+                text: [
+                  (project.property_type || '').replace(/^(\w)/, (m) => m.toUpperCase()),
+                  Array.isArray(project.project_types) && project.project_types.length
+                    ? project.project_types.map((t) => t.replace(/^(\w)/, (m) => m.toUpperCase())).join(', ')
+                    : '',
+                ].filter(Boolean).join(' – ') || 'TBD',
+                style: 'tableValue',
+              },
+            ],
             [{ text: 'Square Feet:', style: 'tableLabel' }, { text: project.sq_feet ? `${project.sq_feet} sq ft` : 'TBD', style: 'tableValue' }],
           ],
         },

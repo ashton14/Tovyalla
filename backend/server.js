@@ -2309,8 +2309,8 @@ app.post('/api/projects', projectPostValidation, handleValidationErrors, async (
       project_name,
       customer_id,
       address,
-      project_type,
-      pool_or_spa,
+      property_type,
+      project_types,
       sq_feet,
       status,
       accessories_features,
@@ -2330,8 +2330,8 @@ app.post('/api/projects', projectPostValidation, handleValidationErrors, async (
           project_name: project_name || null,
           customer_id: customer_id || null,
           address: address || null,
-          project_type,
-          pool_or_spa,
+          property_type: property_type || 'residential',
+          project_types: Array.isArray(project_types) ? project_types : [],
           sq_feet: sq_feet ? parseFloat(sq_feet) : null,
           status: initialStatus,
           accessories_features: accessories_features || null,
@@ -2377,8 +2377,8 @@ app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async
       project_name,
       customer_id,
       address,
-      project_type,
-      pool_or_spa,
+      property_type,
+      project_types,
       sq_feet,
       status,
       accessories_features,
@@ -2410,8 +2410,8 @@ app.put('/api/projects/:id', projectPutValidation, handleValidationErrors, async
     if (project_name !== undefined) updateFields.project_name = project_name || null;
     if (customer_id !== undefined) updateFields.customer_id = customer_id || null;
     if (address !== undefined) updateFields.address = address || null;
-    if (project_type !== undefined) updateFields.project_type = project_type;
-    if (pool_or_spa !== undefined) updateFields.pool_or_spa = pool_or_spa;
+    if (property_type !== undefined) updateFields.property_type = property_type;
+    if (project_types !== undefined) updateFields.project_types = Array.isArray(project_types) ? project_types : [];
     if (sq_feet !== undefined) updateFields.sq_feet = sq_feet ? parseFloat(sq_feet) : null;
     if (status !== undefined) updateFields.status = newStatus;
     if (accessories_features !== undefined) updateFields.accessories_features = accessories_features || null;
