@@ -80,7 +80,7 @@ function PrivacyPolicy() {
         <Section number="7" title="Contact Us" isLast>
           <p>If you have any questions about this Privacy Policy, please contact us at:</p>
           <p className="text-pool-blue font-medium">
-            privacy@tovyalla.com
+            support@tovyalla.com
           </p>
         </Section>
       </div>
