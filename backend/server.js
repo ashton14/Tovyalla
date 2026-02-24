@@ -2836,13 +2836,30 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     // Verify project belongs to user's company
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('id, est_value, closing_price')
+      .select('id, est_value, closing_price, customer_price')
       .eq('id', id)
       .eq('company_id', companyID)
       .single();
 
     if (projectError || !project) {
       return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get milestones total (customer_price) for revenue when closing_price is not set
+    let milestonesTotal = 0;
+    const projectCustomerPrice = project.customer_price != null ? parseFloat(project.customer_price) : 0;
+    if (projectCustomerPrice > 0) {
+      milestonesTotal = projectCustomerPrice;
+    } else {
+      const { data: milestones } = await supabase
+        .from('milestones')
+        .select('customer_price')
+        .eq('project_id', id);
+      if (milestones && milestones.length > 0) {
+        milestones.forEach((m) => {
+          milestonesTotal += parseFloat(m.customer_price || 0);
+        });
+      }
     }
 
     // Get subcontractor fees with subcontractor details
@@ -2945,8 +2962,8 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
     const totalExpected = subcontractorExpected + materialsExpected + additionalExpected + equipmentExpected;
     const estValue = parseFloat(project.est_value || 0);
     const closingPrice = parseFloat(project.closing_price || 0);
-    // Use closing_price for profit if set, otherwise fall back to est_value
-    const revenueForProfit = closingPrice > 0 ? closingPrice : estValue;
+    // Revenue for profit: closing_price > milestones total > est_value (matches dashboard logic)
+    const revenueForProfit = closingPrice > 0 ? closingPrice : (milestonesTotal > 0 ? milestonesTotal : estValue);
     const profit = revenueForProfit - totalExpenses;
     const expectedProfit = revenueForProfit - totalExpected;
 
@@ -2970,6 +2987,7 @@ app.get('/api/projects/:id/expenses', async (req, res) => {
       project: {
         estValue: estValue,
         closingPrice: closingPrice,
+        milestonesTotal: milestonesTotal,
         profit: profit,
         expectedProfit: expectedProfit,
       },

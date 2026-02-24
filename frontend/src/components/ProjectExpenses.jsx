@@ -774,7 +774,7 @@ function ProjectExpenses({ project, onClose }) {
               <p className="text-sm text-gray-500 dark:text-gray-400">Profit Margin</p>
               <p className={`text-xl font-bold ${projectData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {(() => {
-                  const revenue = (projectData.closingPrice > 0 ? projectData.closingPrice : projectData.estValue) || 0;
+                  const revenue = (projectData.closingPrice > 0 ? projectData.closingPrice : (projectData.milestonesTotal > 0 ? projectData.milestonesTotal : projectData.estValue)) || 0;
                   return revenue > 0 ? `${((projectData.profit / revenue) * 100).toFixed(1)}%` : '0%';
                 })()}
               </p>

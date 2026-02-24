@@ -126,14 +126,6 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
                 className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
-            {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
-              <button
-                onClick={() => updateMilestone(milestone.id, 'flatPrice', null)}
-                className="text-xs text-pool-blue hover:text-pool-dark mt-1"
-              >
-                Use default
-              </button>
-            )}
           </div>
         ) : (
           /* Regular milestone - show markup and price */
@@ -171,14 +163,6 @@ const SortableMilestoneCard = ({ milestone, index, milestonesLength, removeMiles
                   className="w-full pl-7 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
-              {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
-                <button
-                  onClick={() => updateMilestone(milestone.id, 'flatPrice', null)}
-                  className="text-xs text-pool-blue hover:text-pool-dark mt-1"
-                >
-                  Use markup instead
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -402,30 +386,17 @@ const SortableMilestoneRow = ({ milestone, index, milestonesLength, removeMilest
         )}
       </td>
       <td className="py-3 px-4 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <div className="relative inline-flex items-center">
-            <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={priceEditingValue !== undefined ? priceEditingValue : priceDisplayValue}
-              onFocus={onPriceFocus}
-              onChange={(e) => onPriceChange(e.target.value)}
-              onBlur={(e) => onPriceBlur(e.target.value)}
-              className="w-28 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          {milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '' && (
-            <button
-              onClick={() => updateMilestone(milestone.id, 'flatPrice', null)}
-              className="text-pool-blue hover:text-pool-dark p-1"
-              title={isFeeMilestone ? "Use default" : "Use markup instead"}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
+        <div className="relative inline-flex items-center">
+          <span className="absolute left-3 text-gray-500 dark:text-gray-400">$</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={priceEditingValue !== undefined ? priceEditingValue : priceDisplayValue}
+            onFocus={onPriceFocus}
+            onChange={(e) => onPriceChange(e.target.value)}
+            onBlur={(e) => onPriceBlur(e.target.value)}
+            className="w-28 pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-right focus:outline-none focus:ring-2 focus:ring-pool-blue focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
         </div>
       </td>
       <td className="py-3 px-4 text-right">
@@ -696,45 +667,6 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
       })
     }
   }
-
-  // Calculate total cost from expenses (use actual prices, fall back to expected if no actual)
-  const calculateTotalCost = () => {
-    if (!contractData?.expenses) return 0
-    const { expenses } = contractData
-    let total = 0
-
-    // Subcontractor fees (use flat_fee/actual first, then expected_value)
-    if (expenses.subcontractorFees && expenses.subcontractorFees.length > 0) {
-      expenses.subcontractorFees.forEach((fee) => {
-        total += parseFloat(fee.flat_fee || fee.expected_value || 0)
-      })
-    }
-
-    // Equipment (use actual_price first, then expected_price)
-    if (expenses.equipment && Array.isArray(expenses.equipment) && expenses.equipment.length > 0) {
-      expenses.equipment.forEach((eq) => {
-        total += parseFloat(eq.actual_price || eq.expected_price || 0)
-      })
-    }
-
-    // Materials (use actual_price first, then expected_price)
-    if (expenses.materials && expenses.materials.length > 0) {
-      expenses.materials.forEach((mat) => {
-        total += parseFloat(mat.actual_price || mat.expected_price || 0)
-      })
-    }
-
-    // Additional expenses (use amount/actual first, then expected_value)
-    if (expenses.additionalExpenses && expenses.additionalExpenses.length > 0) {
-      expenses.additionalExpenses.forEach((exp) => {
-        total += parseFloat(exp.amount || exp.expected_value || 0)
-      })
-    }
-
-    return roundTo2(total)
-  }
-
-  const totalCost = calculateTotalCost()
 
   // Generate Equipment & Materials description from expenses
   const generateEquipmentMaterialsDescription = () => {
@@ -1280,9 +1212,11 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     return roundTo2(amount)
   }
 
-  // Price input: show raw string while editing so user can type "100." or "100.5"; commit on blur
+  // Price input: show formatted value (2 decimals) when not editing; raw while typing
   const getPriceDisplayValue = (milestone) => {
-    if (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '') return String(milestone.flatPrice)
+    if (milestone.flatPrice !== null && milestone.flatPrice !== undefined && milestone.flatPrice !== '') {
+      return (typeof milestone.flatPrice === 'number' ? milestone.flatPrice.toFixed(2) : String(milestone.flatPrice))
+    }
     return getMilestonePrice(milestone).toFixed(2)
   }
   const handlePriceFocus = (milestoneId) => {
@@ -1292,14 +1226,24 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   }
   const handlePriceChange = (milestoneId, raw) => {
     setPriceInputByMilestoneId(prev => ({ ...prev, [milestoneId]: raw }))
-    // Update markup in real time when not using flat price (same as price changes when markup changes)
     const m = milestones.find(x => x.id === milestoneId)
     if (!m) return
     const isFlat = m.flatPrice !== null && m.flatPrice !== undefined && m.flatPrice !== ''
-    if (!isFlat) {
+    const cost = m.cost || 0
+    const isFeeMilestone = m.milestoneType === 'initial_fee' || m.milestoneType === 'final_inspection'
+    if (isFlat) {
+      const num = raw === '' ? null : (parseFloat(raw) || 0)
+      updateMilestone(milestoneId, { flatPrice: num })
+    } else if (isFeeMilestone || cost === 0) {
+      // Fee/zero-cost: only set flatPrice when user has typed something different from the calculated default
+      const num = raw === '' ? null : (parseFloat(raw) || 0)
+      const defaultPrice = isFeeMilestone ? calculateFeePrice(m.milestoneType) : 0
+      if (num !== null && roundTo2(num) !== roundTo2(defaultPrice)) {
+        updateMilestone(milestoneId, { flatPrice: num })
+      }
+    } else {
       const num = raw === '' ? 0 : parseFloat(raw) || 0
-      const cost = m.cost || 0
-      const newMarkup = cost > 0 ? roundTo2(((num - cost) / cost) * 100) : (m.markupPercent ?? 0)
+      const newMarkup = roundTo2(((num - cost) / cost) * 100)
       updateMilestone(milestoneId, { markupPercent: newMarkup, flatPrice: null })
     }
   }
@@ -1308,12 +1252,23 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     setPriceInputByMilestoneId(prev => { const next = { ...prev }; delete next[milestoneId]; return next })
     if (!m) return
     const isFlat = m.flatPrice !== null && m.flatPrice !== undefined && m.flatPrice !== ''
-    const num = raw === '' ? (isFlat ? '' : 0) : (parseFloat(raw) || (isFlat ? '' : 0))
+    const cost = m.cost || 0
+    const isFeeMilestone = m.milestoneType === 'initial_fee' || m.milestoneType === 'final_inspection'
     if (isFlat) {
-      updateMilestone(milestoneId, 'flatPrice', num)
+      const num = raw === '' ? null : (parseFloat(raw) || 0)
+      updateMilestone(milestoneId, { flatPrice: num })
+    } else if (isFeeMilestone || cost === 0) {
+      // Fee/zero-cost: only set flatPrice when value differs from calculated default; otherwise keep null
+      const num = raw === '' ? null : (parseFloat(raw) || 0)
+      const defaultPrice = isFeeMilestone ? calculateFeePrice(m.milestoneType) : 0
+      if (num === null || roundTo2(num) === roundTo2(defaultPrice)) {
+        updateMilestone(milestoneId, { flatPrice: null })
+      } else {
+        updateMilestone(milestoneId, { flatPrice: num })
+      }
     } else {
-      const cost = m.cost || 0
-      const newMarkup = cost > 0 ? roundTo2(((num - cost) / cost) * 100) : (m.markupPercent ?? 0)
+      const num = raw === '' ? 0 : parseFloat(raw) || 0
+      const newMarkup = roundTo2(((num - cost) / cost) * 100)
       updateMilestone(milestoneId, { markupPercent: newMarkup, flatPrice: null })
     }
   }
@@ -1407,8 +1362,8 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
   // Calculate totals (costs and prices rounded to 2 decimals)
   const totalMilestoneCost = roundTo2(milestones.reduce((sum, m) => sum + (m.cost || 0), 0))
   const customerTotal = roundTo2(milestones.reduce((sum, m) => sum + getMilestonePrice(m), 0))
-  // Use expense-based cost when available, otherwise sum of milestone costs (so cost is never 0 when milestones have costs)
-  const effectiveTotalCost = totalCost > 0 ? totalCost : totalMilestoneCost
+  // Each document type (proposal, contract, change order) uses the sum of its own milestone costs
+  const effectiveTotalCost = totalMilestoneCost
   const profit = roundTo2(customerTotal - effectiveTotalCost)
   const profitMargin = customerTotal > 0 ? (profit / customerTotal) * 100 : 0
   const markupPercent = effectiveTotalCost > 0 ? (profit / effectiveTotalCost) * 100 : 0
@@ -1495,7 +1450,23 @@ function ContractPreview({ contractData, onClose, onGenerate, onDocumentUploaded
     return response.data
   }
 
-  const hasChanges = JSON.stringify(milestones) !== JSON.stringify(initialMilestones) ||
+  // Compare milestones with normalized numbers to avoid floating-point stringify mismatches
+  const milestonesEqual = milestones.length === initialMilestones.length &&
+    milestones.every((m, i) => {
+      const init = initialMilestones[i]
+      if (!init || m.id !== init.id) return false
+      if (roundTo2(m.cost || 0) !== roundTo2(init.cost || 0)) return false
+      if (roundTo2(parseFloat(m.markupPercent) || 0) !== roundTo2(parseFloat(init.markupPercent) || 0)) return false
+      const mFlat = m.flatPrice != null && m.flatPrice !== '' ? roundTo2(parseFloat(m.flatPrice) || 0) : null
+      const iFlat = init.flatPrice != null && init.flatPrice !== '' ? roundTo2(parseFloat(init.flatPrice) || 0) : null
+      if (mFlat !== iFlat) return false
+      if ((m.name || '') !== (init.name || '')) return false
+      if ((m.milestoneType || '') !== (init.milestoneType || '')) return false
+      if ((m.subcontractorFeeId || null) !== (init.subcontractorFeeId || null)) return false
+      if ((m.additionalExpenseId || null) !== (init.additionalExpenseId || null)) return false
+      return true
+    })
+  const hasChanges = !milestonesEqual ||
     JSON.stringify(scopeOfWork) !== JSON.stringify(initialScopeOfWork)
 
   // Save all data (milestones and scope of work)

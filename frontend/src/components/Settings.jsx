@@ -201,7 +201,7 @@ function Settings() {
           Document Preferences
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Configure default settings for contracts and proposals
+          Configure default settings for contracts, proposals, and change orders
         </p>
 
         {loading ? (

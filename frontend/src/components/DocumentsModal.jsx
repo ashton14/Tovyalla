@@ -986,9 +986,6 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                           )}
                         </div>
                         <div className="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap items-center">
-                          {doc.file_name && doc.file_name !== displayName && (
-                            <span className="truncate max-w-[150px]" title={doc.file_name}>{doc.file_name}</span>
-                          )}
                         <span>{formatFileSize(doc.size)}</span>
                         {doc.created_at && (
                           <span>Uploaded: {formatDate(doc.created_at)}</span>
