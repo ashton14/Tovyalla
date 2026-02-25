@@ -10,6 +10,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts'
 import CompanyInfo from '../components/CompanyInfo'
 import Customers from '../components/Customers'
@@ -24,7 +27,7 @@ import Settings from '../components/Settings'
 import Subscription from '../components/Subscription'
 import Messages from '../components/Messages'
 import BirthdayPopup, { getBirthdayEmployees, wasBirthdayDismissedToday, dismissBirthdayToday } from '../components/BirthdayPopup'
-import { useEmployees, useProjects, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
+import { useEmployees, useProjects, useCustomers, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
 
 const CHART_METRICS = [
   { value: 'value', label: 'Value', color: '#0ea5e9', format: 'currency' },
@@ -50,6 +53,7 @@ function Dashboard() {
   // Use cached queries
   const { data: employees = [] } = useEmployees()
   const { data: projects = [] } = useProjects()
+  const { data: customers = [] } = useCustomers()
   const { data: statistics = { totalEstValue: 0, totalProfit: 0, totalExpenses: 0, projectCount: 0 }, isLoading: loadingStats } = useStatistics(timePeriod)
   const { data: monthlyData, isLoading: loadingMonthly } = useMonthlyStatistics(chartYear)
   const { data: unreadMessageCount = 0 } = useUnreadMessageCount()
@@ -66,6 +70,20 @@ function Dashboard() {
 
   // Get the selected metric config
   const selectedMetric = CHART_METRICS.find(m => m.value === chartMetric) || CHART_METRICS[0]
+
+  // Lead source counts from customers (referred_by field)
+  const leadSourceData = useMemo(() => {
+    const counts = {}
+    customers.forEach((c) => {
+      const source = (c.referred_by || '').trim() || 'Not specified'
+      counts[source] = (counts[source] || 0) + 1
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [customers])
+
+  const PIE_COLORS = ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#38bdf8', '#fb923c', '#a3e635', '#c084fc', '#94a3b8']
 
   // Derive employee name from cached data
   const employeeName = employees.find(
@@ -588,6 +606,53 @@ function Dashboard() {
                           )}
                         </span>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Lead Sources Pie Chart */}
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Lead Sources</h3>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                  {leadSourceData.length > 0 ? (
+                    <div className="h-72 sm:h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                          <Pie
+                            data={leadSourceData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius="85%"
+                            stroke="#fff"
+                            strokeWidth={1.5}
+                          >
+                            {leadSourceData.map((_, index) => (
+                              <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null
+                              const total = leadSourceData.reduce((s, d) => s + d.value, 0)
+                              const pct = total > 0 ? ((payload[0].value / total) * 100).toFixed(1) : 0
+                              return (
+                                <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 text-sm">
+                                  <p className="font-medium text-gray-900 dark:text-white">{payload[0].payload.name}</p>
+                                  <p className="text-gray-600 dark:text-gray-400">{pct}%</p>
+                                </div>
+                              )
+                            }}
+                            cursor={{ fill: 'transparent' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400 text-sm">
+                      No lead source data yet
                     </div>
                   )}
                 </div>

@@ -191,9 +191,10 @@ function Subcontractors() {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (openActionsId && actionsMenuRef.current && !actionsMenuRef.current.contains(e.target)) {
-        setOpenActionsId(null)
-      }
+      if (!openActionsId) return
+      if (actionsMenuRef.current?.contains(e.target)) return
+      if (e.target.closest('[data-actions-menu-dropdown]')) return
+      setOpenActionsId(null)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)

@@ -708,22 +708,25 @@ function ProjectExpenses({ project, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Project Expenses</h2>
-              <p className="text-gray-600 dark:text-gray-400">{project.address || 'Project'}</p>
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-pool-blue to-pool-dark px-6 py-4 flex-shrink-0 rounded-t-xl">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">
+              Expenses - {project.project_name || project.address || 'Project'}
+            </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+              className="text-white/80 hover:text-white p-1 transition-colors"
             >
-              ✕
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
+        </div>
 
+        <div className="p-6 overflow-y-auto flex-1">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
               {error}
@@ -1116,7 +1119,6 @@ function ProjectExpenses({ project, onClose }) {
                               isOpen={openActionsId === `sub-${entry.id}`}
                               onToggle={() => setOpenActionsId((prev) => (prev === `sub-${entry.id}` ? null : `sub-${entry.id}`))}
                               onAction={() => setOpenActionsId(null)}
-                              usePortal
                               actions={[
                                 { icon: EDIT_ICON, label: 'Edit', onClick: () => handleSubcontractorEdit(entry) },
                                 { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleSubcontractorDelete(entry.id) },
@@ -1190,7 +1192,6 @@ function ProjectExpenses({ project, onClose }) {
                                 isOpen={openActionsId === `mat-${entry.id}`}
                                 onToggle={() => setOpenActionsId((prev) => (prev === `mat-${entry.id}` ? null : `mat-${entry.id}`))}
                                 onAction={() => setOpenActionsId(null)}
-                                usePortal
                                 actions={[
                                   { icon: EDIT_ICON, label: 'Edit', onClick: () => handleMaterialEdit(entry) },
                                   { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleMaterialDelete(entry.id) },
@@ -1268,7 +1269,6 @@ function ProjectExpenses({ project, onClose }) {
                                 isOpen={openActionsId === `equip-${entry.id}`}
                                 onToggle={() => setOpenActionsId((prev) => (prev === `equip-${entry.id}` ? null : `equip-${entry.id}`))}
                                 onAction={() => setOpenActionsId(null)}
-                                usePortal
                                 actions={[
                                   { icon: EDIT_ICON, label: 'Edit', onClick: () => handleEquipmentEdit(entry) },
                                   { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleEquipmentDelete(entry.id) },
@@ -1334,7 +1334,6 @@ function ProjectExpenses({ project, onClose }) {
                               isOpen={openActionsId === `add-${entry.id}`}
                               onToggle={() => setOpenActionsId((prev) => (prev === `add-${entry.id}` ? null : `add-${entry.id}`))}
                               onAction={() => setOpenActionsId(null)}
-                              usePortal
                               actions={[
                                 { icon: EDIT_ICON, label: 'Edit', onClick: () => handleAdditionalEdit(entry) },
                                 { icon: DELETE_ICON, label: 'Delete', danger: true, onClick: () => handleAdditionalDelete(entry.id) },

@@ -231,9 +231,10 @@ function Projects() {
   // Close actions menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (openActionsProjectId && actionsMenuRef.current && !actionsMenuRef.current.contains(e.target)) {
-        setOpenActionsProjectId(null)
-      }
+      if (!openActionsProjectId) return
+      if (actionsMenuRef.current?.contains(e.target)) return
+      if (e.target.closest('[data-actions-menu-dropdown]')) return
+      setOpenActionsProjectId(null)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)

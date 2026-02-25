@@ -110,11 +110,8 @@ function ProjectTimelineModal({ project, onClose, onProjectUpdated }) {
           <div className="flex justify-between items-start">
             <div>
               <h3 className="text-lg font-bold text-white">
-                Project Timeline
+                Timeline - {displayProject?.project_name || 'Project'}
               </h3>
-              <p className="text-pool-light/90 text-sm mt-0.5">
-                {displayProject?.project_name || `Project`}
-              </p>
             </div>
             <button
               onClick={onClose}

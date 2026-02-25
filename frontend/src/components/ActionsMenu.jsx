@@ -1,7 +1,7 @@
 /**
  * Reusable actions menu (3-dot kebab) for table rows.
  * Renders a vertical dots button that opens a dropdown with labeled actions.
- * Pass usePortal={true} only when inside overflow containers (e.g. ProjectExpenses tables).
+ * Dropdown is portaled to body so it overlays tables and is not clipped by overflow.
  */
 import { useRef, useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -58,35 +58,44 @@ const DropdownContent = ({ actions, onAction }) => (
   </div>
 )
 
-export default function ActionsMenu({ isOpen, onToggle, onAction, actions, usePortal = false }) {
+const MENU_MIN_WIDTH = 140
+
+export default function ActionsMenu({ isOpen, onToggle, onAction, actions }) {
   const triggerRef = useRef(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [position, setPosition] = useState({ top: 0, left: 0, flipRight: false })
 
   useLayoutEffect(() => {
-    if (usePortal && isOpen && triggerRef.current) {
+    if (isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
+      const viewportPadding = 8
+      // Find table wrapper to keep menu within visible table bounds
+      const table = triggerRef.current.closest('table')
+      const wrapper = table?.parentElement || triggerRef.current.closest('.overflow-x-auto, .overflow-auto')
+      const bounds = wrapper?.getBoundingClientRect()
+      const minLeft = bounds ? bounds.left + viewportPadding : viewportPadding
+      // Menu opens left of button: right edge of menu at left edge of button
+      const menuRightEdge = rect.left
+      const menuLeftEdge = menuRightEdge - MENU_MIN_WIDTH
+      const wouldOverflowLeft = menuLeftEdge < minLeft
       setPosition({
-        top: rect.bottom + 4,
-        left: rect.right,
+        top: rect.top,
+        // Use right edge of button as reference; menu's right edge goes to button's left
+        left: wouldOverflowLeft ? rect.right + 4 : rect.left,
+        flipRight: wouldOverflowLeft,
       })
     }
-  }, [usePortal, isOpen])
+  }, [isOpen])
 
-  const dropdownClassName = 'min-w-[140px] py-1 rounded-lg overflow-hidden bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 origin-top-right animate-dropdown-in'
-
-  const inlineDropdown = isOpen && (
-    <div
-      className={`absolute right-0 top-full mt-1 z-10 ${dropdownClassName}`}
-    >
-      <DropdownContent actions={actions} onAction={onAction} />
-    </div>
-  )
+  const dropdownClassName = 'min-w-[140px] py-1 rounded-lg overflow-hidden bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 animate-dropdown-in'
+  const dropdownStyle = position.flipRight
+    ? { top: position.top, left: position.left }
+    : { top: position.top, right: `calc(100vw - ${position.left}px)`, left: 'auto' }
 
   const portalDropdown = isOpen && createPortal(
     <div
       data-actions-menu-dropdown
       className={`fixed z-[9999] ${dropdownClassName}`}
-      style={{ top: position.top, left: position.left, transform: 'translateX(-100%)' }}
+      style={dropdownStyle}
     >
       <DropdownContent actions={actions} onAction={onAction} />
     </div>,
@@ -109,7 +118,7 @@ export default function ActionsMenu({ isOpen, onToggle, onAction, actions, usePo
           <circle cx="12" cy="19" r="1.5" />
         </svg>
       </button>
-      {usePortal ? portalDropdown : inlineDropdown}
+      {portalDropdown}
     </div>
   )
 }
