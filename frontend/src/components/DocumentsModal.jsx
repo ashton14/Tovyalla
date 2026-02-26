@@ -827,6 +827,7 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                       <option value="proposal">Proposal</option>
                       <option value="change_order">Change Order</option>
                       <option value="insurance">Insurance</option>
+                      <option value="receipt">Receipt</option>
                       <option value="other">Other</option>
                     </select>
                   </div>
@@ -1189,6 +1190,8 @@ function DocumentsModal({ entityType, entityId, entityName, customerEmail, onClo
                   <option value="contract">Contract</option>
                   <option value="proposal">Proposal</option>
                   <option value="change_order">Change Order</option>
+                  <option value="insurance">Insurance</option>
+                  <option value="receipt">Receipt</option>
                   <option value="other">Other</option>
                 </select>
               </div>

@@ -5244,7 +5244,7 @@ app.post('/api/documents/:entityType/:entityId/upload', upload.single('file'), a
 
     // For projects, save document metadata to project_documents table
     if (entityType === 'projects') {
-      const validDocTypes = ['contract', 'proposal', 'change_order', 'other'];
+      const validDocTypes = ['contract', 'proposal', 'change_order', 'receipt', 'insurance', 'other'];
       const docType = validDocTypes.includes(document_type) ? document_type : 'other';
       const docNumber = bodyDocNumber != null && bodyDocNumber !== '' ? parseInt(bodyDocNumber, 10) : null;
       const docDate = bodyDocDate && String(bodyDocDate).trim() ? String(bodyDocDate).trim().split('T')[0] : null;
@@ -5556,7 +5556,7 @@ app.put('/api/documents/projects/:projectId/:documentId', async (req, res) => {
     }
 
     // Validate document_type
-    const validDocTypes = ['contract', 'proposal', 'change_order', 'other'];
+    const validDocTypes = ['contract', 'proposal', 'change_order', 'receipt', 'insurance', 'other'];
     const docType = validDocTypes.includes(document_type) ? document_type : undefined;
 
     // Validate status

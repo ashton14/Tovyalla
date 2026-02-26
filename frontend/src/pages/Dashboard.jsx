@@ -85,6 +85,27 @@ function Dashboard() {
 
   const PIE_COLORS = ['#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#38bdf8', '#fb923c', '#a3e635', '#c084fc', '#94a3b8']
 
+  const PROJECT_TYPE_LABELS = {
+    pool: 'Pool', spa: 'Spa', building: 'Building', roof: 'Roof', yard: 'Yard', patio: 'Patio',
+    deck: 'Deck', renovation: 'Renovation', landscaping: 'Landscaping', fencing: 'Fencing',
+    foundation: 'Foundation', electrical: 'Electrical', plumbing: 'Plumbing', hvac: 'HVAC', other: 'Other',
+  }
+
+  // Project type counts (each project can have multiple types)
+  const projectTypeData = useMemo(() => {
+    const counts = {}
+    projects.forEach((p) => {
+      const types = Array.isArray(p.project_types) ? p.project_types : []
+      types.forEach((t) => {
+        const key = (t || '').toString().toLowerCase().trim() || 'other'
+        counts[key] = (counts[key] || 0) + 1
+      })
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name: PROJECT_TYPE_LABELS[name] || name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .sort((a, b) => b.value - a.value)
+  }, [projects])
+
   // Derive employee name from cached data
   const employeeName = employees.find(
     (emp) => emp.email_address?.toLowerCase() === user?.email?.toLowerCase()
@@ -468,6 +489,11 @@ function Dashboard() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         {statistics.projectCount} {statistics.projectCount === 1 ? 'project' : 'projects'}
                       </p>
+                      {statistics.projectCount > 0 && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Average: ${(statistics.totalEstValue / statistics.projectCount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/project
+                        </p>
+                      )}
                     </div>
 
                     {/* Total Profit */}
@@ -611,50 +637,111 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Lead Sources Pie Chart */}
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Lead Sources</h3>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                  {leadSourceData.length > 0 ? (
-                    <div className="h-72 sm:h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                          <Pie
-                            data={leadSourceData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius="85%"
-                            stroke="#fff"
-                            strokeWidth={1.5}
+              {/* Lead Sources & Project Types - side by side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Lead Sources</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                    {leadSourceData.length > 0 ? (
+                      <div className="h-72 sm:h-80 outline-none [&_*]:outline-none">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                            <Pie
+                              data={leadSourceData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius="85%"
+                              stroke="#fff"
+                              strokeWidth={1.5}
+                            >
+                              {leadSourceData.map((_, index) => (
+                                <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null
+                                const total = leadSourceData.reduce((s, d) => s + d.value, 0)
+                                const pct = total > 0 ? ((payload[0].value / total) * 100).toFixed(1) : 0
+                                return (
+                                  <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 text-sm">
+                                    <p className="font-medium text-gray-900 dark:text-white">{payload[0].payload.name}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">{pct}%</p>
+                                  </div>
+                                )
+                              }}
+                              cursor={{ fill: 'transparent' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400 text-sm">
+                        No lead source data yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Projects by Type</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                    {projectTypeData.length > 0 ? (
+                      <div className="h-72 sm:h-80 outline-none [&_*]:outline-none">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={projectTypeData}
+                            layout="vertical"
+                            margin={{ top: 8, right: 24, left: 4, bottom: 8 }}
                           >
-                            {leadSourceData.map((_, index) => (
-                              <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={({ active, payload }) => {
-                              if (!active || !payload?.length) return null
-                              const total = leadSourceData.reduce((s, d) => s + d.value, 0)
-                              const pct = total > 0 ? ((payload[0].value / total) * 100).toFixed(1) : 0
-                              return (
-                                <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 text-sm">
-                                  <p className="font-medium text-gray-900 dark:text-white">{payload[0].payload.name}</p>
-                                  <p className="text-gray-600 dark:text-gray-400">{pct}%</p>
-                                </div>
-                              )
-                            }}
-                            cursor={{ fill: 'transparent' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400 text-sm">
-                      No lead source data yet
-                    </div>
-                  )}
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                            <XAxis
+                              type="number"
+                              tick={{ fill: '#6b7280', fontSize: 11 }}
+                              axisLine={{ stroke: '#e5e7eb' }}
+                              tickLine={false}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              width={90}
+                              tick={{ fill: '#6b7280', fontSize: 12 }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null
+                                const total = projectTypeData.reduce((s, d) => s + d.value, 0)
+                                const pct = total > 0 ? ((payload[0].value / total) * 100).toFixed(1) : 0
+                                return (
+                                  <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 text-sm">
+                                    <p className="font-medium text-gray-900 dark:text-white">{payload[0].payload.name}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                      {payload[0].value} {payload[0].value === 1 ? 'project' : 'projects'} ({pct}%)
+                                    </p>
+                                  </div>
+                                )
+                              }}
+                              cursor={{ fill: 'rgba(14,165,233,0.1)' }}
+                            />
+                            <Bar
+                              dataKey="value"
+                              fill="#0ea5e9"
+                              radius={[0, 4, 4, 0]}
+                              maxBarSize={24}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-12 text-gray-500 dark:text-gray-400 text-sm">
+                        No project type data yet
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
