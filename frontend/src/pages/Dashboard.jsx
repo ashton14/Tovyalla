@@ -27,7 +27,8 @@ import Settings from '../components/Settings'
 import Subscription from '../components/Subscription'
 import Messages from '../components/Messages'
 import BirthdayPopup, { getBirthdayEmployees, wasBirthdayDismissedToday, dismissBirthdayToday } from '../components/BirthdayPopup'
-import { useEmployees, useProjects, useCustomers, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
+import ProjectsMap from '../components/ProjectsMap'
+import { useEmployees, useProjects, useCustomers, useCompanyInfo, useStatistics, useMonthlyStatistics, useUnreadMessageCount } from '../hooks/useApi'
 
 const CHART_METRICS = [
   { value: 'value', label: 'Value', color: '#0ea5e9', format: 'currency' },
@@ -54,6 +55,7 @@ function Dashboard() {
   const { data: employees = [] } = useEmployees()
   const { data: projects = [] } = useProjects()
   const { data: customers = [] } = useCustomers()
+  const { data: company = null } = useCompanyInfo()
   const { data: statistics = { totalEstValue: 0, totalProfit: 0, totalExpenses: 0, projectCount: 0 }, isLoading: loadingStats } = useStatistics(timePeriod)
   const { data: monthlyData, isLoading: loadingMonthly } = useMonthlyStatistics(chartYear)
   const { data: unreadMessageCount = 0 } = useUnreadMessageCount()
@@ -110,6 +112,13 @@ function Dashboard() {
   const employeeName = employees.find(
     (emp) => emp.email_address?.toLowerCase() === user?.email?.toLowerCase()
   )?.name || null
+
+  // Build company address string for map center
+  const companyAddress = useMemo(() => {
+    if (!company) return ''
+    const parts = [company.address_line1, company.address_line2, company.city, company.state, company.zip_code].filter(Boolean)
+    return parts.join(', ').trim()
+  }, [company])
 
   // Calculate projects in progress from cached data
   const projectsInProgress = {
@@ -686,7 +695,7 @@ function Dashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Projects by Type</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Project Types</h3>
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
                     {projectTypeData.length > 0 ? (
                       <div className="h-72 sm:h-80 outline-none [&_*]:outline-none">
@@ -748,26 +757,34 @@ function Dashboard() {
               {/* Projects In Progress */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Projects In Progress</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Sent</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.proposalSent}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:items-stretch">
+                  {/* Map - takes more space */}
+                  <div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Project locations</h4>
+                    <ProjectsMap projects={projects} companyAddress={companyAddress} />
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-400">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Proposal Signed</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.proposalSigned}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-gray-400">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contract Sent</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.contractSent}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Sold</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.sold}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-pool-blue">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{projectsInProgress.total}</p>
+                  {/* Count cards stacked vertically - same height as map */}
+                  <div className="lg:col-span-4 flex flex-col gap-2 lg:h-full">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md shadow-sm px-4 py-3 border-l-4 border-blue-500 flex-1 flex flex-col justify-center min-h-0">
+                      <p className="text-xs text-blue-700 dark:text-blue-300 uppercase tracking-wide">Proposal Sent</p>
+                      <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{projectsInProgress.proposalSent}</p>
+                    </div>
+                    <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-md shadow-sm px-4 py-3 border-l-4 border-cyan-500 flex-1 flex flex-col justify-center min-h-0">
+                      <p className="text-xs text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Proposal Signed</p>
+                      <p className="text-xl font-bold text-cyan-900 dark:text-cyan-100">{projectsInProgress.proposalSigned}</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-md shadow-sm px-4 py-3 border-l-4 border-amber-500 flex-1 flex flex-col justify-center min-h-0">
+                      <p className="text-xs text-amber-700 dark:text-amber-300 uppercase tracking-wide">Contract Sent</p>
+                      <p className="text-xl font-bold text-amber-900 dark:text-amber-100">{projectsInProgress.contractSent}</p>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-md shadow-sm px-4 py-3 border-l-4 border-emerald-500 flex-1 flex flex-col justify-center min-h-0">
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">Sold</p>
+                      <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{projectsInProgress.sold}</p>
+                    </div>
+                    <div className="bg-violet-50 dark:bg-violet-900/20 rounded-md shadow-sm px-4 py-3 border-l-4 border-violet-500 flex-1 flex flex-col justify-center min-h-0">
+                      <p className="text-xs text-violet-700 dark:text-violet-300 uppercase tracking-wide">Total</p>
+                      <p className="text-xl font-bold text-violet-900 dark:text-violet-100">{projectsInProgress.total}</p>
+                    </div>
                   </div>
                 </div>
               </div>

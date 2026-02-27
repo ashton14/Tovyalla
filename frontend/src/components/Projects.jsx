@@ -1153,11 +1153,22 @@ Downtown Office Build,commercial,building;electrical;hvac,456 Business Ave,Jane 
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div 
+                        <div
                           className="text-sm text-gray-900 dark:text-white"
                           title={project.address || ''}
                         >
-                          {project.address ? (project.address.length > 12 ? project.address.substring(0, 12) + '...' : project.address) : '-'}
+                          {project.address ? (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-pool-blue hover:text-pool-dark hover:underline"
+                            >
+                              {project.address.length > 24 ? project.address.substring(0, 21) + '...' : project.address}
+                            </a>
+                          ) : (
+                            '-'
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

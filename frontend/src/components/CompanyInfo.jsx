@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 import { formatPhoneInput } from '../utils/phoneFormat'
+import AddressAutocomplete from './AddressAutocomplete'
 
 function CompanyInfo() {
   const { user, currentCompanyID, supabase, getAuthHeaders } = useAuth()
@@ -470,12 +471,21 @@ function CompanyInfo() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Address Line 1
                   </label>
-                  <input
-                    type="text"
+                  <AddressAutocomplete
                     value={formData.address_line1}
                     onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-pool-blue bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Street address"
+                    onSelect={(parsed) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        address_line1: parsed.address_line1,
+                        city: parsed.city,
+                        state: parsed.state,
+                        zip_code: parsed.zip_code,
+                        country: parsed.country || 'USA',
+                      }))
+                    }}
+                    placeholder="Start typing an address..."
+                    mode="components"
                   />
                 </div>
 

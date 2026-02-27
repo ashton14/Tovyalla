@@ -493,3 +493,20 @@ body {
   background-color: rgba(14, 165, 233, 0.15);
 }
 
+/* Leaflet Projects Map - hide default icon background on custom markers */
+.leaflet-marker-icon.projects-map-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Leaflet Projects Map - styled popups */
+.projects-map-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.projects-map-popup .leaflet-popup-content {
+  margin: 8px;
+  min-width: 0;
+}
+

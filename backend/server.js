@@ -221,6 +221,40 @@ app.get('/api/geocode/autocomplete', async (req, res) => {
   }
 });
 
+// Radar forward geocode proxy (address -> lat/lng for map pins)
+app.get('/api/geocode/forward', async (req, res) => {
+  try {
+    const apiKey = process.env.RADAR_PUBLISHABLE_KEY || process.env.VITE_RADAR_PUBLISHABLE_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: 'Geocoding not configured' });
+    }
+    const { query } = req.query;
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'Query parameter required' });
+    }
+    const params = new URLSearchParams({
+      query: query.trim(),
+      country: 'US',
+    });
+    const radarRes = await fetch(`https://api.radar.io/v1/geocode/forward?${params}`, {
+      headers: { Authorization: apiKey },
+    });
+    const data = await radarRes.json();
+    if (!radarRes.ok) {
+      return res.status(radarRes.status).json(data);
+    }
+    const addresses = data.addresses || [];
+    if (addresses.length === 0) {
+      return res.json({ latitude: null, longitude: null });
+    }
+    const first = addresses[0];
+    res.json({ latitude: first.latitude, longitude: first.longitude, formattedAddress: first.formattedAddress });
+  } catch (err) {
+    console.error('Radar geocode forward error:', err);
+    res.status(500).json({ error: 'Failed to geocode address' });
+  }
+});
+
 // Login endpoint
 app.post('/api/auth/login', loginValidation, handleValidationErrors, async (req, res) => {
   try {
